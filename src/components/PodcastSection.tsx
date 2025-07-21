@@ -9,18 +9,21 @@ const PodcastSection = () => {
       date: "April 30, 2025",
       duration: "50 min",
       highlight: "What you should and not do about your investments",
+      spotifyLink: "https://open.spotify.com/episode/5rzBxw0dOuxzKnbz2XzgjG?si=ZIZIe-3sSXGUqCIBgzNa5w",
     },
     {
       title: "Sam Altman testifies at Senate hearing",
       date: "May 5, 2025",
       duration: "16 min",
       highlight: "Senate and Tech CEOs discuss AI regulation",
+      spotifyLink: "https://open.spotify.com/episode/3zCuV81CDSw4LFd5VX20UK?si=nhnmtdWpSMqBlNZ6v25bvA",
     },
     {
       title: "Careers in the Age of AI",
       date: "May 14, 2025",
       duration: "31 min",
       highlight: "Our kids future",
+      spotifyLink: "https://open.spotify.com/episode/1jjpMxlzBezJYVolvh38ln?si=B3S0KDdFTGqwrtqwtxV8ag",
     }
   ];
 
@@ -43,16 +46,23 @@ const PodcastSection = () => {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg blur-lg"></div>
                 <div className="relative aspect-square rounded-lg overflow-hidden glow-border flex items-center justify-center bg-background">
-                  <img 
-                    src="https://real-onboardai.imgix.net/focusai.webp?w=400&h=400&fit=crop"
-                    alt="Podcast Technology"
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                    <div className="w-20 h-20 bg-primary/80 rounded-full flex items-center justify-center animate-pulse">
-                      <Play className="h-8 w-8 text-white ml-1" />
+                  <a 
+                    href="https://open.spotify.com/show/7MaA4jaUXCbGvItdCCMsOE?si=tPz2kxDhQ6i_8w5YYFDhdQ" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full h-full block"
+                  >
+                    <img 
+                      src="https://real-onboardai.imgix.net/focusai.webp?w=400&h=400&fit=crop"
+                      alt="Podcast Technology"
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center hover:bg-black/10 transition-colors">
+                      <div className="w-20 h-20 bg-primary/80 rounded-full flex items-center justify-center animate-pulse hover:scale-110 transition-transform">
+                        <Play className="h-8 w-8 text-white ml-1" />
+                      </div>
                     </div>
-                  </div>
+                  </a>
                 </div>
               </div>
             </div>
@@ -93,7 +103,12 @@ const PodcastSection = () => {
               </div>
               <h3 className="text-xl font-semibold mb-2">{episode.title}</h3>
               <p className="text-gray-400 mb-4">Highlight: {episode.highlight}</p>
-              <Button variant="outline" size="sm" className="w-full">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full" 
+                onClick={() => window.open(episode.spotifyLink, '_blank')}
+              >
                 <Play className="h-4 w-4 mr-2" /> Listen Now
               </Button>
             </div>

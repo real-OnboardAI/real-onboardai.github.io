@@ -14,7 +14,7 @@ const Footer = () => {
       <div className="container mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="mb-6 md:mb-0">
-            <a href="#" className="text-xl font-bold gradient-text">AI.Portfolio</a>
+            <a href="#" className="text-xl font-bold gradient-text">OnboardAI</a>
             <p className="text-sm text-gray-400 mt-1">© {new Date().getFullYear()} All rights reserved</p>
           </div>
           

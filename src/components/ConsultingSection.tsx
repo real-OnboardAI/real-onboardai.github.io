@@ -58,23 +58,16 @@ const ConsultingSection = () => {
         </div>
 
         <div className="mt-16 glass-card rounded-lg p-8 animate-fade-in">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
-            <div>
-              <h3 className="text-2xl font-bold mb-4 gradient-text">Client Portfolio</h3>
-              <ul className="space-y-2">
-                {clients.map((client, index) => (
-                  <li key={index} className="flex items-center text-gray-300">
-                    <div className="h-1.5 w-1.5 rounded-full bg-primary mr-2"></div>
-                    {client}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="mt-8 md:mt-0">
-              <Button className="bg-primary hover:bg-primary/80">
-                Consulting Services <ArrowUpRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
+          <div>
+            <h3 className="text-2xl font-bold mb-4 gradient-text">Client Portfolio</h3>
+            <ul className="space-y-2">
+              {clients.map((client, index) => (
+                <li key={index} className="flex items-center text-gray-300">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary mr-2"></div>
+                  {client}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
