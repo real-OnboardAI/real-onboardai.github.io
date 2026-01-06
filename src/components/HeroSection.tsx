@@ -2,16 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
 const HeroSection = () => {
-  const scrollToContact = () => {
-    const contactSection = document.getElementById("contact");
-    if (contactSection) {
-      contactSection.scrollIntoView({ behavior: "smooth" });
-    }
-  };
 
-  const redirectToProjects = () => {
-    window.open("https://rj-portfolio-c30413.webflow.io/all-posts", "_blank");
-  };
 
   return (
     <section id="about" className="min-h-screen flex items-center justify-center section-padding pt-32 bg-gradient-to-b from-background to-background/60">
@@ -46,23 +37,7 @@ const HeroSection = () => {
               </div>
             </div> */}
             
-            <div className="flex flex-col sm:flex-row gap-4">
-              {/* <Button 
-                size="lg" 
-                className="bg-primary hover:bg-primary/80"
-                onClick={redirectToProjects}
-              >
-                View Projects <ArrowRight className="ml-2 h-4 w-4" />
-              </Button> */}
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="border-primary hover:bg-primary/10"
-                onClick={scrollToContact}
-              >
-                Book Appointment
-              </Button>
-            </div>
+
             
             <div className="mt-12 flex flex-wrap gap-6">
               <div className="glow-border rounded-lg p-3 bg-background/50 backdrop-blur-sm">
