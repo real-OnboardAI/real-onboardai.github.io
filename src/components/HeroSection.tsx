@@ -29,7 +29,7 @@ const HeroSection = () => {
             </p>
             
             {/* Newsletter signup section */}
-            <div className="my-16 p-4 glass-card rounded-lg">
+            {/* <div className="my-16 p-4 glass-card rounded-lg">
               <p className="text-gray-300 mb-4">
                 Get your free Agentic Quick Start guide directly to your email over next 10 days
               </p>
@@ -44,16 +44,16 @@ const HeroSection = () => {
                   className="w-full max-w-md"
                 ></iframe>
               </div>
-            </div>
+            </div> */}
             
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
+              {/* <Button 
                 size="lg" 
                 className="bg-primary hover:bg-primary/80"
                 onClick={redirectToProjects}
               >
                 View Projects <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              </Button> */}
               <Button 
                 size="lg" 
                 variant="outline" 

@@ -18,7 +18,7 @@ const ContactSection = () => {
             Schedule a consultation, speaking engagement, or discussion about collaboration opportunities.
           </p>
           <Button 
-            onClick={() => setDialogOpen(true)}
+            onClick={() => window.open('https://topmate.io/rajsmate', '_blank')}
             className="bg-primary hover:bg-primary/80 mx-auto flex items-center gap-2 animate-fade-in mb-8"
           >
             <CalendarDays className="h-4 w-4" />
@@ -29,7 +29,7 @@ const ContactSection = () => {
         <div className="glass-card rounded-xl p-4 md:p-6 animate-fade-in">
           <div className="w-full h-[700px] md:h-[800px] overflow-auto rounded-lg bg-white">
             <iframe 
-              src="https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ1ySaIQMsfFDEbuVtM5KP-u8oWoB-Osoovf3R1fRWm57J9Qfe0HaBI2m_6qeiEqtSfA6FSWCd6B?gv=true" 
+              src="https://topmate.io/rajsmate" 
               width="100%" 
               height="100%" 
               frameBorder="0" 
