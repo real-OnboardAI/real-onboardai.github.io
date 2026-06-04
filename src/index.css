@@ -77,3 +77,53 @@
     @apply py-20 px-4 md:px-8;
   }
 }
+
+/* OnboardAI Scoped Styles & Animations */
+.onboardai-root {
+  font-family: 'Inter', sans-serif;
+}
+
+.onboardai-root h1, 
+.onboardai-root h2, 
+.onboardai-root h3, 
+.onboardai-root h4, 
+.onboardai-root .font-heading {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.onboardai-root .glass-card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+
+.onboardai-root .gradient-text {
+  background: linear-gradient(135deg, #2563eb, #0ea5e9) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.delay-100 {
+  animation-delay: 0.1s;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
