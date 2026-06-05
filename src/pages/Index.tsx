@@ -116,24 +116,11 @@ const Index = () => {
               <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200 bg-white p-2">
                 {/* Abstract Dashboard/Code placeholder graphic */}
                 <img
-                  src="https://placehold.co/800x600/f8fafc/2563eb?text=FDE+Architecture+Mapping\n\n[+AI+Readiness+Score:+92%25+]"
-                  alt="AI Integration Dashboard Concept"
+                  src="/onboardai_three_phases.png"
+                  alt="OnboardAI Operational Phases and Execution Paths Flowchart"
                   className="w-full h-auto rounded-xl"
                 />
 
-                {/* Floating badge */}
-                <div
-                  className="absolute -bottom-6 -left-6 bg-white p-4 rounded-xl shadow-xl border border-slate-100 flex items-center gap-4 animate-bounce"
-                  style={{ animationDuration: "3s" }}
-                >
-                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xl">
-                    <i className="fa-solid fa-check"></i>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Status</p>
-                    <p className="text-sm font-bold text-slate-800">System Optimized</p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
