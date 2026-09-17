@@ -43,7 +43,7 @@ const Speaker = () => {
                 Mentoring
               </Link>
               <Link
-                to="/consulting#contact"
+                to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 Book a Talk
@@ -76,7 +76,7 @@ const Speaker = () => {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center fade-in-up delay-200">
             <Link
-              to="/consulting#contact"
+              to="/contactus"
               className="bg-blue-600 hover:bg-blue-700 text-white text-center px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
             >
               Book a Speaking Engagement
@@ -193,7 +193,7 @@ const Speaker = () => {
                 Available for conferences, corporate events, panels, and community workshops.
               </p>
               <Link
-                to="/consulting#contact"
+                to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 inline-flex items-center gap-3"
               >
                 Get in Touch <i className="fa-solid fa-arrow-right" />

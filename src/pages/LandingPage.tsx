@@ -40,7 +40,7 @@ const LandingPage = () => {
       <nav className="fixed w-full z-50 transition-all duration-300 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <div className="flex-shrink-0 flex items-center gap-2">
+            <Link to="/" className="flex-shrink-0 flex items-center gap-2 cursor-pointer">
               <img
                 src="/real_onboard_ai_logo.jpeg"
                 alt="OnboardAI Logo"
@@ -49,7 +49,7 @@ const LandingPage = () => {
               <span className="font-heading font-bold text-2xl tracking-tight text-slate-900">
                 Onboard<span className="text-blue-600">AI</span>
               </span>
-            </div>
+            </Link>
             <div className="hidden md:flex space-x-8 items-center">
               <Link
                 to="/speaker"
@@ -70,7 +70,7 @@ const LandingPage = () => {
                 Mentoring
               </Link>
               <Link
-                to="/consulting#contact"
+                to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 Get Started
@@ -104,10 +104,8 @@ const LandingPage = () => {
 
           {/* Headline */}
           <h1 className="font-heading text-5xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 leading-tight mb-6 fade-in-up">
-            Helping you to{" "}
-            <span className="gradient-text">onboard AI,</span>
-            <br />
-            <span className="gradient-text">step by step.</span>
+            Your Clear Path to <br />
+            <span className="gradient-text">AI Adoption</span>
           </h1>
 
           <p className="text-xl text-slate-600 max-w-2xl mx-auto mb-16 leading-relaxed font-light fade-in-up delay-100">

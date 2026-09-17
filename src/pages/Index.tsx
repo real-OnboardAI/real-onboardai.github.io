@@ -1,6 +1,9 @@
 import { useEffect } from "react";
+import { Link } from "react-router-dom";
 
 const Index = () => {
+
+
   useEffect(() => {
     const observerOptions = {
       root: null,
@@ -41,7 +44,7 @@ const Index = () => {
       <nav className="fixed w-full z-50 transition-all duration-300 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer">
+            <Link to="/" className="flex-shrink-0 flex items-center gap-2 cursor-pointer">
               <img
                 src="/real_onboard_ai_logo.jpeg"
                 alt="OnboardAI Logo"
@@ -50,7 +53,7 @@ const Index = () => {
               <span className="font-heading font-bold text-2xl tracking-tight text-slate-900">
                 Onboard<span className="text-blue-600">AI</span>
               </span>
-            </div>
+            </Link>
             <div className="hidden md:flex space-x-8 items-center">
               <a href="#mission" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
                 Our Mission
@@ -61,12 +64,12 @@ const Index = () => {
               <a href="#fde-approach" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
                 The FDE Approach
               </a>
-              <a
-                href="#contact"
+              <Link
+                to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 Get Started
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -105,12 +108,12 @@ const Index = () => {
                 >
                   Explore Our Services
                 </a>
-                <a
-                  href="#contact"
+                <Link
+                  to="/contactus"
                   className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-center px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
                 >
                   <i className="fa-regular fa-calendar"></i> Book a Discovery Call
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -436,35 +439,13 @@ const Index = () => {
         </div>
       </section>
 
-      <section id="contact" className="py-20 bg-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl p-10 md:p-16 text-center border border-blue-100 shadow-lg relative overflow-hidden">
-            {/* Decorative circles */}
-            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white rounded-full opacity-50 blur-2xl"></div>
-            <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-blue-200 rounded-full opacity-50 blur-2xl"></div>
 
-            <div className="relative z-10">
-              <h2 className="font-heading text-3xl md:text-5xl font-extrabold text-slate-900 mb-6">
-                Ready to Architect Your AI Future?
-              </h2>
-              <p className="text-xl text-slate-700 mb-10 max-w-2xl mx-auto">
-                Stop guessing which tools to buy. Let our Forward Deployed Engineers map your infrastructure and deploy
-                tailored AI workflows.
-              </p>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center gap-3 mx-auto">
-                Schedule Your Discovery Audit <i className="fa-solid fa-arrow-right"></i>
-              </button>
-              <p className="mt-4 text-sm text-slate-500 font-medium">No obligation. Just a conversation about your processes.</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <footer className="bg-slate-50 border-t border-slate-200 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-4">
+              <Link to="/" className="flex items-center gap-2 mb-4">
                 <img
                   src="/real_onboard_ai_logo.jpeg"
                   alt="OnboardAI Logo"
@@ -473,7 +454,7 @@ const Index = () => {
                 <span className="font-heading font-bold text-xl text-slate-900">
                   Onboard<span className="text-blue-600">AI</span>
                 </span>
-              </div>
+              </Link>
               <p className="text-slate-500 leading-relaxed max-w-sm mb-6">
                 Bridging the gap between small-to-medium-sized businesses and seamless AI integration through Forward
                 Deployed Engineering.

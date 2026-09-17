@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Speaker from "./pages/Speaker";
 import Mentoring from "./pages/Mentoring";
 import Founder from "./pages/Founder";
+import ContactUs from "./pages/ContactUs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/mentoring" element={<Mentoring />} />
           <Route path="/founder" element={<Founder />} />
           <Route path="/rajeshg" element={<Founder />} />
+          <Route path="/contactus" element={<ContactUs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

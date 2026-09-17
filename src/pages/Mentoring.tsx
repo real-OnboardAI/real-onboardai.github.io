@@ -54,7 +54,7 @@ const Mentoring = () => {
                 Speaking
               </Link>
               <Link
-                to="/consulting#contact"
+                to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 Get Started
@@ -95,14 +95,22 @@ const Mentoring = () => {
               <i className="fa-brands fa-youtube" /> Visit the Channel
             </a>
             <Link
+              to="/contactus"
+              className="bg-sky-500 hover:bg-sky-600 text-white text-center px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 inline-flex items-center justify-center gap-2"
+            >
+              <i className="fa-regular fa-calendar-check" /> Book Time
+            </Link>
+            <Link
               to="/"
-              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-center px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-sm hover:shadow-md"
+              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-center px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-sm hover:shadow-md inline-flex items-center justify-center"
             >
               ← Back to Home
             </Link>
           </div>
         </div>
       </header>
+
+
 
       {/* Stats bar */}
       <section className="py-8 bg-white border-y border-slate-100">
@@ -189,30 +197,6 @@ const Mentoring = () => {
               <i className="fa-brands fa-youtube text-red-500 text-lg" />
               See all videos on YouTube →
             </a>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-20 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl p-10 md:p-16 text-center border border-blue-100 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white rounded-full opacity-50 blur-2xl" />
-            <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-blue-200 rounded-full opacity-50 blur-2xl" />
-            <div className="relative z-10">
-              <h2 className="font-heading text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">
-                Want Personalized Guidance?
-              </h2>
-              <p className="text-lg text-slate-700 mb-8 max-w-xl mx-auto">
-                Book a 1-on-1 session or bring our AI consulting team to your organization.
-              </p>
-              <Link
-                to="/consulting#contact"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 inline-flex items-center gap-3"
-              >
-                Talk to Us <i className="fa-solid fa-arrow-right" />
-              </Link>
-            </div>
           </div>
         </div>
       </section>
