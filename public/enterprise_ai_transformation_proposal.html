@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise AI Transformation & Capability Building Proposal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f6ff',
+                            100: '#e0edff',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                            800: '#1e3a8a',
+                            900: '#0f172a',
+                        },
+                        accent: {
+                            purple: '#7c3aed',
+                            emerald: '#059669',
+                            amber: '#d97706',
+                            rose: '#e11d48'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Embedded Chart Container Styles for Strict Layout Boundaries */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 650px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 380px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e1b4b 100%);
+        }
+        .card-hover {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px -10px rgba(37, 99, 235, 0.15);
+        }
+    </style>
+</head>
+<!--
+    SELECTED PALETTE NAME: Vibrant Enterprise Tech & Cyber (Deep Slate #0f172a, Royal Blue #2563eb, Electric Purple #7c3aed, Emerald #059669, Amber #d97706)
+
+    NARRATIVE & STRUCTURE PLAN:
+    1. Navigation Header: Sticky bar with quick anchor navigation & key metrics status.
+    2. Hero Section: Strategic vision & executive value proposal summary.
+    3. Section 1 - Strategic Baseline & AI Maturity Framework: Rule of Binding Constraints & 5-Stage Evolution.
+    4. Section 2 - Target Operating Model (Hub-and-Spoke & Internal CoE): Platform core vs business spokes, persona execution matrix, and CoE catalog SLAs.
+    5. Section 3 - Platform Blueprint & Mitigating the Throughput Trap: Verification tax vs paved road analysis (Chart.js visualization) and Human-in-the-Loop workflow architecture.
+    6. Section 4 - Assurance, Risk & Regulatory Governance: ISO/IEC 42001 vs NIST AI RMF crosswalk and immutable system registry pipeline.
+    7. Section 5 - FinOps & Algorithmic Tokenomics: Probabilistic spend breakdown, 3-tier allocation progression (Chart.js visualization), and interactive Token Cost Calculator widget.
+    8. Section 6 - Workforce Transformation & Tangible Outcomes: 3-tier upskilling curriculum, algorithm aversion management, and key performance outcomes (Chart.js radar/bar visualization).
+
+    VISUALIZATION CHOICES & JUSTIFICATION (NO SVG USED):
+    1. Maturity Baseline: Styled HTML/Tailwind step cards with interactive highlight capability for binding constraint visualization.
+    2. Hub-and-Spoke Operating Model: Dynamic HTML/CSS Grid map using borders, unicode icons, and flex badge tags.
+    3. The Throughput Trap Chart: Chart.js Combo Bar/Line Chart showing Code Output vs Shipped Production Velocity over time.
+    4. HITL Approval Workflow: HTML/CSS Process card map with state badges.
+    5. ISO 42001 / NIST RMF Matrix: Interactive filterable table with status badges.
+    6. FinOps Allocation Model: Chart.js Stacked Area/Bar Chart demonstrating spend shift across Centralized, Showback, and Chargeback phases.
+    7. Interactive FinOps Calculator: JS-powered live computational estimator widget for context window & agent loop costs.
+    8. Tangible Outcomes & DORA Metrics: Chart.js Bar Chart detailing delivery timeline acceleration, MTTR stability, and intake SLA performance.
+
+    EXPLICIT COMPLIANCE CONFIRMATION:
+    NEITHER Mermaid JS NOR SVG vector graphics were used anywhere in this entire document.
+    All charts use HTML5 Canvas via Chart.js with strict label wrapping and custom multi-line tooltip callbacks.
+    All diagrams and icons use structured Tailwind CSS HTML elements and standard Unicode characters.
+-->
+<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Sticky Navigation Bar -->
+    <nav class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md text-white border-b border-slate-800 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🧠</span>
+                    <div>
+                        <span class="font-bold text-lg tracking-tight text-white block leading-none">Enterprise AI Transformation</span>
+                        <span class="text-xs text-brand-300 font-medium">Strategic Blueprint & Operating Model Proposal</span>
+                    </div>
+                </div>
+                <div class="hidden lg:flex items-center space-x-6 text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    <a href="#baseline" class="hover:text-brand-300 transition-colors">Maturity</a>
+                    <a href="#operating-model" class="hover:text-brand-300 transition-colors">Operating Model</a>
+                    <a href="#architecture" class="hover:text-brand-300 transition-colors">Architecture</a>
+                    <a href="#governance" class="hover:text-brand-300 transition-colors">Governance</a>
+                    <a href="#finops" class="hover:text-brand-300 transition-colors">FinOps</a>
+                    <a href="#outcomes" class="hover:text-brand-300 transition-colors">Outcomes</a>
+                </div>
+                <div class="flex items-center">
+                    <a href="#calculator" class="bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all shadow-md hover:shadow-brand-500/20">
+                        FinOps Estimator 💳
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Header -->
+    <header class="gradient-bg text-white py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto relative z-10">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/20 border border-brand-400/30 text-brand-200 text-xs font-semibold mb-6">
+                <span>⚡ Executive Proposal</span>
+                <span class="text-slate-400">•</span>
+                <span>Operational Strategy Briefing</span>
+            </div>
+            <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mb-6 leading-tight">
+                Architecting the AI-Native Enterprise:<br>
+                <span class="bg-gradient-to-r from-blue-300 via-indigo-200 to-purple-300 bg-clip-text text-transparent">
+                    From Isolated Pilots to Governed Scale
+                </span>
+            </h1>
+            <p class="text-slate-300 max-w-3xl text-base sm:text-lg mb-8 leading-relaxed">
+                A definitive operational proposal for corporate leadership. Transitioning artificial intelligence from software procurement experimentation to an enterprise-wide, governed capability powered by a Hub-and-Spoke operating model, internal solutions consulting, and scalable tokenomics.
+            </p>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-slate-700/60 text-center">
+                <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                    <div class="text-2xl sm:text-3xl font-extrabold text-brand-300">48 hrs</div>
+                    <div class="text-xs text-slate-400 font-medium mt-1">CoE Intake SLA</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                    <div class="text-2xl sm:text-3xl font-extrabold text-accent-emerald">ISO 42001</div>
+                    <div class="text-xs text-slate-400 font-medium mt-1">Certifiable Governance</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                    <div class="text-2xl sm:text-3xl font-extrabold text-accent-purple">65% ↓</div>
+                    <div class="text-xs text-slate-400 font-medium mt-1">Delivery Time-to-Market</div>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                    <div class="text-2xl sm:text-3xl font-extrabold text-amber-300">100%</div>
+                    <div class="text-xs text-slate-400 font-medium mt-1">Token Attribution</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+
+        <!-- SECTION 1: MATURITY BASELINE & STRATEGIC IMPERATIVE -->
+        <section id="baseline" class="scroll-mt-20">
+            <div class="mb-8">
+                <div class="flex items-center gap-2 text-brand-600 font-bold text-xs uppercase tracking-wider mb-2">
+                    <span>Section 01</span>
+                    <span>•</span>
+                    <span>Strategic Diagnostic</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">The Capability Maturity Baseline & Binding Constraints</h2>
+                <p class="text-slate-600 mt-2 text-sm sm:text-base max-w-4xl leading-relaxed">
+                    Enterprise AI adoption fails when treated as a standard software purchasing exercise. Probabilistic workflows require structural alignment. According to the <strong>Rule of Binding Constraints</strong>, an enterprise's functional maturity is strictly anchored to its lowest-scoring operational dimension—deploying advanced autonomous agents without equivalent governance creates systemic risk rather than business value.
+                </p>
+            </div>
+
+            <!-- Interactive Maturity Stage Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-slate-400 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">Stage 01</span>
+                        <h3 class="font-bold text-slate-900 text-base mb-2">Exploration</h3>
+                        <p class="text-xs text-slate-600 leading-normal">Shadow adoption, fragmented individual usage, unmanaged shadow data leakage, zero governance.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] font-semibold text-slate-500">
+                        Constraint: Lack of Central Strategy
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-brand-500 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-brand-500 uppercase tracking-widest block mb-1">Stage 02</span>
+                        <h3 class="font-bold text-slate-900 text-base mb-2">Experimentation</h3>
+                        <p class="text-xs text-slate-600 leading-normal">Localized pilot projects, brittle data pipelines, isolated ROI that fails to scale across business units.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] font-semibold text-brand-600">
+                        Current Enterprise Baseline 📍
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-accent-purple flex flex-col justify-between bg-purple-50/20">
+                    <div>
+                        <span class="text-xs font-bold text-accent-purple uppercase tracking-widest block mb-1">Stage 03</span>
+                        <h3 class="font-bold text-slate-900 text-base mb-2">Integration</h3>
+                        <p class="text-xs text-slate-600 leading-normal">Shared platform foundation, central API gateway, versioned data pipelines, and initial ISO controls.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-purple-100 text-[11px] font-semibold text-accent-purple">
+                        Target Phase 1 Goal 🎯
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-accent-emerald flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-accent-emerald uppercase tracking-widest block mb-1">Stage 04</span>
+                        <h3 class="font-bold text-slate-900 text-base mb-2">Orchestration</h3>
+                        <p class="text-xs text-slate-600 leading-normal">Multi-agent workflows operating end-to-end business processes with continuous human-in-the-loop controls.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] font-semibold text-slate-500">
+                        Target Phase 2 Expansion
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-amber-500 flex flex-col justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-amber-500 uppercase tracking-widest block mb-1">Stage 05</span>
+                        <h3 class="font-bold text-slate-900 text-base mb-2">Autonomous Ops</h3>
+                        <p class="text-xs text-slate-600 leading-normal">Self-optimizing workflows, flat agentic team structures, native automated telemetry and real-time FinOps.</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] font-semibold text-slate-500">
+                        Future Enterprise Vision
+                    </div>
+                </div>
+            </div>
+
+            <!-- Binding Constraint Callout Box -->
+            <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div class="text-2xl p-3 bg-amber-100 text-amber-800 rounded-lg shrink-0">⚠️</div>
+                <div class="text-xs sm:text-sm text-amber-900 leading-relaxed">
+                    <strong class="font-bold">The Strategic Risk:</strong> If an engineering pod deploys Stage 4 multi-agent automation while the legal and security teams remain at Stage 1 (manual risk reviews), systemic enterprise vulnerability scales exponentially. The Hub-and-Spoke model elevates all operational dimensions simultaneously.
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SECTION 2: TARGET OPERATING MODEL -->
+        <section id="operating-model" class="scroll-mt-20">
+            <div class="mb-8">
+                <div class="flex items-center gap-2 text-brand-600 font-bold text-xs uppercase tracking-wider mb-2">
+                    <span>Section 02</span>
+                    <span>•</span>
+                    <span>Organizational Design</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">The Hub-and-Spoke Target Operating Model</h2>
+                <p class="text-slate-600 mt-2 text-sm sm:text-base max-w-4xl leading-relaxed">
+                    Centralized models create severe operational bottlenecks, whereas fully federated models lead to shadow IT, inconsistent risk postures, and duplicate cloud spend. The proposed Hub-and-Spoke architecture establishes a centralized Platform Core while embedding specialized delivery pods directly into stream-aligned business units.
+                </p>
+            </div>
+
+            <!-- Hub and Spoke Interactive Layout Visual (Structured HTML/CSS) -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm mb-8">
+                <h3 class="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                    <span>🏗️</span> Architecture Map: Center of Excellence Hub vs. Business Spokes
+                </h3>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                    
+                    <!-- CENTRAL HUB -->
+                    <div class="lg:col-span-5 bg-slate-900 text-white rounded-xl p-6 shadow-md border border-slate-800">
+                        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                            <span class="font-extrabold text-sm text-brand-300 tracking-wide uppercase">CENTRAL HUB</span>
+                            <span class="bg-brand-500/20 text-brand-300 border border-brand-500/30 text-[10px] px-2 py-0.5 rounded font-mono">Platform & Governance</span>
+                        </div>
+                        <h4 class="font-bold text-base mb-3 text-white">AI Center of Excellence (CoE)</h4>
+                        <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                            Functions as an <em>Internal Solutions Consulting Service</em> rather than a administrative gatekeeper. Provides standardized infrastructure, model evaluations, and legal compliance.
+                        </p>
+                        
+                        <div class="space-y-2 text-xs">
+                            <div class="bg-slate-800/80 p-2.5 rounded border border-slate-700/60 flex items-center justify-between">
+                                <span class="text-slate-200">🛡️ ISO 42001 & NIST AI RMF Controls</span>
+                                <span class="text-brand-300 font-semibold text-[10px]">Governance</span>
+                            </div>
+                            <div class="bg-slate-800/80 p-2.5 rounded border border-slate-700/60 flex items-center justify-between">
+                                <span class="text-slate-200">🌐 Enterprise API Gateway & Caching</span>
+                                <span class="text-accent-emerald font-semibold text-[10px]">Platform</span>
+                            </div>
+                            <div class="bg-slate-800/80 p-2.5 rounded border border-slate-700/60 flex items-center justify-between">
+                                <span class="text-slate-200">💳 FinOps Token Attribution & Telemetry</span>
+                                <span class="text-accent-amber font-semibold text-[10px]">Finance</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CONNECTOR VECTOR -->
+                    <div class="lg:col-span-2 flex flex-col items-center justify-center py-2 lg:py-0">
+                        <div class="hidden lg:flex flex-col items-center gap-1 text-slate-400 text-xs font-semibold">
+                            <span class="text-brand-600 font-bold">Standardized Paved Road</span>
+                            <span class="text-lg">➔</span>
+                            <span class="text-xs text-slate-500">Reusable Assets</span>
+                            <span class="text-lg">➔</span>
+                            <span class="text-slate-500 font-mono text-[10px]">API Ingress</span>
+                        </div>
+                        <div class="flex lg:hidden items-center justify-center gap-2 text-brand-600 font-bold text-xs">
+                            <span>⬇ Shared Platform Services & Governance ⬇</span>
+                        </div>
+                    </div>
+
+                    <!-- SPOKES (BUSINESS UNITS) -->
+                    <div class="lg:col-span-5 space-y-3">
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 card-hover">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-slate-900 text-xs">Finance & Risk Pod (Spoke A)</span>
+                                <span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-medium">Stream-Aligned</span>
+                            </div>
+                            <p class="text-xs text-slate-600">Automated fraud anomaly discovery, compliance context search, and ledger reconciliation agents.</p>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 card-hover">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-slate-900 text-xs">Supply Chain Pod (Spoke B)</span>
+                                <span class="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-medium">Stream-Aligned</span>
+                            </div>
+                            <p class="text-xs text-slate-600">Predictive inventory routing, human-in-the-loop purchase order execution, vendor contract ingestion.</p>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 card-hover">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-slate-900 text-xs">Customer Experience Pod (Spoke C)</span>
+                                <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-medium">Stream-Aligned</span>
+                            </div>
+                            <p class="text-xs text-slate-600">Multi-modal support copilots, dynamic sentiment analysis, dynamic escalation dispatching.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Core Personas Execution Matrix & CoE Catalog -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- Personas Table -->
+                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <span>👥</span> Multi-Disciplinary Persona Matrix
+                    </h3>
+                    <p class="text-xs text-slate-600 mb-4">Clear separation of concerns across the lifecycle ensures probabilistic tools do not compromise deterministic core systems.</p>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-2.5">Persona</th>
+                                    <th class="p-2.5">Domain Scope</th>
+                                    <th class="p-2.5">Key Deliverable</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-600">
+                                <tr>
+                                    <td class="p-2.5 font-bold text-slate-900">Product Manager</td>
+                                    <td class="p-2.5">Business Opportunity</td>
+                                    <td class="p-2.5">Opportunity Assessment & ROI Model</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2.5 font-bold text-slate-900">Algorithmic Engineer</td>
+                                    <td class="p-2.5">Application & Logic</td>
+                                    <td class="p-2.5">Stateful Agent Workflows & Prompt Engineering</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2.5 font-bold text-slate-900">Data Engineer</td>
+                                    <td class="p-2.5">Data Ingestion</td>
+                                    <td class="p-2.5">Vector Indexing & Lineage Mapping</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2.5 font-bold text-slate-900">Platform Engineer</td>
+                                    <td class="p-2.5">Infrastructure</td>
+                                    <td class="p-2.5">API Gateways & Caching Layer</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2.5 font-bold text-slate-900">Ops / MLOps Eng</td>
+                                    <td class="p-2.5">Continuous Eval</td>
+                                    <td class="p-2.5">Drift Telemetry & Canary Deployments</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2.5 font-bold text-slate-900">Security & Gov</td>
+                                    <td class="p-2.5">Risk & Compliance</td>
+                                    <td class="p-2.5">Red-Teaming & ISO 42001 Audits</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CoE Internal Consulting Service Catalog -->
+                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <span>💼</span> Center of Excellence Service Catalog & SLAs
+                        </h3>
+                        <p class="text-xs text-slate-600 mb-4">The CoE acts as an internal accelerator, offering defined service offerings to business spokes to maintain quality and velocity.</p>
+
+                        <div class="space-y-3">
+                            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-xs text-slate-900">1. Discovery & Opportunity Scoring</span>
+                                    <span class="text-[10px] bg-brand-100 text-brand-800 font-bold px-2 py-0.5 rounded">SLA: 48 Hours</span>
+                                </div>
+                                <p class="text-xs text-slate-600">Rapid evaluation of submitted business unit use cases against technical feasibility, risk, and projected token economics.</p>
+                            </div>
+
+                            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-xs text-slate-900">2. Rapid Architectural Prototyping</span>
+                                    <span class="text-[10px] bg-accent-purple/10 text-accent-purple font-bold px-2 py-0.5 rounded">SLA: 2 Weeks</span>
+                                </div>
+                                <p class="text-xs text-slate-600">Co-development of working minimum viable products utilizing standardized gateway assets and pre-approved prompt templates.</p>
+                            </div>
+
+                            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-xs text-slate-900">3. Governance & Penetration Certification</span>
+                                    <span class="text-[10px] bg-accent-emerald/10 text-accent-emerald font-bold px-2 py-0.5 rounded">SLA: 5 Days</span>
+                                </div>
+                                <p class="text-xs text-slate-600">Adversarial red-teaming, data masking verification, and logging in the immutable enterprise AI System Registry.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- SECTION 3: ARCHITECTURE & THROUGHPUT TRAP -->
+        <section id="architecture" class="scroll-mt-20">
+            <div class="mb-8">
+                <div class="flex items-center gap-2 text-brand-600 font-bold text-xs uppercase tracking-wider mb-2">
+                    <span>Section 03</span>
+                    <span>•</span>
+                    <span>Platform Blueprint</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Mitigating the Verification Tax & Throughput Trap</h2>
+                <p class="text-slate-600 mt-2 text-sm sm:text-base max-w-4xl leading-relaxed">
+                    Generative tools exponentially accelerate initial code generation. However, without standard platform infrastructure, enterprise delivery stalls due to a severe <strong>Verification Tax</strong>—where developers spend double the time reviewing, debugging, and auditing unverified algorithmic pull requests.
+                </p>
+            </div>
+
+            <!-- Visualization: Throughput Trap Chart & HITL Architecture -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                
+                <!-- Chart Container -->
+                <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">The "Throughput Trap" Impact Dynamic</h3>
+                            <p class="text-xs text-slate-500">Comparing ungoverned assistant adoption vs. internal developer platform paved roads</p>
+                        </div>
+                        <span class="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-mono">DORA Metric Analysis</span>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="throughputChart"></canvas>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600 leading-relaxed">
+                        <strong class="text-slate-900">Key Insight:</strong> Unmanaged adoption spikes code volume by 250% but creates a bottleneck during pull request review. Deploying the <em>CoE Enterprise Gateway & Paved Road</em> normalizes review cycles and restores production delivery velocity.
+                    </div>
+                </div>
+
+                <!-- Human-in-the-Loop Workflow Cards -->
+                <div class="lg:col-span-5 bg-slate-900 text-white rounded-2xl p-6 shadow-sm border border-slate-800 space-y-4">
+                    <h3 class="text-base font-bold text-brand-300 flex items-center gap-2">
+                        <span>🛡️</span> Human-in-the-Loop (HITL) Execution Pattern
+                    </h3>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        To safely execute backend database state mutations, agentic applications must run through a risk-tiered transactional safety harness.
+                    </p>
+
+                    <div class="space-y-3 pt-2 text-xs">
+                        <div class="p-3 bg-slate-800/90 rounded-lg border border-slate-700/80 flex items-start gap-3">
+                            <span class="bg-brand-500/20 text-brand-300 p-1.5 rounded font-bold">01</span>
+                            <div>
+                                <div class="font-bold text-slate-100">Agent Plans Mutation</div>
+                                <div class="text-slate-400 text-[11px] mt-0.5">Agent constructs JSON payload for inventory or financial modification.</div>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-slate-800/90 rounded-lg border border-slate-700/80 flex items-start gap-3">
+                            <span class="bg-amber-500/20 text-amber-300 p-1.5 rounded font-bold">02</span>
+                            <div>
+                                <div class="font-bold text-slate-100">State Pause & Payload Verification</div>
+                                <div class="text-slate-400 text-[11px] mt-0.5">System holds state execution, triggers policy engine check, and routes summary to human operator.</div>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-slate-800/90 rounded-lg border border-slate-700/80 flex items-start gap-3">
+                            <span class="bg-accent-emerald/20 text-emerald-300 p-1.5 rounded font-bold">03</span>
+                            <div>
+                                <div class="font-bold text-slate-100">Cryptographic Approval Commit</div>
+                                <div class="text-slate-400 text-[11px] mt-0.5">Operator signs authorization in interface; system executes transaction and immutably logs to audit stream.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- SECTION 4: GOVERNANCE & COMPLIANCE -->
+        <section id="governance" class="scroll-mt-20">
+            <div class="mb-8">
+                <div class="flex items-center gap-2 text-brand-600 font-bold text-xs uppercase tracking-wider mb-2">
+                    <span>Section 04</span>
+                    <span>•</span>
+                    <span>Assurance Architecture</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Governance Integration: ISO/IEC 42001 & NIST AI RMF</h2>
+                <p class="text-slate-600 mt-2 text-sm sm:text-base max-w-4xl leading-relaxed">
+                    Compliance is an engineering constraint rather than post-hoc documentation. The proposal fuses the certifiable management structures of <strong>ISO/IEC 42001</strong> with the technical risk taxonomy of the <strong>NIST AI Risk Management Framework 1.0</strong>.
+                </p>
+            </div>
+
+            <!-- Framework Harmonization Crosswalk Table -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm overflow-hidden mb-8">
+                <h3 class="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span>⚖️</span> Dual-Framework Regulatory Crosswalk Matrix
+                </h3>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900 text-white font-bold">
+                            <tr>
+                                <th class="p-3">Core Focus Dimension</th>
+                                <th class="p-3">ISO/IEC 42001 Management Control</th>
+                                <th class="p-3">NIST AI RMF 1.0 Function</th>
+                                <th class="p-3">Operational Engineering Implementation</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 text-slate-700">
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="p-3 font-bold text-slate-900">Organizational Oversight</td>
+                                <td class="p-3">A.2 AI Leadership & Strategy Policies</td>
+                                <td class="p-3"><span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-mono font-bold">GOVERN 1.2</span></td>
+                                <td class="p-3">CoE Steering Committee & System Risk Registry.</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="p-3 font-bold text-slate-900">Data Lineage & Privacy</td>
+                                <td class="p-3">A.6 Data for AI Systems Quality Management</td>
+                                <td class="p-3"><span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-mono font-bold">MAP 2.3</span></td>
+                                <td class="p-3">Automated document tagging & entitlement vector mapping.</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="p-3 font-bold text-slate-900">Continuous Assessment</td>
+                                <td class="p-3">A.8 Performance Evaluation & Verification</td>
+                                <td class="p-3"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-mono font-bold">MEASURE 2.1</span></td>
+                                <td class="p-3">Automated CI/CD test suites for semantic drift & hallucinations.</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="p-3 font-bold text-slate-900">Adversarial Protection</td>
+                                <td class="p-3">A.9 Security for AI Systems Control</td>
+                                <td class="p-3"><span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-mono font-bold">MANAGE 3.2</span></td>
+                                <td class="p-3">Enterprise API Gateway semantic firewalls & red-teaming.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Immutable System Registry Visual -->
+            <div class="bg-slate-900 text-white p-6 rounded-2xl border border-slate-800">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                    <div>
+                        <span class="text-xs font-bold text-brand-300 uppercase tracking-wider">Automated Assurance Pipeline</span>
+                        <h3 class="text-lg font-bold text-white">The Immutable Enterprise AI System Registry</h3>
+                    </div>
+                    <span class="bg-accent-emerald/20 text-emerald-300 border border-emerald-500/30 text-xs px-3 py-1 rounded-full font-mono">100% Audit Readiness</span>
+                </div>
+                <p class="text-xs text-slate-300 mb-6 max-w-3xl leading-relaxed">
+                    Every algorithmic service deployed across business spokes must pass through an automated registration pipeline. No production traffic is routed without cryptographically bound Model Cards, risk taxonomy scores, and signed threat assessments.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-center text-xs">
+                    <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700/60">
+                        <div class="text-brand-300 font-bold mb-1">1. Risk Score Mapping</div>
+                        <div class="text-slate-400 text-[11px]">Classifies workload (Low, Medium, EU AI Act High-Risk).</div>
+                    </div>
+                    <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700/60">
+                        <div class="text-brand-300 font-bold mb-1">2. Red-Team Eval</div>
+                        <div class="text-slate-400 text-[11px]">Automated prompt injection & data leakage testing.</div>
+                    </div>
+                    <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700/60">
+                        <div class="text-brand-300 font-bold mb-1">3. Artifact Binding</div>
+                        <div class="text-slate-400 text-[11px]">Binds training dataset hashes & system prompt templates.</div>
+                    </div>
+                    <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700/60">
+                        <div class="text-accent-emerald font-bold mb-1">4. Production Key Issue</div>
+                        <div class="text-slate-400 text-[11px]">Generates tagged virtual API key for gateway ingress.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SECTION 5: FINOPS & TOKENOMICS -->
+        <section id="finops" class="scroll-mt-20">
+            <div class="mb-8">
+                <div class="flex items-center gap-2 text-brand-600 font-bold text-xs uppercase tracking-wider mb-2">
+                    <span>Section 05</span>
+                    <span>•</span>
+                    <span>Financial Engineering</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Algorithmic FinOps & Token Allocation Models</h2>
+                <p class="text-slate-600 mt-2 text-sm sm:text-base max-w-4xl leading-relaxed">
+                    Traditional software spending is deterministic; algorithmic workloads are fiercely probabilistic and variable. Expenses scale dynamically with prompt length, context window depth, and recursive agent loops.
+                </p>
+            </div>
+
+            <!-- FinOps Chart & Calculator Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+                
+                <!-- FinOps Progression Chart -->
+                <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">Phased Cost Allocation Transition Model</h3>
+                            <p class="text-xs text-slate-500">Shifting from central funding to business unit chargeback</p>
+                        </div>
+                        <span class="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">4-Quarter Transition</span>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="finopsChart"></canvas>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600 leading-relaxed">
+                        <strong class="text-slate-900">Allocation Strategy:</strong> Q1 starts with 100% Central Seed Funding to remove adoption friction. By Q4, 75% is converted into <strong>Direct Unit Chargeback</strong> tied to specific line-of-business KPIs (Cost Per Successful Business Outcome).
+                    </div>
+                </div>
+
+                <!-- Interactive FinOps Calculator Widget -->
+                <div id="calculator" class="lg:col-span-5 bg-white border border-brand-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                <span>💳</span> Interactive Token Expenditure Estimator
+                            </h3>
+                            <span class="text-[10px] bg-brand-100 text-brand-800 font-bold px-2 py-0.5 rounded">Live Model</span>
+                        </div>
+                        <p class="text-xs text-slate-600 mb-4">Simulate monthly operational costs across agentic workflow parameters.</p>
+
+                        <div class="space-y-4 text-xs">
+                            <div>
+                                <div class="flex justify-between font-bold text-slate-700 mb-1">
+                                    <label for="monthlyCalls">Monthly Active Tasks:</label>
+                                    <span id="callsVal" class="text-brand-600 font-mono">50,000</span>
+                                </div>
+                                <input type="range" id="monthlyCalls" min="10000" max="250000" step="10000" value="50000" class="w-full accent-brand-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between font-bold text-slate-700 mb-1">
+                                    <label for="avgContext">Avg Context Window Depth:</label>
+                                    <span id="contextVal" class="text-brand-600 font-mono">16,000 tokens</span>
+                                </div>
+                                <input type="range" id="avgContext" min="2000" max="64000" step="2000" value="16000" class="w-full accent-brand-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between font-bold text-slate-700 mb-1">
+                                    <label for="agentLoops">Agentic Reflection Loops:</label>
+                                    <span id="loopsVal" class="text-brand-600 font-mono">3 loops / task</span>
+                                </div>
+                                <input type="range" id="agentLoops" min="1" max="10" step="1" value="3" class="w-full accent-brand-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between font-bold text-slate-700 mb-1">
+                                    <label for="cacheEfficiency">Enterprise Gateway Cache Hit Rate:</label>
+                                    <span id="cacheVal" class="text-accent-emerald font-mono">35%</span>
+                                </div>
+                                <input type="range" id="cacheEfficiency" min="0" max="70" step="5" value="35" class="w-full accent-accent-emerald h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-200 bg-slate-50 p-4 rounded-xl">
+                        <div class="text-xs text-slate-500 font-bold uppercase tracking-wider">Estimated Monthly Cost</div>
+                        <div class="flex items-baseline justify-between mt-1">
+                            <span id="totalCost" class="text-2xl font-extrabold text-slate-900 font-mono">$1,852.50</span>
+                            <span id="savings" class="text-xs text-accent-emerald font-bold font-mono">Saved ~$997 via Gateway</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- SECTION 6: WORKFORCE TRANSFORMATION & TANGIBLE OUTCOMES -->
+        <section id="outcomes" class="scroll-mt-20">
+            <div class="mb-8">
+                <div class="flex items-center gap-2 text-brand-600 font-bold text-xs uppercase tracking-wider mb-2">
+                    <span>Section 06</span>
+                    <span>•</span>
+                    <span>Capabilities & Deliverables</span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Workforce Transformation & Tangible Enterprise Outcomes</h2>
+                <p class="text-slate-600 mt-2 text-sm sm:text-base max-w-4xl leading-relaxed">
+                    Technology alone yields zero return if organizational behavior remains static. Success is measured by structural capacity: an AI-ready workforce, an internal consulting service, and stabilized engineering throughput metrics.
+                </p>
+            </div>
+
+            <!-- Upskilling Framework & Tangible Deliverables -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-brand-500">
+                    <span class="text-[10px] font-bold text-brand-600 uppercase tracking-widest block mb-1">Tier 01 • Universal</span>
+                    <h3 class="font-bold text-slate-900 text-base mb-2">Foundational Literacy</h3>
+                    <p class="text-xs text-slate-600 mb-3 leading-relaxed">Demystifying AI, establishing corporate terminology, setting hallucination risks, and managing algorithm aversion vs. automation bias.</p>
+                    <div class="text-[11px] font-semibold text-slate-700 bg-slate-100 p-2 rounded">Target: 100% Workforce</div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-accent-purple">
+                    <span class="text-[10px] font-bold text-accent-purple uppercase tracking-widest block mb-1">Tier 02 • Business Roles</span>
+                    <h3 class="font-bold text-slate-900 text-base mb-2">Applied Workflow Redesign</h3>
+                    <p class="text-xs text-slate-600 mb-3 leading-relaxed">Prompt engineering, task decomposition, orchestrating agents, and supervising contextual outputs in stream-aligned pods.</p>
+                    <div class="text-[11px] font-semibold text-slate-700 bg-slate-100 p-2 rounded">Target: Business & Product Managers</div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm card-hover border-t-4 border-t-accent-emerald">
+                    <span class="text-[10px] font-bold text-accent-emerald uppercase tracking-widest block mb-1">Tier 03 • Technical Staff</span>
+                    <h3 class="font-bold text-slate-900 text-base mb-2">Advanced Engineering</h3>
+                    <p class="text-xs text-slate-600 mb-3 leading-relaxed">Retrieval-augmented generation (RAG), vector database tuning, agent state machine creation, and red-team penetration.</p>
+                    <div class="text-[11px] font-semibold text-slate-700 bg-slate-100 p-2 rounded">Target: Engineers & Data Scientists</div>
+                </div>
+
+            </div>
+
+            <!-- Final Outcomes Metric Visualization -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Target Operational Performance Key Outcomes</h3>
+                        <p class="text-xs text-slate-500">Comparing pre-transformation baseline against target capability state</p>
+                    </div>
+                    <span class="text-xs bg-accent-emerald/10 text-accent-emerald border border-accent-emerald/30 font-bold px-3 py-1 rounded-full">Target State Horizon</span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    <div class="lg:col-span-7">
+                        <div class="chart-container">
+                            <canvas id="outcomesChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-5 space-y-3 text-xs">
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="font-bold text-slate-900 mb-1">⚡ Accelerated Delivery Time-to-Market</div>
+                            <p class="text-slate-600">Initial prototype to production pilot cycles reduced from months to under 3 weeks via standardized gateway infrastructure.</p>
+                        </div>
+
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="font-bold text-slate-900 mb-1">🛡️ Zero High-Risk Compliance Incidents</div>
+                            <p class="text-slate-600">100% of production-bound applications audited and cataloged in the System Registry under ISO 42001 and NIST frameworks.</p>
+                        </div>
+
+                        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                            <div class="font-bold text-slate-900 mb-1">📉 Stabilized Engineering DORA Health</div>
+                            <p class="text-slate-600">Elimination of the Verification Tax leads to stable Mean Time to Restore (MTTR) and low Change Failure Rates.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Executive Summary Banner Footer -->
+        <footer class="gradient-bg text-white rounded-2xl p-8 sm:p-10 shadow-xl relative overflow-hidden">
+            <div class="max-w-3xl">
+                <span class="text-xs font-bold text-brand-300 uppercase tracking-widest block mb-2">Executive Directive</span>
+                <h2 class="text-2xl sm:text-3xl font-extrabold mb-4 leading-tight">
+                    The Window for Passive AI Experimentation Has Closed.
+                </h2>
+                <p class="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
+                    By approving this proposal, corporate leadership moves the enterprise beyond unmanaged vendor experimentation into a structured, governed, and highly scalable operational competitive advantage.
+                </p>
+                <div class="flex flex-wrap items-center gap-4 text-xs font-bold">
+                    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="bg-white text-slate-900 hover:bg-slate-100 px-5 py-3 rounded-xl transition-all shadow-md">
+                        Back to Executive Overview ⬆
+                    </button>
+                    <span class="text-slate-400 font-normal">AI Transformation & Capability Building Strategic Proposal</span>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- JavaScript Logic & Chart.js Implementation -->
+    <script>
+        // Label wrapping helper function (Strict constraint: max length ~16 chars split into array)
+        function wrapLabel(str, maxChars = 16) {
+            if (typeof str !== 'string') return str;
+            if (str.length <= maxChars) return str;
+            const words = str.split(' ');
+            const lines = [];
+            let currentLine = '';
+            words.forEach(word => {
+                if ((currentLine + ' ' + word).trim().length > maxChars) {
+                    if (currentLine) lines.push(currentLine.trim());
+                    currentLine = word;
+                } else {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                }
+            });
+            if (currentLine) lines.push(currentLine.trim());
+            return lines;
+        }
+
+        // Shared Tooltip Title Callback Configuration
+        const mandatoryTooltipConfig = {
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            const item = tooltipItems[0];
+                            let label = item.chart.data.labels[item.dataIndex];
+                            if (Array.isArray(label)) {
+                                return label.join(' ');
+                            } else {
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        // DOM Ready Initializer
+        document.addEventListener('DOMContentLoaded', () => {
+            initThroughputChart();
+            initFinopsChart();
+            initOutcomesChart();
+            initCalculator();
+        });
+
+        // 1. Throughput Trap Chart (Combo Bar/Line)
+        function initThroughputChart() {
+            const ctx = document.getElementById('throughputChart').getContext('2d');
+            const rawLabels = ['Month 1 (Baseline)', 'Month 2 (Shadow AI)', 'Month 3 (Verification Tax Trap)', 'Month 4 (CoE Platform Launch)', 'Month 5 (Paved Road Scale)'];
+            const wrappedLabels = rawLabels.map(l => wrapLabel(l, 16));
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: wrappedLabels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Generated Code Output (PR Volume)',
+                            data: [100, 240, 310, 280, 350],
+                            backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                            borderColor: '#2563eb',
+                            borderWidth: 1.5,
+                            borderRadius: 4
+                        },
+                        {
+                            type: 'line',
+                            label: 'Shipped Velocity to Production',
+                            data: [100, 110, 85, 190, 290],
+                            borderColor: '#059669',
+                            backgroundColor: '#059669',
+                            borderWidth: 3,
+                            tension: 0.3,
+                            pointRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        ...mandatoryTooltipConfig.plugins,
+                        legend: {
+                            position: 'bottom',
+                            labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12 }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Indexed Performance Metric', font: { size: 10 } },
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 2. FinOps Chart (Stacked Bar)
+        function initFinopsChart() {
+            const ctx = document.getElementById('finopsChart').getContext('2d');
+            const rawLabels = ['Q1 Launch Phase', 'Q2 Pilot Growth', 'Q3 Showback Phase', 'Q4 Full Chargeback'];
+            const wrappedLabels = rawLabels.map(l => wrapLabel(l, 16));
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: wrappedLabels,
+                    datasets: [
+                        {
+                            label: 'Central Seed Funding (%)',
+                            data: [100, 60, 25, 10],
+                            backgroundColor: '#2563eb',
+                        },
+                        {
+                            label: 'Showback Reporting (%)',
+                            data: [0, 40, 45, 15],
+                            backgroundColor: '#7c3aed',
+                        },
+                        {
+                            label: 'Direct Line-of-Business Chargeback (%)',
+                            data: [0, 0, 30, 75],
+                            backgroundColor: '#059669',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        ...mandatoryTooltipConfig.plugins,
+                        legend: {
+                            position: 'bottom',
+                            labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12 }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true, grid: { display: false } },
+                        y: { stacked: true, max: 100, ticks: { callback: v => v + '%' } }
+                    }
+                }
+            });
+        }
+
+        // 3. Tangible Outcomes Horizontal Bar Chart
+        function initOutcomesChart() {
+            const ctx = document.getElementById('outcomesChart').getContext('2d');
+            const rawLabels = ['Time-to-Market (Weeks)', 'CoE SLA Intake Response (Hrs)', 'Audited Risk Registry (%)', 'DORA Failure Rate (%)'];
+            const wrappedLabels = rawLabels.map(l => wrapLabel(l, 16));
+
+            new Chart(ctx, {
+                type: 'bar',
+                indexAxis: 'y',
+                data: {
+                    labels: wrappedLabels,
+                    datasets: [
+                        {
+                            label: 'Legacy Baseline',
+                            data: [16, 120, 15, 32],
+                            backgroundColor: 'rgba(148, 163, 184, 0.5)',
+                            borderColor: '#94a3b8',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Target Capability State',
+                            data: [3, 48, 100, 8],
+                            backgroundColor: '#2563eb',
+                            borderColor: '#1d4ed8',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        ...mandatoryTooltipConfig.plugins,
+                        legend: {
+                            position: 'bottom',
+                            labels: { font: { size: 11, family: 'Inter' }, boxWidth: 12 }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // 4. FinOps Token Estimator Live Calculation Engine
+        function initCalculator() {
+            const callsInput = document.getElementById('monthlyCalls');
+            const contextInput = document.getElementById('avgContext');
+            const loopsInput = document.getElementById('agentLoops');
+            const cacheInput = document.getElementById('cacheEfficiency');
+
+            const callsVal = document.getElementById('callsVal');
+            const contextVal = document.getElementById('contextVal');
+            const loopsVal = document.getElementById('loopsVal');
+            const cacheVal = document.getElementById('cacheVal');
+
+            const totalCost = document.getElementById('totalCost');
+            const savings = document.getElementById('savings');
+
+            function calculate() {
+                const calls = parseInt(callsInput.value);
+                const context = parseInt(contextInput.value);
+                const loops = parseInt(loopsInput.value);
+                const cache = parseInt(cacheInput.value) / 100;
+
+                callsVal.innerText = calls.toLocaleString();
+                contextVal.innerText = context.toLocaleString() + ' tokens';
+                loopsVal.innerText = loops + ' loops / task';
+                cacheVal.innerText = (cache * 100) + '%';
+
+                // Cost Model Assumptions:
+                // Base cost per 1M tokens = $2.50 blended average (input + output)
+                // Effective tokens = calls * context * loops
+                const totalRawTokens = calls * context * loops;
+                const billableTokens = totalRawTokens * (1 - (cache * 0.8)); // Caching yields ~80% discount on cached hits
+                const costUSD = (billableTokens / 1000000) * 2.50;
+                const unoptimizedCost = (totalRawTokens / 1000000) * 2.50;
+                const savingsUSD = unoptimizedCost - costUSD;
+
+                totalCost.innerText = '$' + costUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                savings.innerText = 'Saved ~$' + savingsUSD.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' via Gateway Caching';
+            }
+
+            callsInput.addEventListener('input', calculate);
+            contextInput.addEventListener('input', calculate);
+            loopsInput.addEventListener('input', calculate);
+            cacheInput.addEventListener('input', calculate);
+
+            calculate();
+        }
+    </script>
+</body>
+</html>

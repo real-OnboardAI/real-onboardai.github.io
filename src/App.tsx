@@ -9,6 +9,7 @@ import Speaker from "./pages/Speaker";
 import Mentoring from "./pages/Mentoring";
 import Founder from "./pages/Founder";
 import ContactUs from "./pages/ContactUs";
+import AIStrategy from "./pages/AIStrategy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/founder" element={<Founder />} />
           <Route path="/rajeshg" element={<Founder />} />
           <Route path="/contactus" element={<ContactUs />} />
+          <Route path="/AIStrategy" element={<AIStrategy />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
