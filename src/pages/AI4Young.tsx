@@ -88,13 +88,6 @@ const quotes = [
   { text: "Harms of using AI.", who: "Participant, on the most useful thing", speed: 0.06 },
 ];
 
-const lessons = [
-  { icon: "fa-hands", title: "Hands-on is the anchor", text: "Training a model was the most praised part. Next time the whole session is built around it." },
-  { icon: "fa-scissors", title: "Fewer slides", text: "“Minimize slides” was the clearest ask. The intro gets shorter and more interactive." },
-  { icon: "fa-hourglass-half", title: "Watch the clock", text: "4 of 12 found three hours too long. Less presenting, more doing." },
-  { icon: "fa-trophy", title: "A little friendly competition", text: "Small prizes during the concept parts help younger kids stay with it." },
-  { icon: "fa-person-walking", title: "Everyone at their own pace", text: "Some wanted more, some needed help. Small self-paced tasks with helpers nearby." },
-];
 
 const topics = [
   { label: "Building simple AI apps", votes: 10 },
@@ -571,30 +564,6 @@ const AI4Young = () => {
           </div>
         </section>
 
-        {/* 10. Lessons */}
-        <section className="bg-slate-50 py-24 sm:py-32 px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="a4y-reveal max-w-2xl mb-14">
-              <p className="text-blue-600 font-semibold tracking-widest uppercase text-sm mb-4">What we learned</p>
-              <h2 className="font-heading text-3xl sm:text-5xl font-bold text-slate-900 leading-tight mb-6">
-                Kids told us exactly how to make it better.
-              </h2>
-              <p className="text-lg text-slate-600 leading-relaxed">
-                Not everything landed. The first part felt slow to some, and a few found three hours long. We are keeping
-                what worked and changing the rest.
-              </p>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
-              {lessons.map((l, i) => (
-                <div key={l.title} className="a4y-reveal rounded-2xl bg-white border border-slate-100 p-6 shadow-sm" style={{ "--delay": `${i * 0.08}s` } as Vars}>
-                  <i className={`fa-solid ${l.icon} text-amber-500 text-2xl mb-4`} aria-hidden="true" />
-                  <h3 className="font-heading font-bold text-lg text-slate-900 mb-2">{l.title}</h3>
-                  <p className="text-slate-600 text-sm leading-relaxed">{l.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* 11. What they want next: bars */}
         <section className="bg-white py-24 sm:py-32 px-4">
