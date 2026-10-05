@@ -73,6 +73,25 @@ const planSteps = [
   },
 ];
 
+const sessionPhotos = [
+  {
+    src: "/ai4young/session-opening.jpg",
+    w: 1600,
+    h: 900,
+    alt: "A presenter in front of a large screen showing the title slide AI Adventures: Discovering the world of Artificial Intelligence",
+    caption: "Opening the morning with “AI Adventures”.",
+    speed: -0.06,
+  },
+  {
+    src: "/ai4young/session-ai-layers.jpg",
+    w: 1600,
+    h: 1216,
+    alt: "A presenter explaining a diagram of nested boxes: Artificial Intelligence, Machine Learning, Generative AI and Agentic AI",
+    caption: "AI, machine learning, generative AI and agents, one inside the other.",
+    speed: 0.06,
+  },
+];
+
 const rings = [
   { n: 7, of: 12, label: "said it fully met or exceeded their expectations" },
   { n: 9, of: 12, label: "found it easy or very easy to understand" },
@@ -493,6 +512,25 @@ const AI4Young = () => {
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div className="mt-20 grid md:grid-cols-[1.15fr_1fr] gap-6 md:gap-8 items-start">
+              {sessionPhotos.map((ph, i) => (
+                <figure key={ph.src} className={`a4y-par ${i === 1 ? "md:mt-24" : ""}`} style={{ "--speed": ph.speed } as Vars}>
+                  <div className="a4y-reveal rounded-3xl overflow-hidden shadow-xl border-4 border-white bg-white" style={{ "--delay": `${i * 0.12}s` } as Vars}>
+                    <img
+                      src={ph.src}
+                      alt={ph.alt}
+                      width={ph.w}
+                      height={ph.h}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-auto block"
+                    />
+                  </div>
+                  <figcaption className="mt-3 px-2 text-sm text-slate-500">{ph.caption}</figcaption>
+                </figure>
+              ))}
             </div>
           </div>
         </section>
