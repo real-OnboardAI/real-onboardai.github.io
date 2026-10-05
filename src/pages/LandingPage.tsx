@@ -70,6 +70,12 @@ const LandingPage = () => {
                 Mentoring
               </Link>
               <Link
+                to="/ai4young"
+                className="text-slate-600 hover:text-blue-600 font-medium transition-colors"
+              >
+                AI4YoungMinds
+              </Link>
+              <Link
                 to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
@@ -139,6 +145,15 @@ const LandingPage = () => {
               </Link>
             ))}
           </div>
+
+          <Link
+            to="/ai4young"
+            className="inline-flex items-center gap-2 mt-12 px-5 py-2.5 rounded-full bg-amber-50 border border-amber-100 text-amber-800 text-sm font-medium hover:bg-amber-100 transition-colors fade-in-up delay-300"
+          >
+            <i className="fa-solid fa-lightbulb text-amber-500" />
+            New: AI4YoungMinds, our free AI community for K-12 learners
+            <i className="fa-solid fa-arrow-right text-xs" />
+          </Link>
         </div>
       </main>
 

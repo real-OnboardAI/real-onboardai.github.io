@@ -42,6 +42,9 @@ const Speaker = () => {
               <Link to="/mentoring" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
                 Mentoring
               </Link>
+              <Link to="/ai4young" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
+                AI4YoungMinds
+              </Link>
               <Link
                 to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"

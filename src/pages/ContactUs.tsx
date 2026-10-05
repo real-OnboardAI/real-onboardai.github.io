@@ -60,6 +60,9 @@ const ContactUs = () => {
               <Link to="/mentoring" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
                 Mentoring
               </Link>
+              <Link to="/ai4young" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
+                AI4YoungMinds
+              </Link>
             </div>
             {/* Mobile nav links */}
             <div className="flex md:hidden space-x-4 items-center text-sm">
