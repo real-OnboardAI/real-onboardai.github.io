@@ -1,0 +1,262 @@
+/* AI4YoungMinds scroll story.
+   JS (see AI4Young.tsx) writes these custom properties:
+     --page    on .a4y          whole-page scroll progress, 0..1
+     --p       on [data-scene]  progress through a pinned scene, 0..1
+     --e       on [data-scene]  entry progress, from first appearing until well into the pin, 0..1
+     --dist    on [data-scene]  horizontal travel for a pinned track, px
+     --offset  on [data-parallax] distance of the block's centre from the viewport centre, px
+   With prefers-reduced-motion the root gets .a4y-static and everything lays out as a normal page. */
+
+.a4y {
+  --nav: 80px;
+  --ink: #0f172a;
+  --blue: #2563eb;
+  --sky: #0ea5e9;
+  --sun: #f59e0b;
+  overflow-x: clip;
+}
+
+.a4y-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  width: 100%;
+  height: 3px;
+  transform-origin: 0 50%;
+  transform: scaleX(var(--page, 0));
+  background: linear-gradient(90deg, var(--blue), var(--sky), var(--sun));
+}
+
+/* ---------- pinned scenes ---------- */
+.a4y-scene {
+  position: relative;
+}
+
+.a4y-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  padding-top: var(--nav);
+}
+
+/* ---------- hero ---------- */
+.a4y-hero {
+  height: 180vh;
+}
+
+.a4y-hero-title {
+  transform: translate3d(0, calc(var(--p, 0) * -14vh), 0) scale(calc(1 - var(--p, 0) * 0.18));
+  opacity: clamp(0, calc(1 - var(--p, 0) * 2.2), 1);
+}
+
+.a4y-hero-next {
+  opacity: clamp(0, calc((var(--p, 0) - 0.42) * 3.2), 1);
+  transform: translate3d(0, calc((1 - clamp(0, calc((var(--p, 0) - 0.42) * 3.2), 1)) * 40px), 0);
+}
+
+.a4y-float {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate3d(calc(var(--dx) * var(--p, 0) * 1vw), calc(var(--dy) * var(--p, 0) * 1vh), 0)
+    scale(calc(1 + var(--p, 0) * var(--z, 0.4)));
+  opacity: clamp(0, calc(1 - var(--p, 0) * 1.3), 1);
+}
+
+.a4y-float > span {
+  display: flex;
+  animation: a4y-bob 7s ease-in-out infinite;
+  animation-delay: var(--d, 0s);
+}
+
+@keyframes a4y-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(4deg); }
+}
+
+.a4y-cue {
+  animation: a4y-cue 2s ease-in-out infinite;
+}
+
+@keyframes a4y-cue {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(8px); opacity: 1; }
+}
+
+/* ---------- word-by-word reveal ---------- */
+.a4y-word {
+  opacity: clamp(0.12, calc(var(--p, 0) * var(--n) * 1.25 - var(--i)), 1);
+  transition: color 0.3s;
+}
+
+/* ---------- horizontal pinned track ---------- */
+.a4y-track {
+  display: flex;
+  gap: 1.5rem;
+  width: max-content;
+  transform: translate3d(calc(var(--p, 0) * var(--dist, 0px) * -1), 0, 0);
+  will-change: transform;
+}
+
+/* ---------- stepped pinned scenes ---------- */
+.a4y-steps {
+  position: relative;
+}
+
+.a4y-step {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translate3d(0, 48px, 0);
+  transition: opacity 0.25s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+.a4y-step.is-past {
+  transform: translate3d(0, -48px, 0);
+}
+
+.a4y-step.is-active {
+  transition: opacity 0.5s ease 0.15s, transform 0.6s ease 0.1s;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.a4y-dot {
+  transition: background-color 0.4s, transform 0.4s;
+}
+
+.a4y-dot.is-active,
+.a4y-dot.is-past {
+  background-color: var(--blue);
+}
+
+.a4y-dot.is-active {
+  transform: scale(1.5);
+}
+
+/* ---------- rings ---------- */
+.a4y-ring-fg {
+  stroke-dasharray: 289;
+  stroke-dashoffset: calc(289 * (1 - var(--frac) * var(--e, 0)));
+}
+
+/* ---------- parallax ---------- */
+.a4y-par {
+  transform: translate3d(0, calc(var(--offset, 0) * var(--speed, 0) * 1px), 0);
+  will-change: transform;
+}
+
+/* ---------- reveal on enter ---------- */
+.a4y-reveal {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  transition-delay: var(--delay, 0s);
+}
+
+.a4y-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.a4y-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--delay, 0s);
+}
+
+.is-in .a4y-bar > i {
+  transform: scaleX(var(--w));
+}
+
+/* ---------- reduced motion: a plain, readable page ---------- */
+.a4y-static .a4y-scene {
+  height: auto !important;
+}
+
+.a4y-static .a4y-pin {
+  position: relative;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding-top: calc(var(--nav) + 3rem);
+  padding-bottom: 4rem;
+}
+
+.a4y-static .a4y-hero .a4y-pin {
+  min-height: 100vh;
+}
+
+.a4y-static .a4y-hero-title,
+.a4y-static .a4y-hero-next,
+.a4y-static .a4y-float,
+.a4y-static .a4y-par,
+.a4y-static .a4y-reveal {
+  transform: none;
+  opacity: 1;
+  transition: none;
+}
+
+.a4y-static .a4y-hero-next-wrap {
+  position: relative;
+  inset: auto;
+  margin-top: 3rem;
+}
+
+.a4y-static .a4y-word {
+  opacity: 1;
+}
+
+.a4y-static .a4y-track {
+  width: auto;
+  flex-wrap: wrap;
+  transform: none;
+}
+
+.a4y-static .a4y-steps {
+  height: auto !important;
+}
+
+.a4y-static .a4y-step {
+  position: relative;
+  inset: auto;
+  opacity: 1;
+  transform: none;
+  margin-bottom: 1.5rem;
+  pointer-events: auto;
+}
+
+.a4y-static .a4y-dots {
+  display: none;
+}
+
+.a4y-static .a4y-ring-fg {
+  stroke-dashoffset: calc(289 * (1 - var(--frac)));
+}
+
+.a4y-static .a4y-bar > i {
+  transform: scaleX(var(--w));
+  transition: none;
+}
+
+.a4y-static *,
+.a4y-static *::before,
+.a4y-static *::after {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a4y-reveal {
+    opacity: 1;
+    transform: none;
+  }
+}

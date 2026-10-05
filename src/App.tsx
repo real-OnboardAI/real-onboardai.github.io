@@ -10,6 +10,7 @@ import Mentoring from "./pages/Mentoring";
 import Founder from "./pages/Founder";
 import ContactUs from "./pages/ContactUs";
 import AIStrategy from "./pages/AIStrategy";
+import AI4Young from "./pages/AI4Young";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/rajeshg" element={<Founder />} />
           <Route path="/contactus" element={<ContactUs />} />
           <Route path="/AIStrategy" element={<AIStrategy />} />
+          <Route path="/ai4young" element={<AI4Young />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
