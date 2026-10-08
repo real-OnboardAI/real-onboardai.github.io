@@ -1,18 +1,81 @@
 import { Link } from "react-router-dom";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADD YOUR SPEAKER PHOTOS HERE
-// Place images in: public/speaker/
-// Name them: speaking-1.jpg, speaking-2.jpg, speaking-3.jpg, etc.
-// Then add the filename to the array below.
+// SPEAKER PHOTOS
+// Images live in public/speaker/ and are named after the event.
+// Each entry carries a short description of the event shown under the photo.
 // ─────────────────────────────────────────────────────────────────────────────
-const SPEAKER_PHOTOS: { file: string; caption?: string }[] = [
-  { file: "speaking-1.jpg" },
-  { file: "speaking-2.jpg" },
-  { file: "speaking-3.jpg" },
-  { file: "speaking-4.jpg" },
-  { file: "speaking-5.jpg" },
-  { file: "speaking-6.jpg" },
+type SpeakerPhoto = {
+  file: string;
+  event: string;
+  meta: string;
+  description: string;
+};
+
+const SPEAKER_PHOTOS: SpeakerPhoto[] = [
+  {
+    file: "ats-elevate-with-ai-agents-2026-09-podium.jpg",
+    event: "Elevate with AI: Building AI Agents",
+    meta: "Austin Tamil Sangam · Cedar Park Parks & Recreation · Sep 2026",
+    description:
+      "Live-demoing a CLI coding agent to ~40 attendees in a six-week, two-track course Rajesh designed and taught, from no-code builders to LangGraph agents.",
+  },
+  {
+    file: "ats-elevate-with-ai-agents-2026-09-screen.jpg",
+    event: "Elevate with AI: Agent Architecture",
+    meta: "Austin Tamil Sangam · Cedar Park · Sep 2026",
+    description:
+      "Walking through the Brain / Harness / Tools architecture, loop and graph engineering, and why a single question can burn 33,000+ tokens.",
+  },
+  {
+    file: "acc-ai-beyond-academia-panel-2026-08.jpg",
+    event: "AI Beyond Academia: Industry Perspectives",
+    meta: "Austin Community College, School of CS & IT · Aug 18, 2026",
+    description:
+      "Invited panelist at ACC's annual meeting, tracing the path from prompt to context, loop, harness and graph engineering alongside leaders from IBM and the Texas AI Alliance.",
+  },
+  {
+    file: "aicamp-stateful-agents-2026-03-podium.jpg",
+    event: "Stateful Agents",
+    meta: "AICamp Austin · Capital Factory · Mar 4, 2026",
+    description:
+      "Invited talk on vector databases, agentic memory and a three-tier memory architecture for ~50 attendees, with an open slide deck, repo and Colab notebook.",
+  },
+  {
+    file: "aicamp-stateful-agents-2026-03-stage.jpg",
+    event: "Stateful Agents, on stage",
+    meta: "AICamp Austin · Capital Factory · Mar 4, 2026",
+    description:
+      "Presenting \"Dynamic memory requires a three-tier architecture\" at AICamp, a global AI learning community.",
+  },
+  {
+    file: "acm-austin-context-engineering-2025-10.jpg",
+    event: "Context Engineering for LLMs",
+    meta: "ACM Austin & IEEE · ACC Center for Government and Civic Service · Oct 2025",
+    description:
+      "Second ACM Austin invitation: providing the right context, managing information overload and keeping AI agents on track.",
+  },
+  {
+    file: "ats-generative-ai-series-2025-09-opening.jpg",
+    event: "Generative AI Series: AI Knowledge Is All You Need",
+    meta: "Austin Tamil Sangam · Sep 2025",
+    description:
+      "Opening session of a six-week series covering prompt engineering, AI-powered apps, local models, RAG and AI for data analytics.",
+  },
+  {
+    file: "ats-generative-ai-series-2025-09-podium.jpg",
+    event: "Generative AI Series: Use Cases & Impact",
+    meta: "Austin Tamil Sangam · Sep 2025",
+    description:
+      "Hands-on community course run under OnboardAI, with attendees building along on their own laptops each week.",
+  },
+  {
+    file: "acm-austin-ai-agents-vs-agentic-ai-2025-06.jpg",
+    event: "AI Agents vs Agentic AI",
+    meta: "ACM Austin inaugural meetup · Asian American Resource Center · Jun 10, 2025",
+    description:
+      "Opened the first-ever ACM Austin meetup to a full house of 50+, contrasting task-specific agents with collaborative, orchestrated agentic systems.",
+  },
 ];
 
 const Speaker = () => {
@@ -150,27 +213,30 @@ const Speaker = () => {
           </div>
 
           {SPEAKER_PHOTOS.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {SPEAKER_PHOTOS.map((photo, index) => (
-                <div
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {SPEAKER_PHOTOS.map((photo) => (
+                <figure
                   key={photo.file}
-                  className="group relative rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 aspect-[4/3] bg-slate-100"
+                  className="group bg-white rounded-2xl border border-slate-100 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col"
                 >
-                  <img
-                    src={`/speaker/${photo.file}`}
-                    alt={photo.caption || `Speaking engagement ${index + 1}`}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    onError={(e) => {
-                      // Hide images that don't exist yet
-                      (e.currentTarget.parentElement as HTMLElement).style.display = "none";
-                    }}
-                  />
-                  {photo.caption && (
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                      <p className="text-white text-sm font-medium">{photo.caption}</p>
-                    </div>
-                  )}
-                </div>
+                  <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                    <img
+                      src={`/speaker/${photo.file}`}
+                      alt={`${photo.event} — ${photo.meta}`}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
+                  <figcaption className="p-5 flex flex-col gap-1.5">
+                    <h3 className="font-heading font-bold text-lg text-slate-900 leading-snug">
+                      {photo.event}
+                    </h3>
+                    <p className="text-xs font-medium uppercase tracking-wide text-blue-600">
+                      {photo.meta}
+                    </p>
+                    <p className="text-sm text-slate-600 leading-relaxed">{photo.description}</p>
+                  </figcaption>
+                </figure>
               ))}
             </div>
           ) : (
