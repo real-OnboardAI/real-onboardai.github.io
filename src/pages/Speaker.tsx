@@ -78,6 +78,32 @@ const SPEAKER_PHOTOS: SpeakerPhoto[] = [
   },
 ];
 
+// Events Rajesh attended (not spoke at), shown in the "In the Community" strip.
+type AttendedPhoto = SpeakerPhoto & { position?: string };
+
+const ATTENDED_PHOTOS: AttendedPhoto[] = [
+  {
+    file: "anthropic-claude-workshop-austin-2026-10-welcome.jpg",
+    event: "Claude Workshop, Austin",
+    meta: "Anthropic · Austin · Oct 8, 2026",
+    description:
+      "Attended Anthropic's in-person Claude Workshop in Austin, representing OnboardAI.",
+  },
+  {
+    file: "anthropic-claude-workshop-austin-2026-10-venue.jpg",
+    event: "Claude Workshop, Austin: Venue",
+    meta: "Anthropic · Austin · Oct 8, 2026",
+    description: "In the room before the sessions began, in front of the workshop title screen.",
+    position: "object-[center_20%]",
+  },
+  {
+    file: "anthropic-claude-workshop-austin-2026-10-badge.jpg",
+    event: "Claude Workshop, Austin: Badge",
+    meta: "Anthropic · Austin · Oct 8, 2026",
+    description: "Badged as Founder - Director of OnboardAI, with the Anthropic notebook handed out to attendees.",
+  },
+];
+
 const Speaker = () => {
   return (
     <div className="onboardai-root min-h-screen bg-slate-50 text-slate-800 font-sans antialiased selection:bg-blue-200 selection:text-blue-900">
@@ -245,6 +271,47 @@ const Speaker = () => {
               <p className="text-lg">Photos coming soon.</p>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* In the Community */}
+      <section className="py-24 bg-white border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <span className="text-blue-600 font-bold tracking-wider uppercase text-sm mb-2 block">
+              Attended
+            </span>
+            <h2 className="font-heading text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              In the Community
+            </h2>
+            <div className="w-20 h-1 bg-blue-500 mx-auto rounded-full" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {ATTENDED_PHOTOS.map((photo) => (
+              <figure
+                key={photo.file}
+                className="group bg-white rounded-2xl border border-slate-100 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col"
+              >
+                <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                  <img
+                    src={`/speaker/${photo.file}`}
+                    alt={`${photo.event} — ${photo.meta}`}
+                    loading="lazy"
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${photo.position ?? ""}`}
+                  />
+                </div>
+                <figcaption className="p-5 flex flex-col gap-1.5">
+                  <h3 className="font-heading font-bold text-lg text-slate-900 leading-snug">
+                    {photo.event}
+                  </h3>
+                  <p className="text-xs font-medium uppercase tracking-wide text-blue-600">
+                    {photo.meta}
+                  </p>
+                  <p className="text-sm text-slate-600 leading-relaxed">{photo.description}</p>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
       </section>
 
