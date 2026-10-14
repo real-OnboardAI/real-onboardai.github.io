@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import Index from "./pages/Index";
 import Speaker from "./pages/Speaker";
@@ -32,6 +32,10 @@ const App = () => (
           <Route path="/AIStrategy" element={<AIStrategy />} />
           <Route path="/aistrategy" element={<AIStrategy />} />
           <Route path="/ai4young" element={<AI4Young />} />
+          {/* The live site serves public/talk/index.html for /talk (it carries the
+              LinkedIn preview). This route covers `npm run dev` and any /talk visit
+              that reaches the app instead. */}
+          <Route path="/talk" element={<Navigate to="/speaker#upcoming-talk" replace />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
