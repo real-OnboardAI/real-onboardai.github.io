@@ -89,6 +89,7 @@ const Mentoring = () => {
             <a
               href="https://www.youtube.com/@real-onboardai"
               target="_blank"
+              data-umami-event="youtube-channel-click"
               rel="noopener noreferrer"
               className="bg-blue-600 hover:bg-blue-700 text-white text-center px-8 py-4 rounded-xl font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 inline-flex items-center justify-center gap-2"
             >
@@ -149,6 +150,8 @@ const Mentoring = () => {
                 key={video.id}
                 href={`https://www.youtube.com/watch?v=${video.id}`}
                 target="_blank"
+                data-umami-event="youtube-video-click"
+                data-umami-event-video={video.id}
                 rel="noopener noreferrer"
                 className="group glass-card rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-100 hover:border-blue-200"
               >
@@ -191,6 +194,7 @@ const Mentoring = () => {
             <a
               href="https://www.youtube.com/@real-onboardai"
               target="_blank"
+              data-umami-event="youtube-channel-click"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-slate-600 hover:text-blue-600 font-medium transition-colors text-sm"
             >

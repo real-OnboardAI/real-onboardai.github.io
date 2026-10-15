@@ -260,6 +260,8 @@ const Speaker = () => {
               <a
                 href={UPCOMING_TALK.url}
                 target="_blank"
+                data-umami-event="upcoming-talk-click"
+                data-umami-event-title={UPCOMING_TALK.title}
                 rel="noopener noreferrer"
                 className="group grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] bg-slate-900 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 ring-1 ring-blue-500/40"
               >

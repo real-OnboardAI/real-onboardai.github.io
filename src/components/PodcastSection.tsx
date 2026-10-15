@@ -49,6 +49,7 @@ const PodcastSection = () => {
                   <a 
                     href="https://open.spotify.com/show/7MaA4jaUXCbGvItdCCMsOE?si=tPz2kxDhQ6i_8w5YYFDhdQ" 
                     target="_blank" 
+                    data-umami-event="podcast-spotify-click"
                     rel="noopener noreferrer"
                     className="w-full h-full block"
                   >

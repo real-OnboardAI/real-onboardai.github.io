@@ -694,7 +694,7 @@ const AI4Young = () => {
               <Link to="/contactus" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full font-semibold transition-all shadow-md hover:shadow-lg">
                 Get in touch
               </Link>
-              <a href="https://luma.com/zool7sqr" target="_blank" rel="noopener noreferrer" className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 px-8 py-4 rounded-full font-semibold transition-all shadow-sm">
+              <a href="https://luma.com/zool7sqr" target="_blank" rel="noopener noreferrer" data-umami-event="ai4young-luma-click" className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 px-8 py-4 rounded-full font-semibold transition-all shadow-sm">
                 See the first event <i className="fa-solid fa-arrow-up-right-from-square text-xs ml-1" aria-hidden="true" />
               </a>
             </div>

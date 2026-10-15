@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { track } from "@/lib/analytics";
 
 const ContactUs = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,6 +24,7 @@ const ContactUs = () => {
       
       if (response.ok) {
         setIsSubmitSuccess(true);
+        track("contact-form-submit");
         form.reset();
       } else {
         alert("Oops! There was a problem submitting your form");

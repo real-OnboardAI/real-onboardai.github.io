@@ -62,3 +62,12 @@ npm run deploy
 
 This command will build the project and deploy it to GitHub Pages automatically.
 
+
+## Analytics
+
+The site uses [Umami Cloud](https://cloud.umami.is) (free Hobby plan, no cookies, no consent banner).
+
+- The script tag lives in `index.html` (the React app) and `public/enterprise_ai_transformation_proposal.html` (standalone page). Both carry the website ID from Umami **Settings → Websites → Edit → Website ID**.
+- `data-domains="onboardai.org,www.onboardai.org"` means `npm run dev` on localhost sends nothing.
+- Page views and route changes are tracked automatically. Outbound links are tagged with `data-umami-event="..."` attributes and show up under **Events** in the dashboard.
+- For events fired from code (e.g. the contact form), use `track()` from `src/lib/analytics.ts`.
