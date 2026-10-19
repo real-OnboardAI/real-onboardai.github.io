@@ -32,10 +32,8 @@ const App = () => (
           <Route path="/AIStrategy" element={<AIStrategy />} />
           <Route path="/aistrategy" element={<AIStrategy />} />
           <Route path="/ai4young" element={<AI4Young />} />
-          {/* The live site serves public/talk/index.html for /talk (it carries the
-              LinkedIn preview). This route covers `npm run dev` and any /talk visit
-              that reaches the app instead. */}
-          <Route path="/talk" element={<Navigate to="/speaker#upcoming-talk" replace />} />
+          {/* /talk was shared on LinkedIn for the Oct 15, 2026 AI Tinkerers talk; keep it landing on /speaker. */}
+          <Route path="/talk" element={<Navigate to="/speaker" replace />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
