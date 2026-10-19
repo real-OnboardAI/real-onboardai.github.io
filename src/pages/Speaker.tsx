@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,6 +13,13 @@ type SpeakerPhoto = {
 };
 
 const SPEAKER_PHOTOS: SpeakerPhoto[] = [
+  {
+    file: "ai-tinkerers-austin-agent-memory-engine-2026-10.jpg",
+    event: "Agent Memory Engine: Vector Memory for AI Agents",
+    meta: "AI Tinkerers Austin · Fall Meetup · Oct 15, 2026",
+    description:
+      "Main stage talk at AI Tinkerers Austin introducing agent-memory-engine, a vector memory for AI agents.",
+  },
   {
     file: "anthropic-claude-workshop-austin-2026-10-demo-1.jpg",
     event: "Autonomous Website Update Agent: Live Demo",
@@ -97,34 +103,7 @@ const SPEAKER_PHOTOS: SpeakerPhoto[] = [
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UPCOMING TALK (temporary)
-// Shown above the photo gallery until `hideAfter` passes, then it hides itself.
-// Shareable link with a LinkedIn preview: https://onboardai.org/talk/
-// (public/talk/index.html carries the preview tags and forwards here).
-// To remove it for good, delete this block, the {showUpcomingTalk && ...}
-// section below, and public/talk/.
-// ─────────────────────────────────────────────────────────────────────────────
-const UPCOMING_TALK = {
-  file: "ai-tinkerers-austin-agentic-memory-2026-10.jpg",
-  title: "Agentic Memory for Humans",
-  event: "AI Tinkerers Austin Fall Meetup: Agentic Harnesses & LLM Wikis",
-  meta: "Main Stage Speaker · Austin · Oct 15, 2026",
-  url: "https://austin.aitinkerers.org/p/ai-tinkerers-austin-fall-meetup-agentic-harnesses-llm-wikis",
-  // Midnight at the end of Oct 15 in Austin (US Central, CDT).
-  hideAfter: new Date("2026-10-16T00:00:00-05:00"),
-};
-
 const Speaker = () => {
-  const showUpcomingTalk = Date.now() < UPCOMING_TALK.hideAfter.getTime();
-
-  // The page renders after the browser's own jump-to-#anchor, so scroll to a
-  // shared link like /speaker#upcoming-talk once the section exists.
-  useEffect(() => {
-    const id = window.location.hash.slice(1);
-    if (id) document.getElementById(id)?.scrollIntoView();
-  }, []);
-
   return (
     <div className="onboardai-root min-h-screen bg-slate-50 text-slate-800 font-sans antialiased selection:bg-blue-200 selection:text-blue-900">
       {/* Navbar */}
@@ -248,47 +227,6 @@ const Speaker = () => {
       {/* Photo Gallery */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Upcoming Talk highlight (temporary, see UPCOMING_TALK) */}
-          {showUpcomingTalk && (
-            <div id="upcoming-talk" className="max-w-4xl mx-auto mb-20 scroll-mt-28">
-              <div className="text-center mb-8">
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white font-semibold text-sm shadow-md">
-                  <i className="fa-solid fa-calendar-days" />
-                  Upcoming Talk
-                </span>
-              </div>
-              <a
-                href={UPCOMING_TALK.url}
-                target="_blank"
-                data-umami-event="upcoming-talk-click"
-                data-umami-event-title={UPCOMING_TALK.title}
-                rel="noopener noreferrer"
-                className="group grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] bg-slate-900 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 ring-1 ring-blue-500/40"
-              >
-                <div className="bg-black flex items-center justify-center">
-                  <img
-                    src={`/speaker/${UPCOMING_TALK.file}`}
-                    alt={`${UPCOMING_TALK.title}, ${UPCOMING_TALK.meta}`}
-                    className="w-full h-full max-h-[560px] object-contain"
-                  />
-                </div>
-                <div className="p-8 md:p-10 flex flex-col justify-center text-center md:text-left gap-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-blue-400">
-                    {UPCOMING_TALK.meta}
-                  </p>
-                  <h3 className="font-heading font-extrabold text-3xl md:text-4xl text-white leading-tight">
-                    {UPCOMING_TALK.title}
-                  </h3>
-                  <p className="text-slate-300 leading-relaxed">{UPCOMING_TALK.event}</p>
-                  <span className="mt-2 inline-flex items-center justify-center md:justify-start gap-2 self-center md:self-start bg-blue-600 group-hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold transition-colors">
-                    View talk details
-                    <i className="fa-solid fa-arrow-up-right-from-square text-sm" />
-                  </span>
-                </div>
-              </a>
-            </div>
-          )}
-
           <div className="text-center mb-12">
             <span className="text-blue-600 font-bold tracking-wider uppercase text-sm mb-2 block">
               On Stage
