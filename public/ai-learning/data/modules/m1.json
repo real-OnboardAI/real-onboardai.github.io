@@ -1,0 +1,1672 @@
+{
+  "id": "m1",
+  "num": 1,
+  "title": "How LLMs Actually Work",
+  "short": "Foundations",
+  "stage": "Foundations",
+  "weeks": "Weeks 1–3",
+  "hours": 14,
+  "level": "Beginner",
+  "source": {
+    "name": "Hands-On Large Language Models",
+    "authors": "Jay Alammar & Maarten Grootendorst",
+    "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models",
+    "kind": "book + notebooks",
+    "license": "Apache-2.0 code (verify in repo)",
+    "format": "12 Jupyter notebooks, run in Google Colab on a free T4",
+    "setup": "The authors recommend running every notebook in Google Colab: open the chapter's Colab link, set Runtime to Change runtime type, Hardware accelerator GPU, type T4 (16 GB VRAM, free), then uncomment and run the pip install cell at the top of each notebook. To run locally, follow the .setup folder: a Python 3.10 environment with pip install -r requirements.txt (needs Microsoft Visual C++ 14.0 on Windows) or conda env create -f environment.yml, then install the GPU build of PyTorch; the .setup/conda guide walks through Miniconda step by step. Chapters 4, 5, 7 and 8 optionally use OpenAI or Cohere API keys."
+  },
+  "blurb": "Run twelve notebooks from the Illustrated LLM Book to see, in code, what tokens, embeddings, attention, prompting, retrieval and fine-tuning actually are.",
+  "why": "Everything later in the path, from evaluation design to agents to serving, assumes you know what happens between a string going in and a string coming out. This module builds that intuition hands-on with small open models on a free GPU rather than through theory alone. It also introduces the practical toolkit (transformers, sentence-transformers, BERTopic, LangChain, FAISS, PEFT, TRL) that the engineering and agent modules take for granted.",
+  "outcomes": [
+    "Explain how a prompt becomes tokens, hidden states and next-token logits, and why the KV cache makes generation fast.",
+    "Choose between a task-specific model, frozen embeddings plus a classifier, zero-shot embeddings and prompted generation for a classification problem, backed by F1 scores.",
+    "Build an embed, reduce, cluster pipeline and turn it into a labelled topic model with BERTopic.",
+    "Control a generative model with prompt components, in-context examples, chain-of-thought and constrained JSON output.",
+    "Assemble a semantic search and RAG system with dense retrieval, BM25, a reranker and a local model, and know its failure modes.",
+    "Fine-tune an embedding model with contrastive losses, a BERT classifier with layer freezing, and a small generative model with QLoRA followed by DPO."
+  ],
+  "prerequisites": [
+    "Python at a comfortable level: functions, list comprehensions, pandas and numpy basics.",
+    "A Google account for Colab, or a local machine with a CUDA GPU and conda.",
+    "High-school linear algebra: vectors, dot products and what a matrix multiplication does.",
+    "Basic familiarity with machine learning vocabulary such as training set, test set and F1 score."
+  ],
+  "lessons": [
+    {
+      "id": "m1-l01",
+      "title": "Introduction to Language Models",
+      "minutes": 45,
+      "sourceRef": "Chapter 1",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter01",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter01/Chapter%201%20-%20Introduction%20to%20Language%20Models.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter01/Chapter%201%20-%20Introduction%20to%20Language%20Models.ipynb",
+      "summary": "The opening chapter situates large language models inside the wider field of Language AI and draws the distinction the whole book rests on: representation models (encoder style, such as BERT) that turn text into vectors, and generative models (decoder style, such as GPT and Phi-3) that produce text token by token. The notebook is deliberately short. It loads microsoft/Phi-3-mini-4k-instruct onto a Colab T4 with Hugging Face transformers, wraps the model and tokenizer in a text-generation pipeline, and generates an answer to a chat message. Running it once proves your environment works and gives you the mental model of model plus tokenizer plus pipeline that every later chapter reuses.",
+      "concepts": [
+        {
+          "term": "Language AI",
+          "def": "The umbrella field of systems that understand, process or generate human language, of which LLMs are the current dominant approach."
+        },
+        {
+          "term": "Representation model",
+          "def": "An encoder-style model such as BERT that maps text to vectors for classification, search or clustering rather than generating text."
+        },
+        {
+          "term": "Generative model",
+          "def": "A decoder-style model such as GPT or Phi-3 that predicts the next token repeatedly to produce text."
+        },
+        {
+          "term": "Pipeline",
+          "def": "The transformers helper that bundles tokenizer, model and decoding settings behind one callable so you can pass messages and get text back."
+        },
+        {
+          "term": "Chat message format",
+          "def": "A list of role and content dictionaries (user, assistant, system) that the tokenizer converts into the model's prompt template."
+        }
+      ],
+      "keyPoints": [
+        "The book treats two families of models: representation models that encode and generative models that decode, and most applications combine both.",
+        "The notebook loads microsoft/Phi-3-mini-4k-instruct with AutoModelForCausalLM and AutoTokenizer separately, with device_map set to cuda and torch_dtype set to auto.",
+        "A text-generation pipeline is created with return_full_text False, max_new_tokens 500 and do_sample False, so output is deterministic and excludes the prompt.",
+        "The prompt is given as a messages list with a single user turn, not as a raw string; the pipeline applies the chat template for you.",
+        "All chapters recommend Colab with Runtime set to a T4 GPU; the install cell pins transformers 4.41.2 and accelerate 0.31.0.",
+        "Phi-3-mini at 3.8 billion parameters fits on a 16 GB T4 in half precision, which is why it is the workhorse model for the generative chapters."
+      ],
+      "walkthrough": [
+        "Open the notebook in Colab, set Runtime to T4 GPU, uncomment and run the pip install cell for transformers 4.41.2 and accelerate 0.31.0.",
+        "Load microsoft/Phi-3-mini-4k-instruct with AutoModelForCausalLM.from_pretrained (device_map cuda, torch_dtype auto, trust_remote_code False) and the matching AutoTokenizer.",
+        "Build a transformers pipeline for text-generation with return_full_text False, max_new_tokens 500 and do_sample False.",
+        "Create a messages list with one user turn asking for a funny joke about chickens and pass it to the pipeline.",
+        "Print output[0]['generated_text'] and note that only the new tokens are returned because return_full_text is False.",
+        "Change the prompt and max_new_tokens a few times to feel the latency and the deterministic behaviour of greedy decoding."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Load Phi-3-mini and generate from a chat message with a transformers pipeline",
+        "src": "from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline\n\nmodel = AutoModelForCausalLM.from_pretrained(\n    \"microsoft/Phi-3-mini-4k-instruct\",\n    device_map=\"cuda\", torch_dtype=\"auto\", trust_remote_code=False,\n)\ntokenizer = AutoTokenizer.from_pretrained(\"microsoft/Phi-3-mini-4k-instruct\")\n\ngenerator = pipeline(\n    \"text-generation\", model=model, tokenizer=tokenizer,\n    return_full_text=False, max_new_tokens=500, do_sample=False,\n)\n\nmessages = [{\"role\": \"user\", \"content\": \"Create a funny joke about chickens.\"}]\noutput = generator(messages)\nprint(output[0][\"generated_text\"])\n"
+      },
+      "exercise": {
+        "title": "Your first generation loop",
+        "steps": [
+          "Run the Chapter 1 notebook end to end on a T4 and record how long model loading and the first generation take.",
+          "Replace the joke prompt with three prompts of your own: a factual question, a rewrite task and a short reasoning puzzle.",
+          "Set do_sample True with temperature 0.7 and run each prompt three times; note how outputs change compared with greedy decoding.",
+          "Print model.num_parameters() and torch.cuda.memory_allocated() and relate the numbers to the 16 GB T4 limit."
+        ],
+        "deliverable": "A notebook with the three prompts, their greedy and sampled outputs, and a short note on memory use.",
+        "minutes": 30
+      },
+      "checkYourself": [
+        "Why does the book insist on separating representation models from generative models before showing any code?",
+        "What does the pipeline do for you that calling model.generate directly would not, and when might you want the lower-level call?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 1 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter01/Chapter%201%20-%20Introduction%20to%20Language%20Models.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "Phi-3-mini-4k-instruct model card",
+          "url": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct",
+          "type": "docs"
+        },
+        {
+          "title": "Hugging Face transformers documentation",
+          "url": "https://huggingface.co/docs/transformers",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m1-l02",
+      "title": "Tokens and Token Embeddings",
+      "minutes": 75,
+      "sourceRef": "Chapter 2",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter02",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter02/Chapter%202%20-%20Tokens%20and%20Token%20Embeddings.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter02/Chapter%202%20-%20Tokens%20and%20Token%20Embeddings.ipynb",
+      "summary": "Chapter 2 opens the model up at the input side. It generates with Phi-3-mini again but this time inspects the input_ids tensor and decodes each token one at a time so you see how a prompt becomes integers. A show_tokens helper then runs the same tricky text (capitals, emoji, Chinese characters, code with tabs, numbers) through eight tokenizers: bert-base-uncased, bert-base-cased, gpt2, flan-t5-small, the GPT-4 tokenizer via Xenova, starcoder2-15b, galactica-1.3b and Phi-3. The chapter then contrasts contextual token embeddings from microsoft/deberta-v3-xsmall with a single sentence embedding from sentence-transformers all-mpnet-base-v2, and closes with word embeddings beyond LLMs: GloVe vectors via gensim and a Word2Vec model trained on playlists to recommend songs.",
+      "concepts": [
+        {
+          "term": "Tokenizer",
+          "def": "The component that splits text into subword tokens and maps each to an integer id from a fixed vocabulary."
+        },
+        {
+          "term": "Token id",
+          "def": "The integer index of a token in the vocabulary; input_ids is the tensor of these ids that the model consumes."
+        },
+        {
+          "term": "Contextualized embedding",
+          "def": "A per-token vector produced by a model such as DeBERTa whose value depends on the surrounding tokens."
+        },
+        {
+          "term": "Text embedding",
+          "def": "A single vector for a whole sentence or document, produced by a sentence-transformers model such as all-mpnet-base-v2."
+        },
+        {
+          "term": "Word2Vec",
+          "def": "A method that learns static embeddings by predicting neighbouring items in a sequence, applied in the notebook to songs in playlists."
+        },
+        {
+          "term": "Special tokens",
+          "def": "Reserved tokens such as CLS, SEP or assistant markers that tokenizers add to mark structure rather than content."
+        }
+      ],
+      "keyPoints": [
+        "tokenizer(prompt, return_tensors='pt').input_ids gives the integer sequence; decoding ids individually shows words split into subwords and whitespace handled differently per tokenizer.",
+        "The same text tokenizes very differently: BERT uncased lowercases and loses capitalization, GPT-2 and GPT-4 preserve whitespace as tokens, code-focused tokenizers like starcoder2 handle tabs and digits more compactly.",
+        "Tokenizer choice is fixed at pretraining time; the vocabulary, casing and special tokens are part of the model and cannot be swapped later.",
+        "microsoft/deberta-v3-xsmall returns one 384-dimensional vector per token (output shape 1 by tokens by 384), including CLS and SEP positions.",
+        "SentenceTransformer('sentence-transformers/all-mpnet-base-v2').encode returns one 768-dimensional vector per input text, suitable for similarity and classification.",
+        "gensim api.load('glove-wiki-gigaword-50') plus most_similar on the king vector demonstrates static word embeddings and their neighbourhoods.",
+        "A Word2Vec model trained on playlists (vector_size 32, window 20, negative 50) recommends songs with wv.most_similar, showing embeddings are not only for words."
+      ],
+      "walkthrough": [
+        "Load Phi-3-mini-4k-instruct and its tokenizer; tokenize the gardening apology prompt, call model.generate with max_new_tokens 20, and decode the result.",
+        "Print input_ids, loop over them decoding one id at a time, and decode a few hand-picked ids (3323, 622, 29901) to see subword pieces.",
+        "Define show_tokens, which colours each token, and run the multilingual code-and-emoji test string through bert-base-uncased, bert-base-cased, gpt2, google/flan-t5-small, Xenova/gpt-4, bigcode/starcoder2-15b, facebook/galactica-1.3b and Phi-3.",
+        "Load microsoft/deberta-v3-xsmall with AutoModel, run 'Hello world' through it and inspect the output tensor shape to see one contextual vector per token.",
+        "Load sentence-transformers/all-mpnet-base-v2 and encode 'Best movie ever!' to get a single 768-dimensional text embedding.",
+        "Load GloVe (glove-wiki-gigaword-50) through gensim.downloader and list the eleven nearest neighbours of king.",
+        "Download the playlist dataset and song metadata, train Word2Vec on playlists, and print recommendations for song ids 2172 and 842."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Compare how different tokenizers split the same text",
+        "src": "from transformers import AutoTokenizer\n\ndef show_tokens(sentence, tokenizer_name):\n    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)\n    token_ids = tokenizer(sentence).input_ids\n    print(tokenizer_name, len(token_ids), \"tokens\")\n    print(\" | \".join(tokenizer.decode(t) for t in token_ids))\n\ntext = \"\"\"\nEnglish and CAPITALIZATION\nshow_tokens False None elif == >= else: two tabs:\"    \"\n12.0*50=600\n\"\"\"\n\nfor name in [\"bert-base-uncased\", \"bert-base-cased\", \"gpt2\",\n             \"google/flan-t5-small\", \"Xenova/gpt-4\",\n             \"microsoft/Phi-3-mini-4k-instruct\"]:\n    show_tokens(text, name)\n"
+      },
+      "exercise": {
+        "title": "Tokenizer audit",
+        "steps": [
+          "Pick 200 lines of text from a domain you care about (code, legal, medical, another language) and count tokens under gpt2, bert-base-cased, Xenova/gpt-4 and Phi-3.",
+          "Compute tokens per word for each tokenizer and identify the five words or symbols that fragment the most.",
+          "Encode ten sentences with all-mpnet-base-v2 and compute a cosine similarity matrix; check that paraphrases score higher than unrelated pairs.",
+          "Retrain the playlist Word2Vec with vector_size 64 and window 5 and compare recommendations for song 2172 with the original settings."
+        ],
+        "deliverable": "A short table of token counts per tokenizer and a paragraph on which tokenizer suits your domain and why.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "If a tokenizer splits a domain term into six subwords, what does that cost you in context length and in model quality?",
+        "What is the difference between the DeBERTa output for a token and the all-mpnet-base-v2 output for a sentence, and when would you use each?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 2 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter02/Chapter%202%20-%20Tokens%20and%20Token%20Embeddings.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "sentence-transformers repository",
+          "url": "https://github.com/UKPLab/sentence-transformers",
+          "type": "repo"
+        },
+        {
+          "title": "gensim-data pretrained vectors",
+          "url": "https://github.com/RaRe-Technologies/gensim-data",
+          "type": "dataset"
+        },
+        {
+          "title": "Playlist dataset used for the Word2Vec song recommender",
+          "url": "https://storage.googleapis.com/maps-premium/dataset/yes_complete/train.txt",
+          "type": "dataset"
+        }
+      ]
+    },
+    {
+      "id": "m1-l03",
+      "title": "Looking Inside Transformer LLMs",
+      "minutes": 60,
+      "sourceRef": "Chapter 3",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter03",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter03/Chapter%203%20-%20Looking%20Inside%20LLMs.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter03/Chapter%203%20-%20Looking%20Inside%20LLMs.ipynb",
+      "summary": "Chapter 3 walks through the forward pass of a decoder-only transformer using Phi-3-mini as the specimen. The notebook prints the model object so you can read its stack of decoder layers, attention and MLP blocks, and the final lm_head. It then runs a prompt through model.model to get the last hidden states and separately through model.lm_head to get logits over the vocabulary, and picks the next token with argmax, which makes greedy decoding tangible. The final section times model.generate with use_cache True versus False on a 100-token continuation, demonstrating why the key-value cache is essential for fast generation. The book text around this notebook covers attention, positional embeddings, and efficiency improvements such as grouped-query attention.",
+      "concepts": [
+        {
+          "term": "Decoder-only transformer",
+          "def": "An architecture that stacks masked self-attention and feed-forward blocks and predicts the next token from left to right."
+        },
+        {
+          "term": "Hidden state",
+          "def": "The vector per token output by the transformer stack before the language modelling head; shape batch by tokens by hidden size."
+        },
+        {
+          "term": "LM head",
+          "def": "The final linear layer that maps a hidden state to a score (logit) for every token in the vocabulary."
+        },
+        {
+          "term": "Greedy decoding",
+          "def": "Choosing the highest-probability token at each step with argmax; deterministic but can be repetitive."
+        },
+        {
+          "term": "KV cache",
+          "def": "Stored keys and values from earlier tokens so each new token only computes attention against cached tensors instead of recomputing the whole prefix."
+        },
+        {
+          "term": "Autoregressive generation",
+          "def": "Producing text one token at a time, appending each prediction to the input for the next step."
+        }
+      ],
+      "keyPoints": [
+        "print(model) exposes Phi-3's structure: embedding table, a stack of decoder layers each with self-attention and an MLP, a final norm and lm_head.",
+        "model.model(input_ids) returns hidden states of shape 1 by sequence length by 3072 for Phi-3-mini; lm_head maps these to 1 by sequence length by 32064 vocabulary logits.",
+        "Only the last position's logits matter for the next token; lm_head_output[0, -1].argmax(-1) decoded gives 'Paris' for 'The capital of France is'.",
+        "Generation is a loop: predict, append, repeat; each step reruns the stack over the full sequence unless the KV cache is used.",
+        "With use_cache True a 100-token generation is several times faster than with use_cache False because keys and values for the prefix are not recomputed.",
+        "Memory for the cache grows with sequence length and layers, which is why later modules spend time on cache management for serving."
+      ],
+      "walkthrough": [
+        "Load Phi-3-mini-4k-instruct and its tokenizer and wrap them in a text-generation pipeline with max_new_tokens 50 and do_sample False.",
+        "Generate the apology email and print the model object; read the layer list and identify the attention, MLP and lm_head components.",
+        "Tokenize 'The capital of France is', move ids to cuda, call model.model(input_ids) to get hidden states, then model.lm_head on them to get logits.",
+        "Take the argmax of the last position's logits and decode it; inspect model_output[0].shape and lm_head_output.shape.",
+        "Time model.generate for 100 new tokens with use_cache True using the timeit magic.",
+        "Repeat the timing with use_cache False and compare the wall-clock difference."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Separate the transformer stack from the LM head and pick the next token greedily",
+        "src": "prompt = \"The capital of France is\"\ninput_ids = tokenizer(prompt, return_tensors=\"pt\").input_ids.to(\"cuda\")\n\n# Hidden states from the decoder stack (before the lm_head)\nmodel_output = model.model(input_ids)\nprint(model_output[0].shape)        # (1, tokens, hidden_size)\n\n# Logits over the vocabulary from the lm_head\nlm_head_output = model.lm_head(model_output[0])\nprint(lm_head_output.shape)         # (1, tokens, vocab_size)\n\n# Greedy decoding: highest-scoring token at the last position\ntoken_id = lm_head_output[0, -1].argmax(-1)\nprint(tokenizer.decode(token_id))\n\n# KV cache on vs off\n%timeit -n 1 model.generate(input_ids=input_ids, max_new_tokens=100, use_cache=True)\n%timeit -n 1 model.generate(input_ids=input_ids, max_new_tokens=100, use_cache=False)\n"
+      },
+      "exercise": {
+        "title": "Hand-rolled greedy decoder",
+        "steps": [
+          "Write a loop that calls model.model and model.lm_head yourself, appends the argmax token to input_ids, and stops after 30 tokens or at the end-of-sequence id.",
+          "Confirm your loop's output matches model.generate with do_sample False for the same prompt.",
+          "Print the top five candidate tokens and their softmax probabilities at each step for the first ten steps.",
+          "Measure generation time for 50, 100 and 200 new tokens with use_cache True and False and plot the two curves."
+        ],
+        "deliverable": "A notebook with the hand-written decoding loop, a top-5 trace, and a timing plot with a sentence explaining the shape of the curves.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why does the time without the KV cache grow faster than linearly with the number of generated tokens?",
+        "The hidden state has 3072 dimensions but the vocabulary has about 32 thousand entries; what does the lm_head actually learn?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 3 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter03/Chapter%203%20-%20Looking%20Inside%20LLMs.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "How Transformer LLMs Work (DeepLearning.AI short course by the authors)",
+          "url": "https://www.deeplearning.ai/short-courses/how-transformer-llms-work/?utm_campaign=handsonllm-launch&utm_medium=partner",
+          "type": "video"
+        },
+        {
+          "title": "The Illustrated Transformer",
+          "url": "https://jalammar.github.io/illustrated-transformer/",
+          "type": "article"
+        },
+        {
+          "title": "A Visual Guide to Mamba and State Space Models (an alternative to Chapter 3)",
+          "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-mamba-and-state",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m1-l04",
+      "title": "Text Classification",
+      "minutes": 75,
+      "sourceRef": "Chapter 4",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter04",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter04/Chapter%204%20-%20Text%20Classification.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter04/Chapter%204%20-%20Text%20Classification.ipynb",
+      "summary": "Chapter 4 is the first applied chapter and it compares every major way to classify text with language models on the same benchmark, the rotten_tomatoes movie review dataset. It starts with a task-specific representation model, cardiffnlp/twitter-roberta-base-sentiment-latest, run through a pipeline and scored with sklearn's classification_report. It then embeds reviews with sentence-transformers all-mpnet-base-v2 and trains a logistic regression on the embeddings, shows a classifier-free variant using averaged class embeddings and cosine similarity, and demonstrates zero-shot classification by embedding the label descriptions themselves. The final section classifies with generative models: google/flan-t5-small with an instruction prefix and gpt-3.5-turbo through the OpenAI API with a prompt template that forces a 0 or 1 answer.",
+      "concepts": [
+        {
+          "term": "Task-specific model",
+          "def": "A pretrained model already fine-tuned for one task, such as the twitter-roberta sentiment model, used directly without training."
+        },
+        {
+          "term": "Embedding plus classifier",
+          "def": "Freeze an embedding model, encode the text, and train a cheap classifier such as logistic regression on the vectors."
+        },
+        {
+          "term": "Zero-shot classification",
+          "def": "Classifying without labelled examples by comparing document embeddings to embeddings of the label descriptions."
+        },
+        {
+          "term": "F1 score",
+          "def": "The harmonic mean of precision and recall, reported per class by classification_report and used throughout the chapter to compare approaches."
+        },
+        {
+          "term": "Encoder-decoder model",
+          "def": "A model such as Flan-T5 that reads the input with an encoder and writes the answer with a decoder, used here as a text2text classifier."
+        },
+        {
+          "term": "Prompted classification",
+          "def": "Asking a generative model to output a label given instructions and the document, with the prompt constraining the answer format."
+        }
+      ],
+      "keyPoints": [
+        "rotten_tomatoes has 8530 training and 1066 test reviews labelled 0 (negative) or 1 (positive); all approaches are evaluated on the same test split.",
+        "The twitter-roberta pipeline returns three scores (negative, neutral, positive); the notebook keeps negative and positive and takes the argmax.",
+        "all-mpnet-base-v2 embeddings are 768-dimensional; a LogisticRegression on them performs close to the task-specific model with almost no training cost.",
+        "Averaging the training embeddings per class and using cosine similarity to those two centroids gives a classifier with no trainable parameters at all.",
+        "Zero-shot: embed 'A negative review' and 'A positive review', pick the closer label; the notebook suggests trying stronger wordings to see the effect on F1.",
+        "Flan-T5-small is prompted with 'Is the following sentence positive or negative?' via a text2text-generation pipeline over a mapped dataset column.",
+        "The ChatGPT template asks for 1 or 0 and nothing else; running the full test set costs API tokens, so the notebook flags it as optional."
+      ],
+      "walkthrough": [
+        "load_dataset('rotten_tomatoes') and inspect the first and last training examples and the split sizes.",
+        "Build a pipeline around cardiffnlp/twitter-roberta-base-sentiment-latest with return_all_scores True on cuda, run it over KeyDataset(data['test'], 'text') and map scores to 0 or 1.",
+        "Define evaluate_performance with sklearn classification_report and target names Negative Review and Positive Review; score the task-specific model.",
+        "Encode train and test text with SentenceTransformer('sentence-transformers/all-mpnet-base-v2'), fit LogisticRegression(random_state=42) on train embeddings, predict test, and evaluate.",
+        "Compute per-class average embeddings with a pandas groupby, use cosine_similarity against test embeddings and argmax; evaluate the classifier-free variant.",
+        "Embed the two label descriptions, pick the closest label per test document with cosine similarity, and evaluate the zero-shot variant.",
+        "Load google/flan-t5-small in a text2text-generation pipeline, prepend the question prompt to each review with data.map, generate, map 'negative' to 0 else 1, and evaluate.",
+        "Create an openai.OpenAI client, define chatgpt_generation with a system message and a 0-or-1 prompt template, test on one review, and optionally run and evaluate the whole test set."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Three classifiers on top of the same frozen sentence embeddings",
+        "src": "from sentence_transformers import SentenceTransformer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics.pairwise import cosine_similarity\nimport numpy as np\n\nmodel = SentenceTransformer(\"sentence-transformers/all-mpnet-base-v2\")\ntrain_emb = model.encode(data[\"train\"][\"text\"], show_progress_bar=True)\ntest_emb = model.encode(data[\"test\"][\"text\"], show_progress_bar=True)\n\n# 1. Supervised: logistic regression on embeddings\nclf = LogisticRegression(random_state=42).fit(train_emb, data[\"train\"][\"label\"])\ny_lr = clf.predict(test_emb)\n\n# 2. No classifier: nearest class centroid\nlabels = np.array(data[\"train\"][\"label\"])\ncentroids = np.stack([train_emb[labels == c].mean(0) for c in (0, 1)])\ny_centroid = cosine_similarity(test_emb, centroids).argmax(1)\n\n# 3. Zero-shot: compare to embedded label descriptions\nlabel_emb = model.encode([\"A negative review\", \"A positive review\"])\ny_zero = cosine_similarity(test_emb, label_emb).argmax(1)\n"
+      },
+      "exercise": {
+        "title": "Classification scoreboard",
+        "steps": [
+          "Reproduce the F1 scores for the task-specific model, embeddings plus logistic regression, the centroid method, zero-shot and Flan-T5 on rotten_tomatoes.",
+          "Swap all-mpnet-base-v2 for thenlper/gte-small and BAAI/bge-small-en-v1.5 and re-run the embedding approaches.",
+          "Try at least three label wordings for zero-shot and record how much F1 moves.",
+          "Put everything in one table with columns approach, embedding model, training cost (none, seconds, API calls) and macro F1."
+        ],
+        "deliverable": "A notebook and a single comparison table with a one-paragraph recommendation for a production sentiment classifier.",
+        "minutes": 75
+      },
+      "checkYourself": [
+        "Why can a logistic regression on frozen embeddings get close to a model that was fine-tuned end to end for sentiment?",
+        "Under what conditions would you choose the prompted generative approach over an embedding classifier, given cost, latency and label flexibility?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 4 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter04/Chapter%204%20-%20Text%20Classification.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "sentence-transformers repository",
+          "url": "https://github.com/UKPLab/sentence-transformers",
+          "type": "repo"
+        },
+        {
+          "title": "Hugging Face transformers documentation",
+          "url": "https://huggingface.co/docs/transformers",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m1-l05",
+      "title": "Text Clustering and Topic Modeling",
+      "minutes": 60,
+      "sourceRef": "Chapter 5",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter05",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter05/Chapter%205%20-%20Text%20Clustering%20and%20Topic%20Modeling.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter05/Chapter%205%20-%20Text%20Clustering%20and%20Topic%20Modeling.ipynb",
+      "summary": "Chapter 5 moves from supervised to unsupervised use of embeddings. Using the maartengr/arxiv_nlp dataset of computation-and-language paper abstracts and titles, the notebook builds the canonical clustering pipeline: embed with thenlper/gte-small, reduce from 384 to 5 dimensions with UMAP, cluster with HDBSCAN, then project to 2D for a scatter plot. It then hands the same three components to BERTopic, which adds class-based TF-IDF to describe each cluster as a topic, and explores get_topic_info, get_topic, find_topics and the built-in visualizations. The second half shows BERTopic's representation models: KeyBERTInspired and Maximal Marginal Relevance for better keywords, then TextGeneration with Flan-T5 and the OpenAI representation with gpt-3.5-turbo to produce natural-language topic labels, finishing with a datamapplot figure and a word cloud.",
+      "concepts": [
+        {
+          "term": "UMAP",
+          "def": "A dimensionality reduction method that preserves local structure; used to shrink 384-dimensional embeddings to 5 dimensions for clustering and 2 for plotting."
+        },
+        {
+          "term": "HDBSCAN",
+          "def": "A density-based clustering algorithm that finds clusters of varying density and labels low-density points as outliers (cluster -1)."
+        },
+        {
+          "term": "BERTopic",
+          "def": "A modular topic modeling framework that chains an embedding model, UMAP, HDBSCAN and class-based TF-IDF, with pluggable representation models."
+        },
+        {
+          "term": "c-TF-IDF",
+          "def": "Class-based TF-IDF: TF-IDF computed over all documents of a cluster treated as one document, yielding keywords that distinguish that topic."
+        },
+        {
+          "term": "Representation model",
+          "def": "A BERTopic component that refines topic descriptions after clustering, for example KeyBERTInspired, MaximalMarginalRelevance or an LLM."
+        },
+        {
+          "term": "Outlier",
+          "def": "A document HDBSCAN cannot assign to any dense cluster; BERTopic reports these under topic -1."
+        }
+      ],
+      "keyPoints": [
+        "The pipeline is embed, reduce, cluster: gte-small embeddings (384 dims), UMAP(n_components=5, min_dist=0.0, metric='cosine'), HDBSCAN(min_cluster_size=50, cluster_selection_method='eom').",
+        "Reducing dimensionality before clustering matters because distance-based clustering degrades in hundreds of dimensions.",
+        "Passing precomputed embeddings to BERTopic.fit(abstracts, embeddings) avoids re-encoding and keeps the clusters identical to the manual pipeline.",
+        "get_topic_info lists topics with sizes; get_topic(0) gives the top 10 c-TF-IDF keywords; find_topics('topic modeling') finds topic 22 with similarity about 0.95.",
+        "update_topics swaps the representation without retraining: KeyBERTInspired gives more semantic keywords, MaximalMarginalRelevance(diversity=0.5) removes redundant ones.",
+        "The TextGeneration representation with google/flan-t5-small and the OpenAI representation with gpt-3.5-turbo turn keyword lists into short labels using a prompt with [DOCUMENTS] and [KEYWORDS] placeholders.",
+        "visualize_documents, visualize_barchart, visualize_heatmap, visualize_hierarchy and visualize_document_datamap give a fast qualitative read on topic quality."
+      ],
+      "walkthrough": [
+        "Load maartengr/arxiv_nlp from the Hub and pull the Abstracts and Titles columns into lists.",
+        "Encode the abstracts with SentenceTransformer('thenlper/gte-small') and check the embeddings shape.",
+        "Fit UMAP to 5 components with cosine metric, then HDBSCAN with min_cluster_size 50; count the clusters and print the first three abstracts of cluster 0.",
+        "Reduce to 2 dimensions with a second UMAP, split outliers (cluster -1) from clustered points, and draw the matplotlib scatter plot.",
+        "Create BERTopic with the same embedding_model, umap_model and hdbscan_model, fit on abstracts plus precomputed embeddings, and inspect get_topic_info, get_topic(0), find_topics and the BERTopic paper's own topic assignment.",
+        "Render visualize_documents with titles and reduced embeddings, then the barchart, heatmap (n_clusters 30) and hierarchy.",
+        "Deep-copy topic_representations_, then call update_topics with KeyBERTInspired and with MaximalMarginalRelevance and compare using the topic_differences helper.",
+        "Update topics with TextGeneration over a flan-t5-small pipeline, then with the OpenAI representation, and finish with visualize_document_datamap and the optional word cloud."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Embed, reduce, cluster, then let BERTopic describe the clusters as topics",
+        "src": "from sentence_transformers import SentenceTransformer\nfrom umap import UMAP\nfrom hdbscan import HDBSCAN\nfrom bertopic import BERTopic\nfrom bertopic.representation import KeyBERTInspired\n\nembedding_model = SentenceTransformer(\"thenlper/gte-small\")\nembeddings = embedding_model.encode(abstracts, show_progress_bar=True)\n\numap_model = UMAP(n_components=5, min_dist=0.0, metric=\"cosine\", random_state=42)\nhdbscan_model = HDBSCAN(min_cluster_size=50, metric=\"euclidean\",\n                        cluster_selection_method=\"eom\")\n\ntopic_model = BERTopic(\n    embedding_model=embedding_model, umap_model=umap_model,\n    hdbscan_model=hdbscan_model, verbose=True,\n).fit(abstracts, embeddings)\n\nprint(topic_model.get_topic_info().head())\nprint(topic_model.find_topics(\"topic modeling\"))\n\n# Refine keywords without re-clustering\ntopic_model.update_topics(abstracts, representation_model=KeyBERTInspired())\nprint(topic_model.get_topic(0))\n"
+      },
+      "exercise": {
+        "title": "Topic model on your own corpus",
+        "steps": [
+          "Collect 2000 to 10000 short documents (support tickets, reviews, abstracts, commit messages) and run the embed, UMAP, HDBSCAN pipeline with gte-small.",
+          "Fit BERTopic with the same components and report the number of topics, the outlier share, and the ten largest topics with their c-TF-IDF keywords.",
+          "Apply KeyBERTInspired and MaximalMarginalRelevance and write one sentence on how the keywords changed for three topics.",
+          "Generate natural-language labels for the top 10 topics with the Flan-T5 TextGeneration representation and judge which labels you would show to a stakeholder."
+        ],
+        "deliverable": "A notebook plus a one-page topic report with a 2D document map and labelled top-10 topics.",
+        "minutes": 75
+      },
+      "checkYourself": [
+        "Why does BERTopic cluster first and only then compute keywords, instead of defining topics by keywords up front like LDA?",
+        "What does a high outlier share tell you about min_cluster_size, the embedding model, or the corpus itself?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 5 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter05/Chapter%205%20-%20Text%20Clustering%20and%20Topic%20Modeling.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "BERTopic documentation",
+          "url": "https://maartengr.github.io/BERTopic/",
+          "type": "docs"
+        },
+        {
+          "title": "UMAP repository",
+          "url": "https://github.com/lmcinnes/umap",
+          "type": "repo"
+        },
+        {
+          "title": "HDBSCAN repository",
+          "url": "https://github.com/scikit-learn-contrib/hdbscan",
+          "type": "repo"
+        },
+        {
+          "title": "sentence-transformers repository",
+          "url": "https://github.com/UKPLab/sentence-transformers",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m1-l06",
+      "title": "Prompt Engineering",
+      "minutes": 75,
+      "sourceRef": "Chapter 6",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter06",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter06/Chapter%206%20-%20Prompt%20Engineering.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter06/Chapter%206%20-%20Prompt%20Engineering.ipynb",
+      "summary": "Chapter 6 turns to controlling a generative model through its input. With Phi-3-mini in a transformers pipeline, the notebook first exposes the chat template with apply_chat_template and shows how temperature and top_p change sampling. It then assembles a complex prompt from named ingredients (persona, instruction, context, data format, audience, tone, data) and lets you remove pieces to see the effect. In-context learning is demonstrated with a one-shot made-up-word example, chain prompting by generating a product name and then a sales pitch from it, and reasoning with chain-of-thought, zero-shot chain-of-thought ('Let's think step-by-step') and a tree-of-thought style prompt with three imagined experts. The chapter ends with output verification: forcing JSON via an example, then guaranteeing it with llama-cpp-python's constrained sampling using the GGUF version of Phi-3 and response_format json_object.",
+      "concepts": [
+        {
+          "term": "Chat template",
+          "def": "The model-specific text format (for example user and assistant markers) that the tokenizer wraps around messages before generation."
+        },
+        {
+          "term": "Temperature",
+          "def": "A sampling parameter that flattens or sharpens the next-token distribution; higher values give more varied, less predictable output."
+        },
+        {
+          "term": "Top-p sampling",
+          "def": "Sampling only from the smallest set of tokens whose cumulative probability reaches p, which truncates the unlikely tail."
+        },
+        {
+          "term": "In-context learning",
+          "def": "Showing the model examples of the task inside the prompt so it infers the pattern without any weight updates."
+        },
+        {
+          "term": "Chain-of-thought",
+          "def": "Prompting the model to write intermediate reasoning steps before the final answer, which improves multi-step problems."
+        },
+        {
+          "term": "Constrained sampling",
+          "def": "Restricting generation at the token level with a grammar so output is guaranteed to match a format such as JSON."
+        }
+      ],
+      "keyPoints": [
+        "pipe.tokenizer.apply_chat_template(messages, tokenize=False) reveals the exact prompt Phi-3 sees, including its user and assistant markers.",
+        "do_sample True with temperature 1 or top_p 1 produces different jokes on each run; do_sample False is greedy and repeatable.",
+        "The complex prompt is built by concatenating persona, instruction, context, data_format, audience, tone and data strings; each component is a lever you can test independently.",
+        "One-shot prompting with a user and assistant exchange teaches a made-up word's usage; the model then produces a sentence for a second made-up word.",
+        "Chain prompting splits a task: one call creates a chatbot name and slogan, the next uses that output to write a sales pitch.",
+        "Chain-of-thought is shown with a worked tennis-ball example; zero-shot chain-of-thought only appends 'Let's think step-by-step'; tree-of-thought asks three experts to reason step by step and drop out when wrong.",
+        "Asking for JSON in plain text is unreliable; Llama.from_pretrained on microsoft/Phi-3-mini-4k-instruct-gguf with response_format json_object guarantees parseable output."
+      ],
+      "walkthrough": [
+        "Load Phi-3-mini-4k-instruct into a text-generation pipeline (max_new_tokens 500, do_sample False) and generate the chicken joke; print the applied chat template.",
+        "Re-run the joke with do_sample True and temperature 1, then with top_p 1, and compare the variety of outputs.",
+        "Assemble the summarization prompt from persona, instruction, context, data_format, audience, tone and data components; print the templated prompt and generate.",
+        "Run the one-shot Gigamuru and screeg prompt to see in-context learning of a made-up word.",
+        "Chain two prompts: generate a chatbot name and slogan, then feed that text into a sales-pitch prompt.",
+        "Run the chain-of-thought apples problem with a worked example, then zero-shot with 'Let's think step-by-step', then the three-experts tree-of-thought prompt.",
+        "Ask for an RPG character profile in JSON zero-shot, then with a one-shot format example; compare how well the structure is followed.",
+        "Free GPU memory, load Phi-3 GGUF with llama_cpp Llama.from_pretrained (n_gpu_layers -1), call create_chat_completion with response_format json_object and parse the result with json.loads."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "From a plain JSON request to grammar-constrained JSON with llama-cpp-python",
+        "src": "import json\nfrom llama_cpp.llama import Llama\n\n# Plain prompting with transformers: format is a request, not a guarantee\none_shot_prompt = [{\"role\": \"user\", \"content\": (\n    \"Create a short character profile for an RPG game. Only use this format:\\n\"\n    '{\"description\": \"...\", \"name\": \"...\", \"armor\": \"...\", \"weapon\": \"...\"}')}]\nprint(pipe(one_shot_prompt)[0][\"generated_text\"])\n\n# Constrained sampling: the grammar makes valid JSON certain\nllm = Llama.from_pretrained(\n    repo_id=\"microsoft/Phi-3-mini-4k-instruct-gguf\", filename=\"*fp16.gguf\",\n    n_gpu_layers=-1, n_ctx=2048, verbose=False,\n)\noutput = llm.create_chat_completion(\n    messages=[{\"role\": \"user\", \"content\": \"Create a warrior for an RPG in JSON format.\"}],\n    response_format={\"type\": \"json_object\"},\n    temperature=0,\n)[\"choices\"][0][\"message\"][\"content\"]\nprint(json.dumps(json.loads(output), indent=4))\n"
+      },
+      "exercise": {
+        "title": "Prompt ablation study",
+        "steps": [
+          "Take the seven-component summarization prompt and a 500-word article; generate once with all components, then seven more times each removing one component.",
+          "Score the eight summaries on a 1 to 5 rubric for accuracy, format compliance and tone, and note which component mattered most.",
+          "Run ten small arithmetic word problems with and without 'Let's think step-by-step' and count correct answers.",
+          "Request a JSON record from 20 prompts via the transformers pipeline and via llama-cpp constrained sampling; report how many parse with json.loads."
+        ],
+        "deliverable": "A notebook with the ablation table, the chain-of-thought accuracy counts and the JSON parse rates.",
+        "minutes": 75
+      },
+      "checkYourself": [
+        "Why can a one-shot format example fail where constrained sampling cannot, and what does constrained sampling cost you?",
+        "Chain prompting adds latency and calls; when is splitting a task into prompts still the right trade?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 6 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter06/Chapter%206%20-%20Prompt%20Engineering.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "The Illustrated Transformer (text used in the summarization prompt)",
+          "url": "https://jalammar.github.io/illustrated-transformer/",
+          "type": "article"
+        },
+        {
+          "title": "llama-cpp-python",
+          "url": "https://github.com/abetlen/llama-cpp-python",
+          "type": "repo"
+        },
+        {
+          "title": "Phi-3-mini-4k-instruct GGUF weights",
+          "url": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf",
+          "type": "docs"
+        },
+        {
+          "title": "A Visual Guide to Reasoning LLMs (extends the chain-of-thought section)",
+          "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-reasoning-llms",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m1-l07",
+      "title": "Advanced Text Generation Techniques and Tools",
+      "minutes": 75,
+      "sourceRef": "Chapter 7",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter07",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter07/Chapter%207%20-%20Advanced%20Text%20Generation%20Techniques%20and%20Tools.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter07/Chapter%207%20-%20Advanced%20Text%20Generation%20Techniques%20and%20Tools.ipynb",
+      "summary": "Chapter 7 introduces the building blocks that LLM application frameworks provide, using LangChain with a local model. The notebook downloads the fp16 GGUF of Phi-3-mini and loads it with LangChain's LlamaCpp wrapper, then builds a PromptTemplate and chains it to the model. Multiple LLMChains are composed so a story summary produces a title, then a character description, then a one-paragraph story. The memory section shows that the model forgets your name between calls and fixes that with ConversationBufferMemory, ConversationBufferWindowMemory with k=2, and ConversationSummaryMemory driven by a summarization prompt. The chapter closes with a ReAct agent: a gpt-3.5-turbo ChatOpenAI model, a ReAct prompt template, a DuckDuckGo search tool and an llm-math tool, executed by AgentExecutor to answer a MacBook price and currency conversion question.",
+      "concepts": [
+        {
+          "term": "Quantized GGUF model",
+          "def": "A model file format used by llama.cpp that stores weights at reduced precision so large models run on small GPUs or CPUs."
+        },
+        {
+          "term": "Prompt template",
+          "def": "A string with named variables that is filled at call time, keeping the model-specific wrapper separate from the user content."
+        },
+        {
+          "term": "Chain",
+          "def": "A composition of prompt, model and optional parsers where the output of one step becomes the input of the next."
+        },
+        {
+          "term": "Conversation memory",
+          "def": "A mechanism that injects prior turns (full buffer, last k turns, or a running summary) into the prompt so the model can refer back."
+        },
+        {
+          "term": "ReAct",
+          "def": "A prompting pattern where the model alternates Thought, Action, Action Input and Observation until it reaches a Final Answer."
+        },
+        {
+          "term": "Tool",
+          "def": "A function with a name and description that an agent can choose to call, such as web search or a calculator."
+        }
+      ],
+      "keyPoints": [
+        "LlamaCpp(model_path='Phi-3-mini-4k-instruct-fp16.gguf', n_gpu_layers=-1, max_tokens=500, n_ctx=2048) runs Phi-3 locally inside LangChain.",
+        "A PromptTemplate wraps user input in Phi-3's user and assistant markers; prompt | llm creates a runnable chain.",
+        "title | character | story chains three LLMChains whose output_keys (title, character, story) feed the next prompt's input_variables.",
+        "Without memory, the second call 'What is my name?' fails; ConversationBufferMemory with memory_key chat_history fixes it by inserting the history into the template.",
+        "ConversationBufferWindowMemory(k=2) keeps only the last two exchanges, so the model remembers the age but may lose the name; ConversationSummaryMemory compresses history with the LLM itself.",
+        "The ReAct template lists tools and tool_names and defines the Thought, Action, Action Input, Observation loop; create_react_agent and AgentExecutor run it with handle_parsing_errors True.",
+        "The agent example uses gpt-3.5-turbo with temperature 0, a DuckDuckGoSearchResults tool and the llm-math tool to look up a price and convert currency."
+      ],
+      "walkthrough": [
+        "Download Phi-3-mini-4k-instruct-fp16.gguf from the Hugging Face Hub and load it with LangChain's LlamaCpp (n_gpu_layers -1, n_ctx 2048, seed 42); call llm.invoke on a greeting.",
+        "Create a PromptTemplate with the Phi-3 chat markers and an input_prompt variable; build basic_chain as prompt | llm and invoke it.",
+        "Define title, character and story LLMChains with output_key set, compose llm_chain = title | character | story, and invoke it with 'a girl that lost her mother'.",
+        "Show the memory problem by asking for your name in a second call to basic_chain.",
+        "Add chat_history to the template and attach ConversationBufferMemory; repeat the name question and confirm it works.",
+        "Swap in ConversationBufferWindowMemory(k=2), ask about name and age after two turns, and observe what drops out of the window.",
+        "Build ConversationSummaryMemory with a summary prompt, run a few turns, and call memory.load_memory_variables({}) to read the running summary.",
+        "Set OPENAI_API_KEY, create ChatOpenAI(gpt-3.5-turbo), write the ReAct template, assemble a DuckDuckGo search Tool plus load_tools(['llm-math']), build the agent with create_react_agent and AgentExecutor, and run the MacBook price question."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A local Phi-3 chain with conversation memory in LangChain",
+        "src": "from langchain import LlamaCpp, PromptTemplate, LLMChain\nfrom langchain.memory import ConversationBufferWindowMemory\n\nllm = LlamaCpp(\n    model_path=\"Phi-3-mini-4k-instruct-fp16.gguf\",\n    n_gpu_layers=-1, max_tokens=500, n_ctx=2048, seed=42, verbose=False,\n)\n\ntemplate = \"\"\"<s><|user|>Current conversation:{chat_history}\n\n{input_prompt}<|end|>\n<|assistant|>\"\"\"\nprompt = PromptTemplate(template=template,\n                        input_variables=[\"input_prompt\", \"chat_history\"])\n\nmemory = ConversationBufferWindowMemory(k=2, memory_key=\"chat_history\")\nllm_chain = LLMChain(prompt=prompt, llm=llm, memory=memory)\n\nllm_chain.invoke({\"input_prompt\": \"Hi! My name is Maarten and I am 33 years old. What is 1 + 1?\"})\nllm_chain.invoke({\"input_prompt\": \"What is 3 + 3?\"})\nprint(llm_chain.invoke({\"input_prompt\": \"What is my name?\"})[\"text\"])\n"
+      },
+      "exercise": {
+        "title": "Memory strategies under a token budget",
+        "steps": [
+          "Script a 12-turn conversation that mentions five facts early (name, city, job, pet, favourite tool) and asks about each fact at the end.",
+          "Run it with ConversationBufferMemory, ConversationBufferWindowMemory with k=2 and k=5, and ConversationSummaryMemory; record recall of the five facts for each.",
+          "Count prompt tokens per turn for each strategy using the tokenizer and plot tokens versus turn number.",
+          "Replace the OpenAI model in the ReAct agent with the local LlamaCpp Phi-3 model and note where the parsing breaks, if it does."
+        ],
+        "deliverable": "A notebook with a recall table, a token-growth plot and a short note on which memory strategy you would ship and why.",
+        "minutes": 75
+      },
+      "checkYourself": [
+        "What exactly does LangChain add over calling the model yourself, and at what point does the abstraction start to hide things you need to see?",
+        "Why does the ReAct loop depend so heavily on the model following the Thought, Action, Observation format, and how would you make it more robust?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 7 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter07/Chapter%207%20-%20Advanced%20Text%20Generation%20Techniques%20and%20Tools.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "LangChain Python documentation",
+          "url": "https://python.langchain.com/",
+          "type": "docs"
+        },
+        {
+          "title": "llama-cpp-python",
+          "url": "https://github.com/abetlen/llama-cpp-python",
+          "type": "repo"
+        },
+        {
+          "title": "Phi-3-mini-4k-instruct GGUF weights",
+          "url": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf",
+          "type": "docs"
+        },
+        {
+          "title": "A Visual Guide to LLM Agents (extends Chapters 7 and 8)",
+          "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-llm-agents",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m1-l08",
+      "title": "Semantic Search and Retrieval-Augmented Generation",
+      "minutes": 90,
+      "sourceRef": "Chapter 8",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter08",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter08/Chapter%208%20-%20Semantic%20Search.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter08/Chapter%208%20-%20Semantic%20Search.ipynb",
+      "summary": "Chapter 8 builds search and RAG from first principles on a small text archive, the Wikipedia summary of the film Interstellar split into sentences. Dense retrieval embeds the chunks with Cohere's embed endpoint, indexes them in a FAISS IndexFlatL2 and searches by query embedding; a BM25Okapi keyword baseline is built alongside for comparison. A caveat section shows dense search confidently returning irrelevant neighbours for an out-of-domain question about the moon's mass. Reranking with Cohere's rerank endpoint is applied both directly and on top of BM25 candidates. The RAG section first does grounded generation with the Cohere chat API, which returns citations, and then rebuilds the whole pipeline with local models: Phi-3 GGUF through LangChain's LlamaCpp, BAAI/bge-small-en-v1.5 embeddings, a FAISS vector store and a RetrievalQA chain with a custom prompt.",
+      "concepts": [
+        {
+          "term": "Dense retrieval",
+          "def": "Finding documents by nearest-neighbour search over embedding vectors, which matches meaning rather than exact words."
+        },
+        {
+          "term": "Chunking",
+          "def": "Splitting a long text into smaller passages (here sentences) so each gets its own embedding and can be retrieved independently."
+        },
+        {
+          "term": "FAISS",
+          "def": "A library for fast vector similarity search; IndexFlatL2 does exact L2 nearest-neighbour search."
+        },
+        {
+          "term": "BM25",
+          "def": "A classic lexical ranking function based on term frequency and document length, used as the keyword-search baseline."
+        },
+        {
+          "term": "Reranker",
+          "def": "A model that scores query and candidate document together (a cross-encoder) to reorder a first-stage result list."
+        },
+        {
+          "term": "Retrieval-augmented generation",
+          "def": "Retrieving relevant passages and placing them in the prompt so the model answers from provided context, optionally with citations."
+        }
+      ],
+      "keyPoints": [
+        "The archive is split on periods into sentence chunks; chunk size is a design choice that shapes what can be retrieved.",
+        "co.embed with input_type search_document for chunks and search_query for queries produces embeddings that are indexed with faiss.IndexFlatL2 and queried with index.search.",
+        "BM25Okapi over a stop-word-filtered tokenization gives a lexical baseline; for 'how precise was the science' both methods find the astronomers sentence, but by different mechanisms.",
+        "Dense retrieval always returns nearest neighbours even when nothing is relevant ('What is the mass of the moon?'), so you need thresholds, rerankers or refusal logic.",
+        "co.rerank(query, documents, top_n=3) scores each document against the query; combining BM25 candidates with reranking is a cheap hybrid pipeline.",
+        "co.chat(message, documents=docs_dict) performs grounded generation and returns response.citations tied to the retrieved passages.",
+        "The local RAG stack is LlamaCpp with Phi-3-mini-4k-instruct-q4.gguf, HuggingFaceEmbeddings('BAAI/bge-small-en-v1.5'), FAISS.from_texts and RetrievalQA.from_chain_type with chain_type stuff and a prompt holding context and question."
+      ],
+      "walkthrough": [
+        "Create a cohere.Client with your API key; paste the Interstellar text, split on periods and strip whitespace to get the chunk list.",
+        "Embed the chunks with co.embed(input_type='search_document'), build faiss.IndexFlatL2 with the embedding dimension and add the float32 vectors.",
+        "Write search(query) that embeds the query with input_type search_query, calls index.search for the top 3 and returns a DataFrame of texts and distances; run 'how precise was the science'.",
+        "Build a BM25Okapi index with a simple stop-word tokenizer and compare keyword_search results for the same query.",
+        "Run search('What is the mass of the moon?') and discuss why dense retrieval returns confident but irrelevant neighbours.",
+        "Call co.rerank on all chunks for the science query, then build keyword_and_reranking_search that reranks the top 10 BM25 hits.",
+        "Do grounded generation: retrieve for 'income generated', pass the texts as documents to co.chat, print response.text and response.citations.",
+        "Rebuild locally: download Phi-3-mini-4k-instruct-q4.gguf, load LlamaCpp, create HuggingFaceEmbeddings with BAAI/bge-small-en-v1.5, build FAISS.from_texts, define the Phi-3 RAG PromptTemplate and RetrievalQA chain, and invoke 'Income generated'."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A fully local RAG chain: bge-small embeddings, FAISS, Phi-3 GGUF, LangChain RetrievalQA",
+        "src": "from langchain import LlamaCpp, PromptTemplate\nfrom langchain.embeddings.huggingface import HuggingFaceEmbeddings\nfrom langchain.vectorstores import FAISS\nfrom langchain.chains import RetrievalQA\n\nllm = LlamaCpp(model_path=\"Phi-3-mini-4k-instruct-q4.gguf\",\n               n_gpu_layers=-1, max_tokens=500, n_ctx=2048, seed=42, verbose=False)\nembedding_model = HuggingFaceEmbeddings(model_name=\"BAAI/bge-small-en-v1.5\")\ndb = FAISS.from_texts(texts, embedding_model)   # texts = sentence chunks\n\ntemplate = \"\"\"<|user|>\nRelevant information:\n{context}\n\nProvide a concise answer the following question using the relevant information provided above:\n{question}<|end|>\n<|assistant|>\"\"\"\nprompt = PromptTemplate(template=template, input_variables=[\"context\", \"question\"])\n\nrag = RetrievalQA.from_chain_type(\n    llm=llm, chain_type=\"stuff\", retriever=db.as_retriever(),\n    chain_type_kwargs={\"prompt\": prompt}, verbose=True,\n)\nprint(rag.invoke(\"Income generated\"))\n"
+      },
+      "exercise": {
+        "title": "Mini RAG with a reranker over one long document",
+        "steps": [
+          "Choose one long document (a 20 to 50 page manual, report or wiki article) and chunk it two ways: by sentence and by roughly 200-token windows with overlap.",
+          "Write 15 questions with known answer passages; measure recall at 3 for BM25, bge-small dense retrieval and BM25 plus a reranker for both chunkings.",
+          "Add a confidence threshold or 'I do not know' rule and test it with five out-of-scope questions like the moon-mass example.",
+          "Wire the best retriever into the local Phi-3 RetrievalQA chain and manually grade answers on the 15 questions for faithfulness to the retrieved context."
+        ],
+        "deliverable": "A notebook with a recall-at-3 table (retriever by chunking), the out-of-scope behaviour, and graded RAG answers.",
+        "minutes": 120
+      },
+      "checkYourself": [
+        "Why does a reranker improve results even when the first-stage retriever already uses embeddings?",
+        "What failure modes does grounded generation with citations prevent, and which ones does it not prevent?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 8 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter08/Chapter%208%20-%20Semantic%20Search.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "FAISS",
+          "url": "https://github.com/facebookresearch/faiss",
+          "type": "repo"
+        },
+        {
+          "title": "LangChain Python documentation",
+          "url": "https://python.langchain.com/",
+          "type": "docs"
+        },
+        {
+          "title": "Phi-3-mini-4k-instruct GGUF weights",
+          "url": "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf",
+          "type": "docs"
+        },
+        {
+          "title": "sentence-transformers repository",
+          "url": "https://github.com/UKPLab/sentence-transformers",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m1-l09",
+      "title": "Multimodal Large Language Models",
+      "minutes": 60,
+      "sourceRef": "Chapter 9",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter09",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter09/Chapter%209%20-%20Multimodal%20Large%20Language%20Models.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter09/Chapter%209%20-%20Multimodal%20Large%20Language%20Models.ipynb",
+      "summary": "Chapter 9 adds vision. The first half works with CLIP (openai/clip-vit-base-patch32): it tokenizes a caption, preprocesses an AI-generated puppy image, produces a 512-dimensional text embedding and image embedding, normalizes them and computes their similarity, then extends to three images (puppy, cat, supercar) and three captions to draw a similarity matrix. The same is repeated in two lines with the SBERT-compatible clip-ViT-B-32 model. The second half uses BLIP-2 (Salesforce/blip2-opt-2.7b) in float16: the notebook visualizes the preprocessed image tensor, inspects the tokenizer, captions the supercar and a Rorschach blot, and performs visual question answering with Question and Answer prompts, including a multi-turn chat style prompt and an ipywidgets chat loop with memory.",
+      "concepts": [
+        {
+          "term": "CLIP",
+          "def": "A model trained to place matching images and captions close together in a shared embedding space using contrastive learning."
+        },
+        {
+          "term": "Vision Transformer",
+          "def": "A transformer that treats an image as a sequence of patches, used as the image encoder in CLIP and BLIP-2."
+        },
+        {
+          "term": "Shared embedding space",
+          "def": "A vector space where text and image embeddings are comparable, so cosine similarity between a caption and an image is meaningful."
+        },
+        {
+          "term": "BLIP-2",
+          "def": "A multimodal model that connects a frozen image encoder to a frozen LLM (OPT-2.7b here) through a trained Q-Former bridge."
+        },
+        {
+          "term": "Image captioning",
+          "def": "Generating a textual description of an image, done by BLIP-2 with model.generate on processed pixel values."
+        },
+        {
+          "term": "Visual question answering",
+          "def": "Answering a text question about an image by passing both image and prompt to a multimodal model."
+        }
+      ],
+      "keyPoints": [
+        "CLIPTokenizerFast, CLIPProcessor and CLIPModel from openai/clip-vit-base-patch32 give get_text_features and get_image_features, each a 512-dimensional vector.",
+        "Embeddings are normalized before a dot product so the score is a cosine similarity; the puppy image matches its caption with the highest score in the 3 by 3 matrix.",
+        "SentenceTransformer('clip-ViT-B-32') can encode images and captions directly and util.cos_sim reproduces the matrix in a few lines.",
+        "BLIP-2 is loaded with a pinned revision and torch.float16 to fit the T4; the processor resizes images to 224 by 224 and tokenizes text with the OPT tokenizer.",
+        "Captioning the supercar returns a sensible description; captioning a Rorschach blot shows the model's tendency to name familiar objects anyway.",
+        "Prompts of the form 'Question: ... Answer:' turn the same model into a VQA system; concatenating prior question-answer pairs gives a simple chat memory."
+      ],
+      "walkthrough": [
+        "Load the puppy image from the chapter09 images folder and define its caption.",
+        "Load CLIPTokenizerFast, CLIPProcessor and CLIPModel for openai/clip-vit-base-patch32; tokenize the caption and convert ids back to tokens.",
+        "Create the text embedding with get_text_features and the image embedding with get_image_features after preprocessing; visualize the preprocessed tensor with matplotlib.",
+        "Normalize both embeddings and compute the dot product, then repeat for puppy, cat and car images against three captions and plot the similarity matrix.",
+        "Reproduce the matrix with SentenceTransformer('clip-ViT-B-32').encode on images and captions plus util.cos_sim.",
+        "Load Salesforce/blip2-opt-2.7b (pinned revision, float16) with AutoProcessor and Blip2ForConditionalGeneration and move it to cuda.",
+        "Inspect the preprocessed car image tensor and the tokenizer's subword tokens for a sample sentence.",
+        "Caption the car and the Rorschach image with model.generate, then run VQA prompts including a two-turn chat prompt and the ipywidgets chat loop."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Text and image embeddings in CLIP's shared space, then captioning with BLIP-2",
+        "src": "from transformers import CLIPTokenizerFast, CLIPProcessor, CLIPModel\nfrom transformers import AutoProcessor, Blip2ForConditionalGeneration\nimport torch\n\nmodel_id = \"openai/clip-vit-base-patch32\"\nclip_tokenizer = CLIPTokenizerFast.from_pretrained(model_id)\nclip_processor = CLIPProcessor.from_pretrained(model_id)\nclip = CLIPModel.from_pretrained(model_id)\n\ntext_emb = clip.get_text_features(**clip_tokenizer(caption, return_tensors=\"pt\"))\npixels = clip_processor(text=None, images=image, return_tensors=\"pt\")[\"pixel_values\"]\nimage_emb = clip.get_image_features(pixels)\ntext_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)\nimage_emb = image_emb / image_emb.norm(dim=-1, keepdim=True)\nprint((text_emb @ image_emb.T).item())   # cosine similarity\n\nblip_processor = AutoProcessor.from_pretrained(\"Salesforce/blip2-opt-2.7b\")\nblip = Blip2ForConditionalGeneration.from_pretrained(\n    \"Salesforce/blip2-opt-2.7b\", torch_dtype=torch.float16).to(\"cuda\")\ninputs = blip_processor(image, text=\"Question: What is in this picture? Answer:\",\n                        return_tensors=\"pt\").to(\"cuda\", torch.float16)\nids = blip.generate(**inputs, max_new_tokens=30)\nprint(blip_processor.batch_decode(ids, skip_special_tokens=True)[0].strip())\n"
+      },
+      "exercise": {
+        "title": "Zero-shot image search with CLIP",
+        "steps": [
+          "Collect 50 images (your photos or a small public set) and embed them with SentenceTransformer('clip-ViT-B-32').",
+          "Write ten text queries and retrieve the top 3 images for each by cosine similarity; judge precision by eye.",
+          "Caption the same 50 images with BLIP-2 and run the ten queries against the captions using all-mpnet-base-v2; compare retrieval quality with the direct CLIP approach.",
+          "Ask BLIP-2 three VQA questions about five images and note where answers are hallucinated."
+        ],
+        "deliverable": "A notebook with the two retrieval result grids and a paragraph comparing joint-embedding search with caption-then-search.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why can CLIP compare an image with a sentence it has never seen, and what kinds of captions does it still struggle with?",
+        "BLIP-2 keeps the image encoder and the language model frozen; what does that imply about what the bridge component must learn?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 9 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter09/Chapter%209%20-%20Multimodal%20Large%20Language%20Models.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "BLIP-2 OPT-2.7b model card",
+          "url": "https://huggingface.co/Salesforce/blip2-opt-2.7b",
+          "type": "docs"
+        },
+        {
+          "title": "sentence-transformers repository (clip-ViT-B-32)",
+          "url": "https://github.com/UKPLab/sentence-transformers",
+          "type": "repo"
+        },
+        {
+          "title": "The Illustrated Stable Diffusion (extends Chapter 9)",
+          "url": "https://jalammar.github.io/illustrated-stable-diffusion/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m1-l10",
+      "title": "Creating Text Embedding Models",
+      "minutes": 75,
+      "sourceRef": "Chapter 10",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter10",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter10/Chapter%2010%20-%20Creating%20Text%20Embedding%20Models.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter10/Chapter%2010%20-%20Creating%20Text%20Embedding%20Models.ipynb",
+      "summary": "Chapter 10 shows how embedding models are trained rather than just used. All experiments use 50 thousand pairs from GLUE MNLI as training data and the STS-B validation set with EmbeddingSimilarityEvaluator as the yardstick. Starting from plain bert-base-uncased, the notebook trains with SoftmaxLoss over the three NLI labels using SentenceTransformerTrainer, evaluates on STS-B and runs an MTEB task (Banking77Classification). It then compares loss functions: CosineSimilarityLoss on binary entailment labels and MultipleNegativesRankingLoss on anchor, positive, negative triplets. Fine-tuning takes a pretrained all-MiniLM-L6-v2 and measures the gain over the original. Augmented SBERT trains a cross-encoder on 10 thousand gold pairs, labels 40 thousand silver pairs with it, and shows gold plus silver beats gold alone. Finally, TSDAE trains an embedding model with no labels at all using a denoising autoencoder objective.",
+      "concepts": [
+        {
+          "term": "Bi-encoder",
+          "def": "An embedding model that encodes each text independently so similarity is a cheap vector comparison; what sentence-transformers trains."
+        },
+        {
+          "term": "Cross-encoder",
+          "def": "A model that reads a text pair jointly and outputs a relevance score; more accurate but cannot precompute embeddings."
+        },
+        {
+          "term": "Natural language inference",
+          "def": "The MNLI task of labelling premise and hypothesis pairs as entailment, neutral or contradiction, a rich source of training pairs."
+        },
+        {
+          "term": "Multiple negatives ranking loss",
+          "def": "A contrastive loss that pulls anchor and positive together while treating other pairs in the batch (and optional hard negatives) as negatives."
+        },
+        {
+          "term": "Augmented SBERT",
+          "def": "Using a fine-tuned cross-encoder to label extra pairs (silver data) and training the bi-encoder on gold plus silver."
+        },
+        {
+          "term": "TSDAE",
+          "def": "Transformer-based sequential denoising autoencoder: an unsupervised objective that reconstructs a sentence from a corrupted version through its embedding."
+        }
+      ],
+      "keyPoints": [
+        "EmbeddingSimilarityEvaluator on GLUE STS-B validation (scores scaled to 0 to 1, cosine similarity) is the common metric across every experiment.",
+        "SentenceTransformerTrainingArguments (1 epoch, batch size 32, warmup 100, fp16) and SentenceTransformerTrainer with a loss object is the standard training recipe.",
+        "SoftmaxLoss needs num_labels 3 and is the original SBERT recipe; CosineSimilarityLoss needs float labels, so MNLI is remapped to entailment 1 and everything else 0.",
+        "MultipleNegativesRankingLoss works on anchor, positive, negative columns; the notebook keeps only entailment pairs and shuffles hypotheses to make soft negatives.",
+        "Fine-tuning all-MiniLM-L6-v2 with MNRL and then evaluating the untouched original shows how much an already good model gains from in-domain pairs.",
+        "In Augmented SBERT the cross-encoder (bert-base-uncased, num_labels 2) labels the silver set; training on gold plus silver scores higher on STS-B than gold only.",
+        "TSDAE uses DenoisingAutoEncoderDataset to delete words, CLS pooling, and DenoisingAutoEncoderLoss with tied encoder and decoder weights."
+      ],
+      "walkthrough": [
+        "Load glue mnli train (first 50 thousand rows, idx column removed) and build the STS-B EmbeddingSimilarityEvaluator.",
+        "Create SentenceTransformer('bert-base-uncased'), define SoftmaxLoss with num_labels 3, set SentenceTransformerTrainingArguments and train with SentenceTransformerTrainer; evaluate on STS-B.",
+        "Run MTEB(tasks=['Banking77Classification']) on the trained model, then clear VRAM.",
+        "Remap labels to float 0 or 1 and train a fresh bert-base-uncased with CosineSimilarityLoss; evaluate.",
+        "Filter to entailment pairs, add shuffled hypotheses as negatives, and train with MultipleNegativesRankingLoss; evaluate.",
+        "Fine-tune sentence-transformers/all-MiniLM-L6-v2 with MNRL on the same data and compare its STS-B score with the original pretrained model.",
+        "Augmented SBERT: fit a CrossEncoder on 10 thousand gold pairs, predict labels for 40 thousand silver pairs, train a bi-encoder on gold plus silver with CosineSimilarityLoss, then retrain on gold only and compare.",
+        "TSDAE: flatten premises and hypotheses, build DenoisingAutoEncoderDataset, assemble Transformer plus CLS Pooling, train with DenoisingAutoEncoderLoss(tie_encoder_decoder=True) and evaluate."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Fine-tune a sentence-transformers model with multiple negatives ranking loss and measure the gain on STS-B",
+        "src": "from datasets import load_dataset\nfrom sentence_transformers import SentenceTransformer, losses\nfrom sentence_transformers.evaluation import EmbeddingSimilarityEvaluator\nfrom sentence_transformers.trainer import SentenceTransformerTrainer\nfrom sentence_transformers.training_args import SentenceTransformerTrainingArguments\n\ntrain_dataset = load_dataset(\"glue\", \"mnli\", split=\"train\").select(range(50_000))\ntrain_dataset = train_dataset.remove_columns(\"idx\")\n\nval_sts = load_dataset(\"glue\", \"stsb\", split=\"validation\")\nevaluator = EmbeddingSimilarityEvaluator(\n    sentences1=val_sts[\"sentence1\"], sentences2=val_sts[\"sentence2\"],\n    scores=[s / 5 for s in val_sts[\"label\"]], main_similarity=\"cosine\")\n\nmodel = SentenceTransformer(\"sentence-transformers/all-MiniLM-L6-v2\")\nprint(\"before:\", evaluator(model))\n\nargs = SentenceTransformerTrainingArguments(\n    output_dir=\"finetuned_embedding_model\", num_train_epochs=1,\n    per_device_train_batch_size=32, warmup_steps=100, fp16=True,\n    eval_steps=100, logging_steps=100)\ntrainer = SentenceTransformerTrainer(model=model, args=args, train_dataset=train_dataset,\n    loss=losses.MultipleNegativesRankingLoss(model=model), evaluator=evaluator)\ntrainer.train()\nprint(\"after:\", evaluator(model))\n"
+      },
+      "exercise": {
+        "title": "Loss function bake-off",
+        "steps": [
+          "Train bert-base-uncased three times on the same 20 thousand MNLI rows with SoftmaxLoss, CosineSimilarityLoss and MultipleNegativesRankingLoss; keep epochs and batch size identical.",
+          "Evaluate each on STS-B with EmbeddingSimilarityEvaluator and on one MTEB task of your choice.",
+          "Repeat MNRL with batch size 16 and 64 and note how the STS-B score moves with batch size.",
+          "Write up why in-batch negatives make batch size a hyperparameter of the loss itself."
+        ],
+        "deliverable": "A table of STS-B and MTEB scores by loss and batch size plus a short explanation of the ranking you observed.",
+        "minutes": 90
+      },
+      "checkYourself": [
+        "Why is a cross-encoder a better labeller than a bi-encoder, and why do we not just use the cross-encoder for search?",
+        "What assumptions does TSDAE make about what a good sentence embedding should capture, and when might those fail?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 10 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter10/Chapter%2010%20-%20Creating%20Text%20Embedding%20Models.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "sentence-transformers repository",
+          "url": "https://github.com/UKPLab/sentence-transformers",
+          "type": "repo"
+        },
+        {
+          "title": "MTEB benchmark",
+          "url": "https://github.com/embeddings-benchmark/mteb",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m1-l11",
+      "title": "Fine-tuning Representation Models for Classification",
+      "minutes": 75,
+      "sourceRef": "Chapter 11",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter11",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter11/Chapter%2011%20-%20Fine-Tuning%20BERT.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter11/Chapter%2011%20-%20Fine-Tuning%20BERT.ipynb",
+      "summary": "Chapter 11 fine-tunes BERT-style models end to end instead of freezing them. On rotten_tomatoes it trains bert-base-cased with AutoModelForSequenceClassification and the Hugging Face Trainer, reporting F1 through the evaluate library. It then experiments with freezing: train only the classifier head, then freeze everything before encoder block 10, with a bonus sweep that plots F1 against the number of trainable blocks. Few-shot classification uses SetFit with sentence-transformers/all-mpnet-base-v2 on only 16 examples per class. The notebook then continues pretraining with masked language modeling on the review text using DataCollatorForLanguageModeling and compares fill-mask predictions before and after. It closes with named entity recognition on CoNLL-2003: aligning word-level labels to subword tokens, training AutoModelForTokenClassification, scoring with seqeval and running a token-classification pipeline.",
+      "concepts": [
+        {
+          "term": "Sequence classification head",
+          "def": "A linear layer on top of the CLS representation that AutoModelForSequenceClassification adds and trains for a label set."
+        },
+        {
+          "term": "Layer freezing",
+          "def": "Setting requires_grad False on parameters so only part of the network updates, trading accuracy for speed and stability."
+        },
+        {
+          "term": "SetFit",
+          "def": "A few-shot method that contrastively fine-tunes a sentence-transformer on generated pairs and then fits a classification head."
+        },
+        {
+          "term": "Masked language modeling",
+          "def": "The pretraining objective where random tokens are masked and predicted; continuing it on domain text adapts the encoder."
+        },
+        {
+          "term": "Token classification",
+          "def": "Predicting a label for every token, as in named entity recognition with BIO tags."
+        },
+        {
+          "term": "Label alignment",
+          "def": "Mapping word-level NER labels onto subword tokens, using -100 for special tokens and I- tags for continuation pieces."
+        }
+      ],
+      "keyPoints": [
+        "The baseline is bert-base-cased, learning rate 2e-5, batch size 16, 1 epoch, weight decay 0.01, with compute_metrics returning F1 from evaluate.load('f1').",
+        "Training only the classifier head (everything else frozen) is fast but noticeably worse; unfreezing from encoder block 10 onward (parameter index 165) recovers most of the full fine-tune score.",
+        "The bonus sweep shows F1 falling from about 0.85 with all blocks trainable to about 0.70 with none, and stabilising once roughly the top four blocks are trainable.",
+        "SetFit with sample_dataset(num_samples=16) and all-mpnet-base-v2 reaches competitive F1 with 32 labelled reviews, using num_epochs 3 and num_iterations 20.",
+        "MLM continued pretraining uses mlm_probability 0.15 for 10 epochs; the fill-mask pipeline on 'What a horrible [MASK]!' shifts toward movie vocabulary afterwards.",
+        "For NER the CoNLL-2003 label2id covers O, B-PER, I-PER, B-ORG, I-ORG, B-LOC, I-LOC, B-MISC, I-MISC; align_labels uses word_ids to spread labels over subwords.",
+        "seqeval computes entity-level F1 by ignoring -100 positions; trainer.save_model('ner_model') then powers a token-classification pipeline."
+      ],
+      "walkthrough": [
+        "Load rotten_tomatoes train and test; load bert-base-cased with AutoModelForSequenceClassification(num_labels=2), tokenize with truncation and a DataCollatorWithPadding.",
+        "Define compute_metrics with evaluate F1, set TrainingArguments (lr 2e-5, batch 16, 1 epoch, weight decay 0.01), train and evaluate.",
+        "Reload the model, set requires_grad True only for parameters starting with classifier, retrain and evaluate.",
+        "Reload again, freeze every parameter with index below 165 (before encoder block 10), retrain and evaluate; optionally run the bonus sweep over frozen blocks.",
+        "Sample 16 examples per class with setfit.sample_dataset, load SetFitModel from all-mpnet-base-v2, train with SetFit TrainingArguments (3 epochs, 20 iterations) and evaluate F1.",
+        "Load AutoModelForMaskedLM for bert-base-cased, drop labels, use DataCollatorForLanguageModeling with mlm_probability 0.15, train 10 epochs, save to mlm, and compare fill-mask outputs before and after.",
+        "Load conll2003, define label2id and id2label, load AutoModelForTokenClassification, inspect how an example splits into sub-tokens.",
+        "Apply align_labels with word_ids, define a seqeval compute_metrics, train with DataCollatorForTokenClassification, evaluate, save and run the token-classification pipeline on 'My name is Maarten.'"
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Fine-tune BERT for sentiment with the Trainer, then freeze the lower encoder blocks",
+        "src": "from transformers import (AutoTokenizer, AutoModelForSequenceClassification,\n                          DataCollatorWithPadding, TrainingArguments, Trainer)\nimport evaluate, numpy as np\n\nmodel_id = \"bert-base-cased\"\ntokenizer = AutoTokenizer.from_pretrained(model_id)\nmodel = AutoModelForSequenceClassification.from_pretrained(model_id, num_labels=2)\n# Freeze everything before encoder block 10 (parameter index 165)\nfor index, (name, param) in enumerate(model.named_parameters()):\n    if index < 165:\n        param.requires_grad = False\n\ntokenize = lambda ex: tokenizer(ex[\"text\"], truncation=True)\ntokenized_train, tokenized_test = train_data.map(tokenize, batched=True), test_data.map(tokenize, batched=True)\n\ndef compute_metrics(eval_pred):\n    logits, labels = eval_pred\n    preds = np.argmax(logits, axis=-1)\n    return {\"f1\": evaluate.load(\"f1\").compute(predictions=preds, references=labels)[\"f1\"]}\n\nargs = TrainingArguments(\"model\", learning_rate=2e-5, per_device_train_batch_size=16,\n    num_train_epochs=1, weight_decay=0.01, save_strategy=\"epoch\", report_to=\"none\")\ntrainer = Trainer(model=model, args=args, train_dataset=tokenized_train, eval_dataset=tokenized_test,\n    tokenizer=tokenizer, data_collator=DataCollatorWithPadding(tokenizer=tokenizer), compute_metrics=compute_metrics)\ntrainer.train(); print(trainer.evaluate())\n"
+      },
+      "exercise": {
+        "title": "Data efficiency curve",
+        "steps": [
+          "Train bert-base-cased on rotten_tomatoes with 32, 128, 512, 2048 and all training examples and record test F1 for each size.",
+          "Train SetFit with all-mpnet-base-v2 at the same five sizes and plot both curves on one chart.",
+          "Add the frozen-embedding logistic regression from Chapter 4 as a third curve.",
+          "Identify the data size at which full fine-tuning overtakes SetFit and write two sentences on what you would use at 50, 500 and 5000 labels."
+        ],
+        "deliverable": "A notebook with the three F1-versus-training-size curves and the written recommendation.",
+        "minutes": 90
+      },
+      "checkYourself": [
+        "Why does freezing the lower encoder blocks cost so little accuracy while freezing all of them costs a lot?",
+        "What does continued MLM pretraining change about the encoder that a classification fine-tune alone does not?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 11 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter11/Chapter%2011%20-%20Fine-Tuning%20BERT.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "SetFit",
+          "url": "https://github.com/huggingface/setfit",
+          "type": "repo"
+        },
+        {
+          "title": "Hugging Face transformers documentation",
+          "url": "https://huggingface.co/docs/transformers",
+          "type": "docs"
+        },
+        {
+          "title": "sentence-transformers repository",
+          "url": "https://github.com/UKPLab/sentence-transformers",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m1-l12",
+      "title": "Fine-tuning Generation Models",
+      "minutes": 75,
+      "sourceRef": "Chapter 12",
+      "sourceUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/chapter12",
+      "colabUrl": "https://colab.research.google.com/github/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter12/Chapter%2012%20-%20Fine-tuning%20Generation%20Models.ipynb",
+      "notebookUrl": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter12/Chapter%2012%20-%20Fine-tuning%20Generation%20Models.ipynb",
+      "summary": "Chapter 12 fine-tunes a generative LLM in the two-step recipe used by instruction-tuned chat models: supervised fine-tuning followed by preference tuning. The notebook takes 3000 conversations from HuggingFaceH4/ultrachat_200k, formats them with the TinyLlama chat template, loads the base TinyLlama-1.1B-intermediate-step-1431k-3T in 4-bit NF4 with BitsAndBytesConfig, attaches LoRA adapters (rank 64, alpha 32) across the attention and MLP projections with PEFT, and trains with TRL's SFTTrainer. The adapter is merged with merge_and_unload and tested on a prompt. Preference tuning then uses argilla/distilabel-intel-orca-dpo-pairs filtered to high-scoring non-tie pairs, formats prompt, chosen and rejected fields, and trains a second LoRA adapter with DPOTrainer (beta 0.1, 200 steps) on top of the SFT model, finally merging both adapters and generating again.",
+      "concepts": [
+        {
+          "term": "Supervised fine-tuning",
+          "def": "Training a base LLM on instruction and response pairs so it learns to follow the chat format and answer helpfully."
+        },
+        {
+          "term": "QLoRA",
+          "def": "Fine-tuning a 4-bit quantized base model by training small low-rank adapter matrices while the base weights stay frozen."
+        },
+        {
+          "term": "LoRA rank and alpha",
+          "def": "Rank sets the size of the adapter matrices and alpha scales their contribution; the notebook uses r 64 and alpha 32."
+        },
+        {
+          "term": "NF4 quantization",
+          "def": "The 4-bit NormalFloat data type from bitsandbytes used to load the base model with double quantization and float16 compute."
+        },
+        {
+          "term": "Direct preference optimization",
+          "def": "A preference-tuning method that trains directly on chosen versus rejected responses without a separate reward model."
+        },
+        {
+          "term": "Adapter merging",
+          "def": "Folding trained LoRA weights back into the base model with merge_and_unload so inference needs no PEFT wrapper."
+        }
+      ],
+      "keyPoints": [
+        "The SFT data is ultrachat_200k test_sft shuffled with seed 42 and cut to 3000 rows, formatted by applying TinyLlama-1.1B-Chat-v1.0's chat template to the messages field.",
+        "BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4', bnb_4bit_compute_dtype='float16', bnb_4bit_use_double_quant=True) is the Q in QLoRA; leaving it out gives regular LoRA SFT.",
+        "LoraConfig targets k_proj, gate_proj, v_proj, up_proj, q_proj, o_proj and down_proj with r 64, alpha 32, dropout 0.1, task_type CAUSAL_LM after prepare_model_for_kbit_training.",
+        "TrainingArguments use batch 2 with gradient accumulation 4, paged_adamw_32bit, learning rate 2e-4, cosine schedule, fp16 and gradient checkpointing; SFTTrainer trains on the text field with max_seq_length 512.",
+        "AutoPeftModelForCausalLM.from_pretrained plus merge_and_unload produces a standalone model that a text-generation pipeline can run with the user and assistant prompt template.",
+        "DPO data keeps rows where status is not tie, chosen_score is at least 8 and the row is not in gsm8k train, then builds prompt (system plus user), chosen and rejected strings.",
+        "DPOConfig uses learning rate 1e-5, max_steps 200, warmup ratio 0.1; DPOTrainer takes beta 0.1 and max lengths of 512, and the DPO adapter is merged on top of the merged SFT model."
+      ],
+      "walkthrough": [
+        "Load the TinyLlama-1.1B-Chat-v1.0 tokenizer for its chat template, load ultrachat_200k test_sft, shuffle, select 3000 rows and map format_prompt to produce a text column.",
+        "Define the 4-bit BitsAndBytesConfig and load TinyLlama-1.1B-intermediate-step-1431k-3T with it; set use_cache False, pad_token to <PAD> and padding_side left.",
+        "Create LoraConfig for the seven projection modules, call prepare_model_for_kbit_training and get_peft_model.",
+        "Set TrainingArguments (batch 2, accumulation 4, paged_adamw_32bit, lr 2e-4, cosine, 1 epoch, fp16, gradient checkpointing) and train with SFTTrainer on dataset_text_field text; save the adapter as TinyLlama-1.1B-qlora.",
+        "Reload with AutoPeftModelForCausalLM, merge_and_unload, and generate for 'Tell me something about Large Language Models.' with a pipeline.",
+        "Load argilla/distilabel-intel-orca-dpo-pairs, filter to non-tie rows with chosen_score at least 8 and not in gsm8k train, and map format_prompt to prompt, chosen and rejected.",
+        "Reload the SFT adapter 4-bit, merge, attach a fresh LoraConfig, define DPOConfig (lr 1e-5, 200 steps, warmup 0.1) and train DPOTrainer with beta 0.1; save TinyLlama-1.1B-dpo-qlora.",
+        "Merge the SFT adapter into the base, then the DPO adapter into that model with PeftModel, and run the same prompt through a pipeline to compare outputs."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "QLoRA supervised fine-tuning of TinyLlama with bitsandbytes, PEFT and TRL",
+        "src": "import torch\nfrom transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments\nfrom peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model\nfrom trl import SFTTrainer\n\nmodel_name = \"TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T\"\nbnb_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type=\"nf4\",\n                                bnb_4bit_compute_dtype=\"float16\", bnb_4bit_use_double_quant=True)\nmodel = AutoModelForCausalLM.from_pretrained(model_name, device_map=\"auto\", quantization_config=bnb_config)\nmodel.config.use_cache = False\ntokenizer = AutoTokenizer.from_pretrained(model_name)\ntokenizer.pad_token, tokenizer.padding_side = \"<PAD>\", \"left\"\n\npeft_config = LoraConfig(r=64, lora_alpha=32, lora_dropout=0.1, bias=\"none\", task_type=\"CAUSAL_LM\",\n    target_modules=[\"k_proj\", \"gate_proj\", \"v_proj\", \"up_proj\", \"q_proj\", \"o_proj\", \"down_proj\"])\nmodel = get_peft_model(prepare_model_for_kbit_training(model), peft_config)\n\nargs = TrainingArguments(output_dir=\"./results\", per_device_train_batch_size=2, gradient_accumulation_steps=4,\n    optim=\"paged_adamw_32bit\", learning_rate=2e-4, lr_scheduler_type=\"cosine\", num_train_epochs=1,\n    logging_steps=10, fp16=True, gradient_checkpointing=True)\ntrainer = SFTTrainer(model=model, train_dataset=dataset, dataset_text_field=\"text\", tokenizer=tokenizer,\n                     args=args, max_seq_length=512, peft_config=peft_config)\ntrainer.train()\ntrainer.model.save_pretrained(\"TinyLlama-1.1B-qlora\")\n"
+      },
+      "exercise": {
+        "title": "QLoRA fine-tune with a judge comparison",
+        "steps": [
+          "Run the SFT stage on 3000 ultrachat rows and save the merged model; generate answers for 20 held-out prompts from the base model and the SFT model.",
+          "Run the DPO stage for 200 steps and generate answers for the same 20 prompts.",
+          "Use a stronger model (an API model or Phi-3 with a rubric prompt) as a judge to pick the better answer in blind base-vs-SFT and SFT-vs-DPO pairs; randomize answer order.",
+          "Report win rates and three example pairs where the judge's choice surprised you, then change LoRA rank to 16 and note the effect on training time and win rate."
+        ],
+        "deliverable": "A notebook with win-rate tables for base versus SFT and SFT versus DPO, plus a short reflection on judge reliability.",
+        "minutes": 120
+      },
+      "checkYourself": [
+        "Why does QLoRA make a 1.1B or 7B fine-tune feasible on a T4, and what quality risks does 4-bit loading introduce?",
+        "DPO never trains a reward model; what is it using instead, and what kind of data does that require?"
+      ],
+      "resources": [
+        {
+          "title": "Chapter 12 notebook",
+          "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/blob/main/chapter12/Chapter%2012%20-%20Fine-tuning%20Generation%20Models.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "TRL (SFTTrainer and DPOTrainer)",
+          "url": "https://github.com/huggingface/trl",
+          "type": "repo"
+        },
+        {
+          "title": "PEFT (LoRA adapters)",
+          "url": "https://github.com/huggingface/peft",
+          "type": "repo"
+        },
+        {
+          "title": "A Visual Guide to Quantization (extends Chapters 7 and 12)",
+          "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization",
+          "type": "article"
+        },
+        {
+          "title": "The Illustrated DeepSeek-R1 (extends Chapter 12)",
+          "url": "https://newsletter.languagemodels.co/p/the-illustrated-deepseek-r1",
+          "type": "article"
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "Hands-On Large Language Models GitHub repository",
+      "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models",
+      "type": "repo",
+      "note": "All twelve chapter notebooks, the bonus folder and the setup guides; the source of every lesson in this module."
+    },
+    {
+      "title": "Hands-On Large Language Models on O'Reilly",
+      "url": "https://www.oreilly.com/library/view/hands-on-large-language/9781098150952/",
+      "type": "article",
+      "note": "The book itself; the notebooks are companions to the chapter text and its nearly 300 figures."
+    },
+    {
+      "title": "Quick-start setup guide (.setup)",
+      "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/.setup",
+      "type": "docs",
+      "note": "Local install with pip install -r requirements.txt or conda env create -f environment.yml, plus the Colab recommendation."
+    },
+    {
+      "title": "Conda environment guide (.setup/conda)",
+      "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/.setup/conda",
+      "type": "docs",
+      "note": "Step by step Miniconda setup with Python 3.10, the thellmbook environment and GPU PyTorch installation notes."
+    },
+    {
+      "title": "Bonus content folder",
+      "url": "https://github.com/HandsOnLLM/Hands-On-Large-Language-Models/tree/main/bonus",
+      "type": "docs",
+      "note": "Short descriptions of each visual guide and which chapter it extends."
+    },
+    {
+      "title": "How Transformer LLMs Work (DeepLearning.AI short course)",
+      "url": "https://www.deeplearning.ai/short-courses/how-transformer-llms-work/?utm_campaign=handsonllm-launch&utm_medium=partner",
+      "type": "video",
+      "note": "The authors' animated course on tokenization, embeddings, self-attention, KV cache and attention variants; pairs with Chapters 2 and 3."
+    },
+    {
+      "title": "A Visual Guide to Mamba and State Space Models",
+      "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-mamba-and-state",
+      "type": "article",
+      "note": "An alternative Chapter 3: sequence modelling without attention, and why hybrid architectures are appearing."
+    },
+    {
+      "title": "A Visual Guide to Quantization",
+      "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-quantization",
+      "type": "article",
+      "note": "Extends Chapters 7 and 12: post-training quantization, quantization-aware training and BitNet, the background for GGUF and NF4."
+    },
+    {
+      "title": "The Illustrated Stable Diffusion",
+      "url": "https://jalammar.github.io/illustrated-stable-diffusion/",
+      "type": "article",
+      "note": "Extends Chapter 9: how CLIP guides image generation, the mirror image of using CLIP to bring images to text models."
+    },
+    {
+      "title": "A Visual Guide to Mixture of Experts",
+      "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-mixture-of-experts",
+      "type": "article",
+      "note": "Extends Chapter 3: routing tokens to expert sub-networks, the architecture behind many frontier open models."
+    },
+    {
+      "title": "A Visual Guide to Reasoning LLMs",
+      "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-reasoning-llms",
+      "type": "article",
+      "note": "Extends Chapters 6 and 12: from chain-of-thought prompting to test-time compute and trained reasoning."
+    },
+    {
+      "title": "The Illustrated DeepSeek-R1",
+      "url": "https://newsletter.languagemodels.co/p/the-illustrated-deepseek-r1",
+      "type": "article",
+      "note": "Extends Chapter 12: how an open reasoning model was trained with verifiers and preference tuning on a mixture-of-experts base."
+    },
+    {
+      "title": "A Visual Guide to LLM Agents",
+      "url": "https://newsletter.maartengrootendorst.com/p/a-visual-guide-to-llm-agents",
+      "type": "article",
+      "note": "Extends Chapters 7 and 8: tools, memory, planning and multi-agent collaboration; a bridge to the Agents stage of this path."
+    },
+    {
+      "title": "Exploring Language Models (Maarten Grootendorst's newsletter)",
+      "url": "https://newsletter.maartengrootendorst.com",
+      "type": "article",
+      "note": "Home of most of the visual bonus guides and new ones as they appear."
+    },
+    {
+      "title": "Language Models & Co. (Jay Alammar's newsletter)",
+      "url": "https://newsletter.languagemodels.co",
+      "type": "article",
+      "note": "Jay Alammar's illustrated writing on new models, including the DeepSeek-R1 guide."
+    },
+    {
+      "title": "sentence-transformers",
+      "url": "https://github.com/UKPLab/sentence-transformers",
+      "type": "repo",
+      "note": "The embedding library used in Chapters 2, 4, 5, 8, 9, 10 and 11 for encoding, training and evaluation."
+    },
+    {
+      "title": "Hugging Face transformers documentation",
+      "url": "https://huggingface.co/docs/transformers",
+      "type": "docs",
+      "note": "Reference for AutoModel classes, pipelines, Trainer and generation settings used throughout the notebooks."
+    },
+    {
+      "title": "BERTopic documentation",
+      "url": "https://maartengr.github.io/BERTopic/",
+      "type": "docs",
+      "note": "The topic modeling framework from Chapter 5, including representation models and visualizations."
+    },
+    {
+      "title": "PEFT",
+      "url": "https://github.com/huggingface/peft",
+      "type": "repo",
+      "note": "LoRA and QLoRA adapters used in Chapter 12 for parameter-efficient fine-tuning."
+    },
+    {
+      "title": "TRL",
+      "url": "https://github.com/huggingface/trl",
+      "type": "repo",
+      "note": "SFTTrainer and DPOTrainer used in Chapter 12 for supervised and preference fine-tuning."
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "Representation model versus generative model",
+      "back": "Representation models (encoder style, such as BERT) turn text into vectors for classification, search and clustering; generative models (decoder style, such as GPT and Phi-3) produce text token by token."
+    },
+    {
+      "front": "What does a tokenizer output?",
+      "back": "A list of integer token ids (input_ids) from a fixed vocabulary; the vocabulary, casing and special tokens are fixed at pretraining time and travel with the model."
+    },
+    {
+      "front": "Contextualized token embedding versus text embedding",
+      "back": "A contextualized embedding is one vector per token whose value depends on neighbours (for example DeBERTa output); a text embedding is one vector for a whole sentence or document (for example all-mpnet-base-v2)."
+    },
+    {
+      "front": "What does the LM head do?",
+      "back": "It is the final linear layer that maps a hidden state (3072 dims in Phi-3-mini) to a logit for every vocabulary token (about 32 thousand); argmax over the last position gives the greedy next token."
+    },
+    {
+      "front": "Why use a KV cache?",
+      "back": "It stores keys and values of previous tokens so each new token attends to cached tensors instead of recomputing the prefix; the Chapter 3 timing shows generation is several times faster with use_cache True."
+    },
+    {
+      "front": "Zero-shot classification with embeddings",
+      "back": "Embed the label descriptions (for example 'A negative review' and 'A positive review'), embed the documents, and assign each document the label with the highest cosine similarity; no training data needed."
+    },
+    {
+      "front": "The three-step clustering pipeline in Chapter 5",
+      "back": "Embed documents (thenlper/gte-small), reduce dimensionality (UMAP to 5 components), cluster (HDBSCAN with min_cluster_size 50); outliers get cluster -1."
+    },
+    {
+      "front": "What is c-TF-IDF?",
+      "back": "Class-based TF-IDF: all documents in a cluster are concatenated into one document and TF-IDF is computed across clusters, producing keywords that distinguish each topic in BERTopic."
+    },
+    {
+      "front": "Temperature and top_p",
+      "back": "Temperature rescales the next-token distribution (higher is more random); top_p samples only from the smallest token set whose cumulative probability reaches p. Both need do_sample True."
+    },
+    {
+      "front": "How does constrained sampling guarantee JSON?",
+      "back": "A grammar restricts which tokens may be generated at each step, so output cannot leave the format; in llama-cpp-python this is response_format with type json_object."
+    },
+    {
+      "front": "ConversationBufferWindowMemory(k=2)",
+      "back": "Keeps only the last two exchanges in the prompt; older facts (such as a name given in turn one) drop out, while ConversationSummaryMemory compresses history into a running summary instead."
+    },
+    {
+      "front": "The ReAct loop",
+      "back": "The model alternates Thought, Action, Action Input and Observation, calling tools (search, calculator) until it writes a Final Answer; AgentExecutor runs the loop."
+    },
+    {
+      "front": "Main caveat of dense retrieval",
+      "back": "Nearest-neighbour search always returns something; for an out-of-domain query (mass of the moon against an Interstellar archive) it returns confident but irrelevant results, so add thresholds or a reranker."
+    },
+    {
+      "front": "Reranker",
+      "back": "A cross-encoder that scores query and document together and reorders first-stage candidates (from BM25 or dense search); more accurate per pair but too slow to score the whole corpus."
+    },
+    {
+      "front": "What does CLIP learn?",
+      "back": "A shared embedding space where an image and its caption are close; normalized text and image embeddings can be compared with cosine similarity for zero-shot matching and retrieval."
+    },
+    {
+      "front": "Multiple negatives ranking loss",
+      "back": "A contrastive loss where each anchor is pulled toward its positive and pushed from the other positives in the batch (plus optional hard negatives); batch size therefore acts as a hyperparameter."
+    },
+    {
+      "front": "Augmented SBERT",
+      "back": "Fine-tune a cross-encoder on gold pairs, use it to label many unlabelled pairs (silver data), then train the bi-encoder on gold plus silver; Chapter 10 shows it beats gold only."
+    },
+    {
+      "front": "SetFit",
+      "back": "Few-shot classification that contrastively fine-tunes a sentence-transformer on pairs generated from a handful of examples (16 per class in Chapter 11) and then fits a classification head."
+    },
+    {
+      "front": "QLoRA in one sentence",
+      "back": "Load the base model in 4-bit NF4 with bitsandbytes, freeze it, and train low-rank LoRA adapter matrices (r 64, alpha 32 in Chapter 12) on the attention and MLP projections."
+    },
+    {
+      "front": "SFT then DPO",
+      "back": "Supervised fine-tuning teaches the chat format from instruction and response pairs; direct preference optimization then trains on chosen versus rejected answers with beta 0.1 and no separate reward model."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "In the Chapter 1 notebook, why is return_full_text set to False when creating the text-generation pipeline?",
+      "o": [
+        "So the pipeline returns only the newly generated tokens rather than echoing the prompt",
+        "So the model runs in half precision",
+        "So the tokenizer skips special tokens",
+        "So generation becomes deterministic"
+      ],
+      "a": 0,
+      "e": "return_full_text False strips the prompt from the output; determinism comes from do_sample False.",
+      "lesson": "m1-l01"
+    },
+    {
+      "q": "When the same test string is tokenized with bert-base-uncased and gpt2, what is a key difference the Chapter 2 notebook demonstrates?",
+      "o": [
+        "GPT-2 cannot tokenize emoji at all",
+        "BERT uncased lowercases text and loses capitalization, while GPT-2 preserves case and whitespace as tokens",
+        "Both produce identical token ids because they share a vocabulary",
+        "BERT produces fewer tokens for code because it was trained on GitHub"
+      ],
+      "a": 1,
+      "e": "Casing, whitespace and special tokens are properties of each tokenizer; BERT uncased lowercases everything, GPT-2 is byte-level and keeps case and spaces.",
+      "lesson": "m1-l02"
+    },
+    {
+      "q": "What effect does use_cache=False have in the Chapter 3 timing experiment?",
+      "o": [
+        "Generation is faster because less memory is used",
+        "Output quality improves",
+        "Generation is markedly slower because keys and values of the prefix are recomputed at every step",
+        "The model refuses to generate more than 20 tokens"
+      ],
+      "a": 2,
+      "e": "Without the KV cache every step re-encodes the whole sequence, so time grows faster than linearly with output length.",
+      "lesson": "m1-l03"
+    },
+    {
+      "q": "Which Chapter 4 approach requires no trained parameters and no labelled examples at inference time?",
+      "o": [
+        "Logistic regression on all-mpnet-base-v2 embeddings",
+        "The cardiffnlp twitter-roberta sentiment pipeline",
+        "Flan-T5 with an instruction prefix",
+        "Zero-shot classification by comparing document embeddings with embedded label descriptions"
+      ],
+      "a": 3,
+      "e": "Zero-shot embeds the label strings themselves and uses cosine similarity; the other options rely on fine-tuned weights or a trained classifier.",
+      "lesson": "m1-l04"
+    },
+    {
+      "q": "In the Chapter 5 pipeline, why are embeddings reduced with UMAP before HDBSCAN?",
+      "o": [
+        "HDBSCAN only accepts two-dimensional input",
+        "Density-based clustering works poorly in hundreds of dimensions, so reducing to 5 dimensions improves cluster quality",
+        "UMAP removes the outliers that HDBSCAN cannot handle",
+        "BERTopic refuses to run on 384-dimensional vectors"
+      ],
+      "a": 1,
+      "e": "UMAP to 5 components with cosine metric keeps local structure while making distances meaningful for HDBSCAN.",
+      "lesson": "m1-l05"
+    },
+    {
+      "q": "Why does Chapter 6 switch from the transformers pipeline to llama-cpp-python for the final JSON example?",
+      "o": [
+        "Because llama-cpp-python supports grammar-constrained sampling that guarantees valid JSON, whereas a format example in the prompt is only a request",
+        "Because transformers cannot run Phi-3",
+        "Because llama-cpp-python is faster on a T4",
+        "Because the OpenAI API was unavailable"
+      ],
+      "a": 0,
+      "e": "response_format json_object constrains tokens at generation time; the one-shot format example earlier in the chapter can still be ignored by the model.",
+      "lesson": "m1-l06"
+    },
+    {
+      "q": "In Chapter 7, after two turns with ConversationBufferWindowMemory(k=2), why might the model know the user's age but not their name?",
+      "o": [
+        "The model only stores numbers",
+        "LangChain removes personal names for privacy",
+        "The summary prompt discarded it",
+        "The name was given in a turn that fell outside the two-exchange window"
+      ],
+      "a": 3,
+      "e": "The window memory keeps only the last k exchanges; whatever was said earlier is no longer in the prompt.",
+      "lesson": "m1-l07"
+    },
+    {
+      "q": "What does the 'What is the mass of the moon?' query illustrate in Chapter 8?",
+      "o": [
+        "That FAISS cannot index short sentences",
+        "That BM25 is always better than dense retrieval",
+        "That dense retrieval returns nearest neighbours even when no chunk is relevant, so you need thresholds, reranking or refusal logic",
+        "That Cohere embeddings are not normalized"
+      ],
+      "a": 2,
+      "e": "The index is about the film Interstellar; the query is out of domain but the search still returns three confident neighbours.",
+      "lesson": "m1-l08"
+    },
+    {
+      "q": "In Chapter 9, why are the CLIP text and image embeddings divided by their norms before the dot product?",
+      "o": [
+        "To convert them to 224 by 224 pixels",
+        "To reduce them to 2 dimensions",
+        "Because BLIP-2 requires unit vectors",
+        "To make the dot product equal to cosine similarity so scores are comparable across images and captions"
+      ],
+      "a": 3,
+      "e": "Normalizing both vectors turns the dot product into cosine similarity, which is what the similarity matrix shows.",
+      "lesson": "m1-l09"
+    },
+    {
+      "q": "In Chapter 10, how are the anchor, positive and negative columns for MultipleNegativesRankingLoss built from MNLI?",
+      "o": [
+        "Only entailment pairs are kept as anchor and positive, and hypotheses are shuffled to create soft negatives",
+        "All three labels are used and negatives are the contradiction pairs only",
+        "Premises are paired with themselves",
+        "STS-B scores are thresholded at 0.5"
+      ],
+      "a": 0,
+      "e": "The notebook filters label 0 (entailment), then randomly shuffles hypotheses to supply a negative for each anchor.",
+      "lesson": "m1-l10"
+    },
+    {
+      "q": "In Chapter 11, what happens to F1 as more encoder blocks of bert-base-cased are frozen?",
+      "o": [
+        "F1 is unchanged because only the classifier matters",
+        "F1 rises because freezing prevents overfitting",
+        "F1 degrades gradually and drops sharply when almost all blocks are frozen, stabilising once roughly the top few blocks are trainable",
+        "Training fails to converge"
+      ],
+      "a": 2,
+      "e": "The bonus sweep plots F1 from about 0.85 (all trainable) down to about 0.70 (none trainable).",
+      "lesson": "m1-l11"
+    },
+    {
+      "q": "In Chapter 12, which setting is described as the Q in QLoRA?",
+      "o": [
+        "LoraConfig with r 64",
+        "paged_adamw_32bit optimizer",
+        "BitsAndBytesConfig loading the base model in 4-bit NF4 with double quantization",
+        "max_seq_length 512"
+      ],
+      "a": 2,
+      "e": "Quantizing the frozen base model to 4 bits is what lets the fine-tune fit on a small GPU; LoRA is the adapter part.",
+      "lesson": "m1-l12"
+    }
+  ],
+  "project": {
+    "title": "One corpus, three lenses: classify, cluster, retrieve",
+    "brief": "Take a single text corpus of 3000 to 20000 short documents that you care about (support tickets, product reviews, paper abstracts, issue titles) and run it through the three core techniques of this module. First build a classifier and a scoreboard, then discover structure with clustering and topic modeling, then build a retrieval-augmented question answering system over the same documents with a local model. The point is to see how one set of embeddings serves supervised, unsupervised and generative use cases, and to make the trade-offs concrete with numbers.",
+    "hours": 8,
+    "steps": [
+      "Prepare the corpus: deduplicate, keep a text column and, if available, a label column; hold out 20 percent as a test set and record token statistics with two tokenizers from Chapter 2.",
+      "Classification: implement at least three approaches from Chapters 4 and 11 (for example embeddings plus logistic regression, zero-shot label embeddings, SetFit with 16 examples per class, or a bert-base-cased fine-tune) and report macro F1 on the held-out set in one table.",
+      "Clustering: embed with thenlper/gte-small or all-mpnet-base-v2, run UMAP and HDBSCAN, fit BERTopic on the precomputed embeddings, and produce a labelled 2D document map plus the top 10 topics with KeyBERTInspired keywords and one generated label each.",
+      "Cross-check: compare topic assignments with your labels or classifier predictions (a contingency table) and write three observations about where the unsupervised structure agrees or disagrees with the labels.",
+      "Retrieval: chunk the documents, index them with bge-small-en-v1.5 in FAISS and with BM25, write 15 questions with known answer documents and measure recall at 3 for dense, lexical and BM25 plus reranker.",
+      "Generation: wire the best retriever into a local Phi-3 GGUF RetrievalQA chain with a prompt that instructs the model to say it does not know when context is missing; grade answers to the 15 questions and 5 out-of-scope questions.",
+      "Write a two-page report with the classification table, the topic map, the retrieval table, the graded RAG answers and a recommendation on which pieces you would ship first."
+    ],
+    "rubric": [
+      {
+        "criterion": "Classification scoreboard",
+        "meets": "At least three approaches evaluated on the same held-out split with macro F1, training cost and inference cost reported side by side, and a justified pick."
+      },
+      {
+        "criterion": "Clustering and topics",
+        "meets": "A reproducible embed, UMAP, HDBSCAN, BERTopic pipeline with a 2D map, top 10 topics with refined keywords and readable labels, and the outlier share reported."
+      },
+      {
+        "criterion": "Retrieval evaluation",
+        "meets": "Recall at 3 for dense, BM25 and reranked retrieval on 15 questions, with the chunking strategy stated and at least one failure case analysed."
+      },
+      {
+        "criterion": "Grounded generation",
+        "meets": "A local RAG chain whose answers are graded for faithfulness to the retrieved context, and which declines out-of-scope questions in at least 4 of 5 cases."
+      },
+      {
+        "criterion": "Report and reproducibility",
+        "meets": "A notebook that runs top to bottom on a Colab T4 and a two-page report that states numbers, limitations and next steps in plain language."
+      }
+    ],
+    "stretch": [
+      "Fine-tune bge-small-en-v1.5 or all-MiniLM-L6-v2 on question and document pairs mined from your corpus with MultipleNegativesRankingLoss (Chapter 10) and show the change in recall at 3.",
+      "Replace the RetrievalQA chain with a small ReAct agent (Chapter 7) that can choose between the retriever and a calculator tool and compare answer quality on five numeric questions.",
+      "QLoRA fine-tune TinyLlama on 1000 question and answer pairs generated from your corpus (Chapter 12) and compare it against the RAG system with a blind judge."
+    ]
+  },
+  "glossary": [
+    {
+      "term": "Token",
+      "def": "The basic unit a language model reads and writes: a word, subword or byte sequence mapped to an integer id in the model's vocabulary."
+    },
+    {
+      "term": "Embedding",
+      "def": "A dense numeric vector that represents a token, sentence, document or image so that similar items are close in vector space."
+    },
+    {
+      "term": "Transformer",
+      "def": "The neural architecture built from self-attention and feed-forward blocks that underlies modern LLMs; decoder-only variants generate text."
+    },
+    {
+      "term": "Attention",
+      "def": "The mechanism by which each token position weighs and combines information from other positions in the sequence."
+    },
+    {
+      "term": "KV cache",
+      "def": "Cached key and value tensors from previous positions that let autoregressive generation avoid recomputing attention over the prefix."
+    },
+    {
+      "term": "Decoding",
+      "def": "The procedure for turning a model's next-token distribution into an actual token: greedy argmax, temperature sampling, top-p sampling or constrained sampling."
+    },
+    {
+      "term": "Sentence-transformers",
+      "def": "A Python library for training and using bi-encoder embedding models with built-in losses, evaluators and a Trainer."
+    },
+    {
+      "term": "Cosine similarity",
+      "def": "The cosine of the angle between two vectors; the standard measure of closeness between normalized embeddings."
+    },
+    {
+      "term": "UMAP",
+      "def": "Uniform Manifold Approximation and Projection, a non-linear dimensionality reduction method used before clustering and for 2D plots."
+    },
+    {
+      "term": "HDBSCAN",
+      "def": "Hierarchical density-based clustering that discovers clusters of varying density and marks sparse points as outliers."
+    },
+    {
+      "term": "BERTopic",
+      "def": "A modular topic modeling framework combining embeddings, UMAP, HDBSCAN and class-based TF-IDF with optional LLM-based topic labels."
+    },
+    {
+      "term": "Prompt engineering",
+      "def": "Designing the instruction, context, examples and format of a prompt to steer a generative model's output without changing its weights."
+    },
+    {
+      "term": "Chain-of-thought",
+      "def": "A prompting technique in which the model writes intermediate reasoning steps before giving a final answer."
+    },
+    {
+      "term": "GGUF",
+      "def": "The quantized model file format used by llama.cpp and llama-cpp-python to run LLMs efficiently on modest hardware."
+    },
+    {
+      "term": "Semantic search",
+      "def": "Retrieving documents by embedding similarity to a query rather than by keyword overlap."
+    },
+    {
+      "term": "BM25",
+      "def": "A probabilistic lexical ranking function based on term frequency, inverse document frequency and document length."
+    },
+    {
+      "term": "Retrieval-augmented generation",
+      "def": "Providing retrieved passages in the prompt so a generative model answers from supplied evidence, often with citations."
+    },
+    {
+      "term": "CLIP",
+      "def": "Contrastive Language-Image Pretraining, a model that embeds images and text in one shared space."
+    },
+    {
+      "term": "LoRA",
+      "def": "Low-Rank Adaptation: training small rank-decomposed matrices added to frozen weights, making fine-tuning cheap in memory and storage."
+    },
+    {
+      "term": "Direct preference optimization",
+      "def": "A fine-tuning objective that increases the likelihood of chosen responses relative to rejected ones without training a separate reward model."
+    }
+  ]
+}

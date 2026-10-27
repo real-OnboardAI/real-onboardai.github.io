@@ -258,6 +258,7 @@ const AI4Young = () => {
               <Link to="/speaker" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">Speaking</Link>
               <Link to="/consulting" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">Consulting</Link>
               <Link to="/mentoring" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">Mentoring</Link>
+              <a href="/ai-learning/" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">AI Learning</a>
               <a href="#join" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg">
                 Join the community
               </a>

@@ -1,0 +1,43 @@
+{
+  "title": "LLM Engineer Path",
+  "tagline": "From tokens to production agents, in twelve weeks.",
+  "version": "2.0.0",
+  "passMark": 70,
+  "examQuestions": 25,
+  "examPerModule": 4,
+  "stages": [
+    {"id": "foundations", "name": "Foundations", "modules": ["m1"], "goal": "Know what a token, an embedding, an attention block and a fine-tune actually are, with code you have run."},
+    {"id": "engineering", "name": "Engineering the application", "modules": ["m2", "m3", "m4"], "goal": "Design, evaluate and iterate on an LLM application: evals first, RAG before fine-tuning, deterministic workflows, and the judgment calls practitioners make."},
+    {"id": "agents", "name": "Agents", "modules": ["m5", "m6"], "goal": "Build agents three ways, then learn which framework ideas are essential and how to own prompts, context, state and control flow in production."},
+    {"id": "production", "name": "Production", "modules": ["m7"], "goal": "Serve and scale: metrics, GPU sizing, batching, KV cache techniques, speculative decoding and operations."}
+  ],
+  "plan": [
+    {"week": 1, "module": "m1", "focus": "Chapters 1–4: language models, tokens and embeddings, inside the transformer, text classification", "deliverable": "Classification notebook comparing three approaches by F1", "hours": 5},
+    {"week": 2, "module": "m1", "focus": "Chapters 5–8: clustering and topic modeling, prompt engineering, chains and agents, semantic search and RAG", "deliverable": "Mini RAG over one long document with a reranker", "hours": 5},
+    {"week": 3, "module": "m1", "focus": "Chapters 9–12: multimodal, training embedding models, fine-tuning BERT, fine-tuning generation models", "deliverable": "QLoRA fine-tune with a judge comparison · Module 1 quiz", "hours": 4},
+    {"week": 4, "module": "m2", "focus": "Chapters 1–5: AI engineering, foundation models, evaluation methodology, evaluating systems, prompt engineering", "deliverable": "Evaluation guideline and a calibrated judge prompt", "hours": 5},
+    {"week": 5, "module": "m2", "focus": "Chapters 6–10: RAG and agents, fine-tuning, dataset engineering, inference optimization, architecture and feedback", "deliverable": "Architecture sketch at launch and at month six · Module 2 quiz", "hours": 5},
+    {"week": 6, "module": "m3", "focus": "Fine-tuning course workshops 1–4 with the Honeycomb notebooks", "deliverable": "Fine-tuning memo and a napkin-math table", "hours": 6},
+    {"week": 7, "module": "m3", "focus": "Conference talks: evals, RAG, fine-tuning practice, prompt engineering, deployment", "deliverable": "Retrieval benchmark with recall@5 for three setups · Module 3 quiz", "hours": 6},
+    {"week": 8, "module": "m4", "focus": "Applied LLMs: tactical, operational and strategic lessons", "deliverable": "Design review of your own project against the checklist · Module 4 quiz", "hours": 5},
+    {"week": 9, "module": "m5", "focus": "Units 0–2: agent fundamentals, smolagents, LlamaIndex, LangGraph", "deliverable": "Same task built in three frameworks, with token counts", "hours": 8},
+    {"week": 10, "module": "m5", "focus": "Units 3–4 and bonus units: agentic RAG, GAIA final project, observability", "deliverable": "GAIA agent submission with a before/after scoreboard · Module 5 quiz", "hours": 8},
+    {"week": 11, "module": "m6", "focus": "All twelve factors, the appendix and the hands-on workshop", "deliverable": "Agent refactored as a stateless reducer with a replay test · Module 6 quiz", "hours": 7},
+    {"week": 12, "module": "m7", "focus": "Inference basics, sizing, batching, KV cache, speculative decoding, parallelism, operations", "deliverable": "Deployment sizing plan and latency runbook · Module 7 quiz · Final exam", "hours": 10}
+  ],
+  "method": [
+    {"step": "Read", "title": "Read or watch the source first", "text": "Each lesson names the chapter, unit, factor, page or talk and links straight to it. The lesson page is a study guide to check your understanding, not a replacement."},
+    {"step": "Run", "title": "Run the notebook", "text": "Where a Colab notebook exists the lesson has an Open in Colab button. Run it top to bottom before changing anything, then follow the walkthrough."},
+    {"step": "Do", "title": "Do the exercise and write notes", "text": "Every lesson has an exercise sized for 30 to 180 minutes and a notes box. Keep a repo; several later exercises build on earlier ones."},
+    {"step": "Check", "title": "Flashcards, then the module quiz", "text": "Review the module's flashcards until you rate them easy, then take the quiz. Pass mark is 70%; retakes are unlimited."},
+    {"step": "Ship", "title": "Build the module project", "text": "Each module ends with a project and a rubric. Self-assess against the rubric and record it on the Projects page."},
+    {"step": "Certify", "title": "Final exam and certificate", "text": "After all seven modules, pass the final exam to unlock the certificate."}
+  ],
+  "faq": [
+    {"q": "Do I need a GPU?", "a": "Not for most of the path. Google Colab's free T4 covers the Hands-On LLM notebooks and the Hugging Face course. Fine-tuning exercises in Module 3 and serving experiments in Module 7 are easier with a rented GPU for a few hours."},
+    {"q": "I already know how transformers work. Where do I start?", "a": "Skim Module 1's lesson summaries, take its quiz to confirm, then start at Module 2."},
+    {"q": "How long does it really take?", "a": "About 72 hours of reading, notebooks and exercises, plus the module projects if you do them all. Six hours a week makes twelve weeks."},
+    {"q": "Is the certificate recognised?", "a": "It is a self-issued completion record from this study path, not an accredited credential. The Hugging Face Agents Course in Module 5 issues its own free certificate."},
+    {"q": "Where is my progress stored?", "a": "In this browser's local storage only. Export it from the Progress page if you switch devices."}
+  ]
+}

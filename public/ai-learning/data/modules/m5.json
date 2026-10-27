@@ -1,0 +1,1741 @@
+{
+  "id": "m5",
+  "num": 5,
+  "title": "Building Agents Step by Step",
+  "short": "Agents course",
+  "stage": "Agents",
+  "weeks": "Weeks 9–10",
+  "hours": 16,
+  "level": "Intermediate",
+  "source": {
+    "name": "Hugging Face Agents Course",
+    "authors": "Hugging Face (maintained by Ben Burtenshaw and Sergio Paniego)",
+    "url": "https://huggingface.co/learn/agents-course",
+    "kind": "free online course (MDX pages, notebooks, Spaces, quizzes)",
+    "license": "Apache-2.0 (LICENSE in the huggingface/agents-course repo; verify for notebooks and Spaces)",
+    "format": "4 units plus 3 bonus units on hf.co/learn, with Colab notebooks in the agents-course/notebooks repo, Gradio template Spaces, interactive demos and ungraded quizzes",
+    "setup": "You need a computer, a free Hugging Face account and a read token from hf.co/settings/tokens (store it as the HF_TOKEN secret in Google Colab or as an environment variable for local Python with pip install smolagents); joining the Discord is optional, and Ollama with LiteLLMModel is the fallback when inference credits run out. Certification is free with no deadline: pass the hosted Unit 1 quiz for the Certificate of Fundamentals, and for the Certificate of Completion submit your Unit 4 agent, which must score 30% or higher on the course's 20-question GAIA level-1 subset."
+  },
+  "blurb": "Hugging Face's free Agents Course, from the agent loop built by hand to smolagents, LlamaIndex and LangGraph, an agentic RAG use case, observability, and a GAIA-scored final agent.",
+  "why": "After learning how LLMs work and how to engineer prompts, retrieval and evaluation around them, this module is where those pieces become autonomous systems that plan, call tools and observe results. It teaches the Thought-Action-Observation cycle once, framework-free, and then shows the same ideas in three major libraries so you can pick the right abstraction for a job. The GAIA final project and the observability bonus unit bridge directly into the production stage that follows.",
+  "outcomes": [
+    "Explain the agent loop (Thought, Action, Observation), the spectrum of agency, chat templates and special tokens, and implement a minimal ReAct agent with only an inference client.",
+    "Build smolagents CodeAgents and ToolCallingAgents with custom @tool and Tool subclass tools, retrieval tools, managed multi-agent teams and vision or browser capabilities.",
+    "Create LlamaIndex agents from FunctionTools and QueryEngineTools and structure logic as event-driven Workflows with shared Context.",
+    "Design LangGraph StateGraphs with typed state, nodes, conditional edges, ToolNode and tools_condition for controllable agent flows.",
+    "Ship an agentic RAG application as a Hugging Face Space and instrument, trace and evaluate agents offline and online with OpenTelemetry and Langfuse.",
+    "Build, debug and submit an agent that scores at least 30% on the course's GAIA level-1 subset."
+  ],
+  "prerequisites": [
+    "Python, including functions with type hints and docstrings, decorators and basic async/await",
+    "Working knowledge of LLM APIs, chat messages and prompting (Modules 1 to 4)",
+    "Basic familiarity with embeddings and retrieval (RAG) and with Git or Hugging Face Spaces"
+  ],
+  "lessons": [
+    {
+      "id": "m5-l01",
+      "title": "Onboarding: accounts, tools and the certification paths",
+      "minutes": 20,
+      "sourceRef": "Unit 0 · Welcome to the course, Onboarding, (Optional) Discord 101, Live 1",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit0/introduction",
+      "videoUrl": "https://www.youtube.com/embed/iLVyYDbdSmM?si=TCX5Ai3uZuKLXq45",
+      "summary": "Unit 0 lays out the syllabus (agent fundamentals, frameworks, use cases, final assignment plus three bonus units), the prerequisites (basic Python and basic LLM knowledge) and the only two tools you need: a computer and a free Hugging Face account. It explains the two free certificates, the recommended pace of one unit per week at roughly 3 to 4 hours, and how to join the Discord study groups. The onboarding page adds a fallback for running models locally with Ollama and smolagents' LiteLLMModel when inference credits run out. The first live session recording explains how the course works.",
+      "concepts": [
+        {
+          "term": "Audit mode vs certification",
+          "def": "You can follow the course freely, or complete Unit 1 for the Certificate of Fundamentals and the final challenge for the Certificate of Completion, all free and without deadline."
+        },
+        {
+          "term": "Hugging Face token",
+          "def": "A read token from hf.co/settings/tokens that notebooks and Spaces use to call hosted models through the serverless Inference API."
+        },
+        {
+          "term": "Serverless Inference API",
+          "def": "Hugging Face's hosted inference endpoint that lets the course run open models without installing anything locally."
+        },
+        {
+          "term": "LiteLLMModel with Ollama",
+          "def": "A smolagents model class that talks to any OpenAI-compatible server, used to swap the hosted model for a local Ollama model such as qwen2:7b."
+        }
+      ],
+      "keyPoints": [
+        "The syllabus has four core units (onboarding, agent fundamentals, frameworks, use cases) plus a final GAIA assignment and three bonus units on function calling, observability and Pokemon agents.",
+        "Prerequisites are only basic Python and basic LLM knowledge; Unit 1 recaps what LLMs are.",
+        "Each unit is designed to take about one week at 3 to 4 hours of work.",
+        "Certification is free: Unit 1 quiz for fundamentals, Unit 1 plus a use case plus the final challenge for completion, with no deadline.",
+        "Course channels on Discord: agents-course-announcements, agents-course-general, agents-course-questions and agents-course-showcase, plus a smolagents channel.",
+        "If you hit inference credit limits, install Ollama, pull a model, run ollama serve and replace InferenceClientModel with LiteLLMModel pointing at http://127.0.0.1:11434."
+      ],
+      "walkthrough": [
+        "Read the syllabus table and decide whether you will audit or go for a certificate.",
+        "Create a Hugging Face account at hf.co/join and generate a read token at hf.co/settings/tokens.",
+        "Join the Discord server, introduce yourself in #introduce-yourself and find the agents-course channels.",
+        "Follow the agents-course organization on the Hub and star the GitHub repository to get updates.",
+        "Optionally install Ollama, pull qwen2:7b and test LiteLLMModel so you have a local fallback.",
+        "Watch the Live 1 recording to hear how the units, challenges and leaderboard fit together."
+      ],
+      "exercise": {
+        "title": "Set up your agent workbench",
+        "steps": [
+          "Create the HF account and a read token; store it as the HF_TOKEN secret in Colab or as an environment variable locally.",
+          "Run pip install smolagents and confirm that from smolagents import CodeAgent works.",
+          "Write a one-paragraph plan: which certificate you want and which week you will reach Unit 4."
+        ],
+        "deliverable": "A working Python environment with smolagents installed and an HF_TOKEN available, plus your written study plan.",
+        "minutes": 15
+      },
+      "checkYourself": [
+        "What are the exact requirements for the two certificates described in Unit 0?",
+        "Why does the course recommend LiteLLMModel with Ollama as a fallback, and what does that imply about how smolagents treats model backends?"
+      ],
+      "resources": [
+        {
+          "title": "Course sign-up form",
+          "url": "https://bit.ly/hf-learn-agents",
+          "type": "article"
+        },
+        {
+          "title": "Hugging Face Discord",
+          "url": "https://discord.gg/UrrTSsSyjb",
+          "type": "tool"
+        },
+        {
+          "title": "agents-course organization on the Hub",
+          "url": "https://huggingface.co/agents-course",
+          "type": "repo"
+        },
+        {
+          "title": "Ollama download",
+          "url": "https://ollama.com/download",
+          "type": "tool"
+        }
+      ]
+    },
+    {
+      "id": "m5-l02",
+      "title": "What agents are, the LLM brain, messages and special tokens",
+      "minutes": 75,
+      "sourceRef": "Unit 1 · Introduction, What is an Agent?, Quick Quiz 1, What are LLMs?, Messages and Special Tokens",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit1/introduction",
+      "summary": "Unit 1 opens with Alfred the butler to define an agent as a system that uses an AI model to reason, plan and act on its environment through tools, and introduces the spectrum of agency from simple processor to multi-agent. The LLM section recaps transformers (encoder, decoder, seq2seq), next-token prediction, autoregressive decoding until the EOS token, attention and context length, with interactive tokenizer and decoding Spaces. The messages section shows that a chat is a UI abstraction: system, user and assistant messages are concatenated into one prompt by the model's chat template, which differs between SmolLM2 and Llama 3.2, and is applied with tokenizer.apply_chat_template.",
+      "concepts": [
+        {
+          "term": "Agent",
+          "def": "A system that leverages an AI model to interact with its environment in order to achieve a user-defined objective, combining reasoning, planning and the execution of actions, often via tools."
+        },
+        {
+          "term": "Spectrum of agency",
+          "def": "Increasing levels of LLM control over program flow: simple processor, router, tool caller, multi-step agent, multi-agent."
+        },
+        {
+          "term": "Autoregressive decoding",
+          "def": "The LLM predicts one token at a time and feeds it back as input until it emits the end-of-sequence (EOS) token."
+        },
+        {
+          "term": "Special tokens",
+          "def": "Model-specific tokens such as <|im_end|> or <|eot_id|> that delimit sequences, turns and roles; they differ across providers."
+        },
+        {
+          "term": "Chat template",
+          "def": "A Jinja2 template bundled with the tokenizer that turns a list of role/content messages into the exact prompt string the model was trained on."
+        },
+        {
+          "term": "Base vs instruct model",
+          "def": "A base model only predicts next tokens; an instruct model is fine-tuned to follow instructions and chat, and expects its chat template."
+        }
+      ],
+      "keyPoints": [
+        "An agent has a brain (the model that reasons and plans) and a body (the tools and capabilities that bound what actions are possible).",
+        "Tools and actions are not the same: an action may chain several tools.",
+        "LLMs are typically decoder-only transformers with billions of parameters whose single objective is next-token prediction; a Llama 2 vocabulary has about 32,000 tokens.",
+        "Every provider uses different EOS and delimiter tokens (GPT-4 <|endoftext|>, Llama 3 <|eot_id|>, SmolLM2 <|im_end|>, Gemma <end_of_turn>).",
+        "The model does not remember a conversation: all messages are re-sent as one prompt each turn.",
+        "The system message sets persistent behavior and, for agents, also lists the tools and the required action format.",
+        "Use tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True) to render the prompt correctly for the chosen model."
+      ],
+      "walkthrough": [
+        "Follow the Alfred coffee example and restate the formal agent definition in your own words.",
+        "Study the agency table and map each level to its code pattern (process_llm_output, if llm_decision, run_function, while llm_should_continue).",
+        "Open the tokenizer playground Space and tokenize a sentence; then step through the SmolLM2 decoding visualizer until it hits <|im_end|>.",
+        "Compare the special-token table and look up tokenizer_config.json of SmolLM2-135M-Instruct on the Hub.",
+        "Take the same three-message conversation and render it with the SmolLM2 and Llama 3.2 templates; note the differences.",
+        "Load AutoTokenizer for HuggingFaceTB/SmolLM2-1.7B-Instruct and call apply_chat_template on a system plus user message list.",
+        "Do Quick Quiz 1 to check the definitions."
+      ],
+      "exercise": {
+        "title": "Render one conversation three ways",
+        "steps": [
+          "Build a messages list with a system prompt, two user turns and one assistant turn.",
+          "Render it with the SmolLM2 chat template and with another instruct model's template using apply_chat_template.",
+          "Highlight every special token in both outputs and explain what each one delimits."
+        ],
+        "deliverable": "A short notebook showing the two rendered prompts with the special tokens annotated.",
+        "minutes": 30
+      },
+      "checkYourself": [
+        "Where on the agency spectrum does a classic RAG chatbot sit, and what would move it one level up?",
+        "Why can a wrong chat template silently degrade an instruct model's answers?",
+        "What role does the EOS token play in stopping an agent's generation?"
+      ],
+      "resources": [
+        {
+          "title": "smolagents conceptual guide: intro to agents",
+          "url": "https://huggingface.co/docs/smolagents/conceptual_guides/intro_agents",
+          "type": "docs"
+        },
+        {
+          "title": "Hugging Face NLP course",
+          "url": "https://huggingface.co/learn/nlp-course/chapter1/1",
+          "type": "article"
+        },
+        {
+          "title": "Transformers chat templating guide",
+          "url": "https://huggingface.co/docs/transformers/main/en/chat_templating",
+          "type": "docs"
+        },
+        {
+          "title": "SmolLM2-135M-Instruct tokenizer_config.json",
+          "url": "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/main/tokenizer_config.json",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m5-l03",
+      "title": "Tools and the Thought-Action-Observation cycle",
+      "minutes": 70,
+      "sourceRef": "Unit 1 · What are Tools?, Quick Quiz 2, Thought-Action-Observation Cycle, Thought, Actions, Observe",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit1/tools",
+      "summary": "The tools page defines a tool as a function given to the LLM with a textual description, a callable, typed arguments and optional typed outputs, shows how the description is injected into the system prompt, and builds a fictional Tool class and @tool decorator that use Python introspection to generate the description automatically; it closes with a note on MCP as a unified tool interface. The cycle pages describe agents as a while loop of Thought, Action and Observation, with the Alfred weather example, then detail thought types and ReAct versus chain-of-thought, JSON versus code versus function-calling actions with the stop-and-parse approach, and how observations are appended to memory.",
+      "concepts": [
+        {
+          "term": "Tool",
+          "def": "A function given to the LLM with a clear objective, described by name, description, typed arguments and output type so the model can emit a text invocation that the agent executes."
+        },
+        {
+          "term": "@tool decorator",
+          "def": "Uses inspect to read a function's name, docstring, type hints and return annotation and turn them into the tool description injected in the system prompt."
+        },
+        {
+          "term": "Thought-Action-Observation cycle",
+          "def": "The agent loop: the LLM thinks about the next step, emits an action (tool call), the framework runs it and appends the result as an observation, repeating until a final answer."
+        },
+        {
+          "term": "ReAct",
+          "def": "A prompting approach that interleaves step-by-step reasoning with actions and observations; unlike chain-of-thought it uses external tools."
+        },
+        {
+          "term": "Stop and parse",
+          "def": "The LLM emits the action in a fixed format (JSON or code) and stops generating; an external parser extracts the tool and arguments and executes it."
+        },
+        {
+          "term": "Code agent vs JSON agent",
+          "def": "A JSON agent specifies actions as JSON blobs; a code agent writes an executable code block, which is more expressive and composable but needs sandboxing."
+        }
+      ],
+      "keyPoints": [
+        "LLMs cannot call tools themselves; the agent reads the model's text, executes the tool and appends the result as a new message before calling the model again.",
+        "Tool descriptions must be precise about what the tool does and the exact inputs it expects; the course uses the string Tool Name: calculator, Description: Multiply two integers., Arguments: a: int, b: int, Outputs: int.",
+        "Model Context Protocol (MCP) standardizes how applications expose tools to LLMs so one tool interface works across frameworks.",
+        "Thought types include planning, analysis, decision making, self-reflection and prioritization; models fine-tuned for function calling can skip explicit thoughts.",
+        "Reasoning models such as DeepSeek R1 and OpenAI o1 wrap their reasoning in dedicated think tokens learned during training, which is a training-level technique rather than ReAct or CoT prompting.",
+        "After an action the framework parses it, executes it and appends the result as an observation; errors and status codes are observations too.",
+        "Executing LLM-generated code carries prompt-injection and harmful-code risks, so use frameworks with safeguards."
+      ],
+      "walkthrough": [
+        "Write the calculator function with type hints and a docstring, then write its textual tool description by hand.",
+        "Implement the Tool class with to_string and __call__, then the @tool decorator built on inspect.signature, and confirm to_string reproduces the manual description.",
+        "Trace Alfred the weather agent through Thought, the JSON get_weather action, the observation and the final answer.",
+        "Compare the CoT example (15% of 200) with the ReAct weather example and list what the Observation line adds.",
+        "Rewrite the weather JSON action as a code action and note how the print of final_answer signals completion.",
+        "Take Quick Quiz 2 on LLMs, messages and tools."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A minimal Tool class and @tool decorator that generate the tool description from Python introspection (adapted from Unit 1, What are Tools?)",
+        "src": "import inspect\nclass Tool:\n    def __init__(self, name, description, func, arguments, outputs):\n        self.name, self.description, self.func = name, description, func\n        self.arguments, self.outputs = arguments, outputs\n\n    def to_string(self) -> str:\n        args = \", \".join(f\"{n}: {t}\" for n, t in self.arguments)\n        return (f\"Tool Name: {self.name}, Description: {self.description}, \"\n                f\"Arguments: {args}, Outputs: {self.outputs}\")\n\n    def __call__(self, *args, **kwargs):\n        return self.func(*args, **kwargs)\n\ndef tool(func):\n    sig = inspect.signature(func)\n    args = [(p.name, p.annotation.__name__) for p in sig.parameters.values()]\n    return Tool(func.__name__, func.__doc__, func, args, sig.return_annotation.__name__)\n\n@tool\ndef calculator(a: int, b: int) -> int:\n    \"\"\"Multiply two integers.\"\"\"\n    return a * b\nprint(calculator.to_string())  # Tool Name: calculator, Description: Multiply two integers., Arguments: a: int, b: int, Outputs: int"
+      },
+      "exercise": {
+        "title": "Describe three tools and script one ReAct episode",
+        "steps": [
+          "Write three typed, docstringed Python functions (for example web_search, get_time, convert_currency) and generate their descriptions with the @tool decorator.",
+          "Write a system prompt that injects the three descriptions and the Thought/Action/Observation format.",
+          "By hand, write the full ReAct transcript for the question What time is it in Tokyo and what is 100 USD in JPY, including observations."
+        ],
+        "deliverable": "A script printing the three tool descriptions and a text file with the hand-written ReAct transcript.",
+        "minutes": 30
+      },
+      "checkYourself": [
+        "Why does the model have to stop generating right after the action, and what breaks if it does not?",
+        "When would you pick a JSON agent over a code agent despite code being more expressive?",
+        "Which thought type would help an agent recover after a failed tool call?"
+      ],
+      "resources": [
+        {
+          "title": "smolagents: secure code execution",
+          "url": "https://huggingface.co/docs/smolagents/tutorials/secure_code_execution",
+          "type": "docs"
+        },
+        {
+          "title": "Hugging Face MCP course",
+          "url": "https://huggingface.co/learn/mcp-course/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m5-l04",
+      "title": "A dummy agent from scratch, your first smolagents agent and the Unit 1 quiz",
+      "minutes": 80,
+      "sourceRef": "Unit 1 · Dummy Agent Library, Let's Create Our First Agent Using smolagents, Unit 1 Final Quiz, Conclusion",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit1/dummy-agent-library",
+      "notebookUrl": "https://huggingface.co/agents-course/notebooks/blob/main/unit1/dummy_agent_library.ipynb",
+      "videoUrl": "https://www.youtube.com/embed/PQDKcWiuln4?si=ysSTDZoi8y55FVvA",
+      "summary": "The dummy agent notebook uses huggingface_hub's InferenceClient and the chat completions method to run a ReAct-style system prompt with a get_weather tool. It shows the model hallucinating an Observation, fixes that with stop=[\"Observation:\"], runs the real Python function and resumes generation to reach the Final Answer. The tutorial then moves to smolagents: duplicate the First_agent_template Space, add an HF_TOKEN secret, define tools with @tool (get_current_time_in_timezone) and a CodeAgent that loads prompts from prompts.yaml, and publish it as a Gradio Space. The unit ends with the graded quiz Space that unlocks the Certificate of Fundamentals.",
+      "concepts": [
+        {
+          "term": "InferenceClient chat completions",
+          "def": "client.chat.completions.create applies the model's chat template for you and is the recommended way to call hosted models."
+        },
+        {
+          "term": "Stop sequence",
+          "def": "A generation parameter (stop=[\"Observation:\"]) that halts the model before it fabricates a tool result so the agent can run the real tool."
+        },
+        {
+          "term": "Hallucinated observation",
+          "def": "When the model keeps generating and invents the tool output instead of waiting for the real one."
+        },
+        {
+          "term": "CodeAgent",
+          "def": "The smolagents agent class whose actions are Python code blocks that are executed, then observed, in a loop."
+        },
+        {
+          "term": "prompts.yaml",
+          "def": "The file in the template Space that holds the agent's system prompt templates, loaded with yaml.safe_load and passed as prompt_templates."
+        },
+        {
+          "term": "Certificate of Fundamentals",
+          "def": "The credential granted after passing the hosted Unit 1 quiz Space and clicking Submit."
+        }
+      ],
+      "keyPoints": [
+        "The system prompt already contains the tool description and the Thought/Action/Observation cycle instructions, with a single JSON blob per action.",
+        "Without a stop sequence the model fabricated Observation: The current weather in London is partly cloudy; stopping before Observation: fixed it.",
+        "The real observation is appended to the assistant message and the model is called again to produce Final Answer.",
+        "Building this by hand is tedious, which is the motivation for frameworks like smolagents.",
+        "smolagents tools need type hints on inputs and output and a docstring with an Args section describing every argument.",
+        "The template's CodeAgent uses Qwen/Qwen2.5-Coder-32B-Instruct through InferenceClientModel with max_steps=6 and must keep FinalAnswerTool in its tools list.",
+        "Do not forget to click Submit on the Unit 1 quiz, otherwise the score is not saved and the certificate is not issued."
+      ],
+      "walkthrough": [
+        "Open the dummy agent notebook, set HF_TOKEN and create an InferenceClient; test it with The capital of France is.",
+        "Paste the SYSTEM_PROMPT with the get_weather tool and call the model on What's the weather in London; observe the hallucinated Observation.",
+        "Add stop=[\"Observation:\"], define the dummy get_weather function and append its output as the Observation.",
+        "Call the model again and confirm it emits Final Answer.",
+        "Duplicate the First_agent_template Space, add your HF_TOKEN secret and read app.py.",
+        "Add DuckDuckGoSearchTool, get_current_time_in_timezone and the image_generation_tool loaded from the Hub to the tools list; restart the Space and chat with it.",
+        "Take the Unit 1 quiz Space, submit, and claim the certificate in the unit1-certification-app Space."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "The dummy agent loop: ReAct system prompt, stop before Observation, run the real tool, resume (adapted from Unit 1, Dummy Agent Library)",
+        "src": "from huggingface_hub import InferenceClient\nclient = InferenceClient(model=\"moonshotai/Kimi-K2.5\", token=HF_TOKEN)\nSYSTEM_PROMPT = \"\"\"Answer the following questions as best you can. You have access to the following tools:\nget_weather: Get the current weather in a given location, args: {\"location\": {\"type\": \"string\"}}\nUse a json blob with an `action` key and an `action_input` key. ALWAYS use the following format:\nQuestion: the input question you must answer\nThought: you should always think about one action to take. Only one action at a time.\nAction:\n$JSON_BLOB (inside markdown cell)\nObservation: the result of the action. This Observation is unique, complete, and the source of truth.\n... (this Thought/Action/Observation can repeat N times)\nThought: I now know the final answer\nFinal Answer: the final answer to the original input question\"\"\"\nmessages = [{\"role\": \"system\", \"content\": SYSTEM_PROMPT},\n            {\"role\": \"user\", \"content\": \"What's the weather in London?\"}]\n# stop before \"Observation:\" so the model cannot hallucinate the tool result\nout = client.chat.completions.create(messages=messages, max_tokens=150, stop=[\"Observation:\"])\nstep = out.choices[0].message.content\ndef get_weather(location):            # dummy tool; a real agent would call an API\n    return f\"the weather in {location} is sunny with low temperatures. \\n\"\nmessages.append({\"role\": \"assistant\", \"content\": step + \"Observation:\\n\" + get_weather(\"London\")})\nfinal = client.chat.completions.create(messages=messages, max_tokens=200)\nprint(final.choices[0].message.content)   # Final Answer: The weather in London is sunny ..."
+      },
+      "exercise": {
+        "title": "Ship your first Space agent with two real tools",
+        "steps": [
+          "In your duplicated First_agent_template Space, replace my_custom_tool with a working tool (for example a unit converter or a Hub model search using huggingface_hub.list_models).",
+          "Add DuckDuckGoSearchTool and the time zone tool to the CodeAgent tools list and set max_steps to 8.",
+          "Ask the agent three questions that each need a different tool and save the traces it prints.",
+          "Pass the Unit 1 quiz and download the Certificate of Fundamentals."
+        ],
+        "deliverable": "A public Space URL for your agent plus screenshots or logs of three successful tool-using runs.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "What exactly did the stop sequence change about who produces the Observation text?",
+        "Why must FinalAnswerTool stay in the tools list of the template agent?",
+        "What would you have to rebuild by hand if you dropped smolagents and kept the dummy approach for five tools?"
+      ],
+      "resources": [
+        {
+          "title": "First agent template Space",
+          "url": "https://huggingface.co/spaces/agents-course/First_agent_template",
+          "type": "repo"
+        },
+        {
+          "title": "Unit 1 quiz Space",
+          "url": "https://huggingface.co/spaces/agents-course/unit_1_quiz",
+          "type": "tool"
+        },
+        {
+          "title": "Unit 1 certification app",
+          "url": "https://huggingface.co/spaces/agents-course/unit1-certification-app",
+          "type": "tool"
+        },
+        {
+          "title": "smolagents blog post",
+          "url": "https://huggingface.co/blog/smolagents",
+          "type": "article"
+        },
+        {
+          "title": "smolagents GitHub repository",
+          "url": "https://github.com/huggingface/smolagents",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m5-l05",
+      "title": "smolagents I: code agents, tool-calling agents and tools",
+      "minutes": 85,
+      "sourceRef": "Unit 2 · Frameworks for AI Agents; Unit 2.1 · Introduction to smolagents, Why use smolagents?, Quick Quiz 1, Building Agents That Use Code, Writing actions as code snippets or JSON blobs, Tools",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit2/introduction",
+      "colabUrl": "https://colab.research.google.com/#fileId=https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb",
+      "notebookUrl": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/code_agents.ipynb",
+      "summary": "The Unit 2 introduction lists what any agent framework must provide (LLM engine, tools, parser, synced system prompt, memory, error logging and retries) and warns that plain code is enough for simple chains. The smolagents pages present a lightweight code-first library: CodeAgent writes Python actions, ToolCallingAgent emits JSON tool calls, both are MultiStepAgents following ReAct with memory steps (SystemPromptStep, TaskStep, ActionStep). Alfred plans a Wayne Manor party: a DuckDuckGo playlist search, a suggest_menu @tool, authorized imports for datetime, pushing the agent to the Hub, and instrumenting runs with OpenTelemetry and Langfuse. The tools page covers @tool versus Tool subclasses, the default toolbox, sharing tools, loading Spaces, LangChain tools and MCP servers.",
+      "concepts": [
+        {
+          "term": "CodeAgent vs ToolCallingAgent",
+          "def": "CodeAgent generates and executes Python snippets as actions; ToolCallingAgent uses the provider's native tool calling to emit JSON blobs that the system parses and runs."
+        },
+        {
+          "term": "MultiStepAgent memory",
+          "def": "The run is logged as a SystemPromptStep, a TaskStep and ActionSteps; write_memory_to_messages converts them to chat messages before each model call."
+        },
+        {
+          "term": "@tool decorator (smolagents)",
+          "def": "Wraps a typed function whose docstring has an Args section; the recommended way to define simple tools."
+        },
+        {
+          "term": "Tool subclass",
+          "def": "A class with name, description, inputs dict, output_type and a forward method, for complex tools with custom metadata or state."
+        },
+        {
+          "term": "additional_authorized_imports",
+          "def": "The allowlist that lets the sandboxed Python executor import modules such as datetime or pandas."
+        },
+        {
+          "term": "Default toolbox",
+          "def": "Built-in tools: PythonInterpreterTool, FinalAnswerTool, UserInputTool, DuckDuckGoSearchTool, GoogleSearchTool and VisitWebpageTool."
+        }
+      ],
+      "keyPoints": [
+        "smolagents is about 1,000 lines of code and favors code actions because research (Executable Code Actions Elicit Better LLM Agents) shows tool-calling LLMs work better with code.",
+        "Code actions give composability, object management, generality and are natural for LLMs; JSON tool calls suit simple systems without variable handling.",
+        "InferenceClientModel defaults to Qwen/Qwen2.5-Coder-32B-Instruct; other model classes are TransformersModel, LiteLLMModel, OpenAIServerModel and AzureOpenAIServerModel.",
+        "Precise allowed values in a tool docstring (casual, formal, superhero) steer the agent's arguments and limit hallucinations.",
+        "agent.push_to_hub and from_hub share and reload whole agents; shared agents are also runnable as Spaces.",
+        "Tools can be loaded from the Hub (load_tool), from a Gradio Space (Tool.from_space), from LangChain (Tool.from_langchain) or from an MCP server (ToolCollection.from_mcp).",
+        "SmolagentsInstrumentor from openinference exports every run as OpenTelemetry traces to Langfuse for debugging."
+      ],
+      "walkthrough": [
+        "pip install smolagents -U and log in with huggingface_hub.login().",
+        "Run CodeAgent(tools=[DuckDuckGoSearchTool()], model=InferenceClientModel()) on the party playlist task and read the Executing parsed code trace.",
+        "Define suggest_menu with @tool and run Prepare a formal menu for the party.",
+        "Create an agent with additional_authorized_imports=['datetime'] and ask when the party will be ready given the four task durations.",
+        "Push the agent to the Hub, reload it with from_hub(trust_remote_code=True) and try the villain masquerade prompt.",
+        "Swap in ToolCallingAgent with WebSearchTool and compare the Calling tool trace with the code trace.",
+        "Open the tools notebook: build catering_service_tool with @tool, SuperheroPartyThemeTool as a Tool subclass, then load m-ric/text-to-image and a FLUX Space as tools.",
+        "Set Langfuse keys, call SmolagentsInstrumentor().instrument() and inspect a run's trace."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A smolagents CodeAgent with a built-in search tool and a custom @tool (adapted from Unit 2.1, Building Agents That Use Code)",
+        "src": "from smolagents import CodeAgent, DuckDuckGoSearchTool, InferenceClientModel, tool\n@tool\ndef suggest_menu(occasion: str) -> str:\n    \"\"\"\n    Suggests a menu based on the occasion.\n    Args:\n        occasion: The type of occasion for the party. Allowed values are:\n                  \"casual\", \"formal\", \"superhero\" or \"custom\".\n    \"\"\"\n    if occasion == \"casual\":\n        return \"Pizza, snacks, and drinks.\"\n    elif occasion == \"formal\":\n        return \"3-course dinner with wine and dessert.\"\n    elif occasion == \"superhero\":\n        return \"Buffet with high-energy and healthy food.\"\n    return \"Custom menu for the butler.\"\nagent = CodeAgent(\n    tools=[DuckDuckGoSearchTool(), suggest_menu],\n    model=InferenceClientModel(),                 # defaults to Qwen/Qwen2.5-Coder-32B-Instruct\n    additional_authorized_imports=[\"datetime\"],   # sandboxed executor: imports must be allowlisted\n    max_steps=10,\n)\nagent.run(\"Prepare a formal menu for the party and find a playlist for Wayne Manor.\")\nagent.push_to_hub(\"your-username/AlfredAgent\")   # share the whole agent on the Hub"
+      },
+      "exercise": {
+        "title": "Same task, two agent types, one trace",
+        "steps": [
+          "Build a CodeAgent and a ToolCallingAgent with identical tools: a web search tool and a Tool subclass you write that returns data from a small dict.",
+          "Run both on a task that needs two tool calls and a computation; count steps and tokens from the traces.",
+          "Instrument the CodeAgent with SmolagentsInstrumentor and Langfuse and locate the span where the computation happens.",
+          "Push your custom tool to the Hub with push_to_hub."
+        ],
+        "deliverable": "A notebook comparing the two runs (steps, tokens, correctness) with a link to your Hub tool and a Langfuse trace screenshot.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Which of the six framework features from the Unit 2 introduction does smolagents implement with the sandboxed Python executor?",
+        "Why does the docstring Args section matter more for a CodeAgent than a return type annotation?",
+        "When would ToolCallingAgent be the better choice despite smolagents' code-first philosophy?"
+      ],
+      "resources": [
+        {
+          "title": "smolagents tools notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/tools.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "Tool-calling agents notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/tool_calling_agents.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "Executable Code Actions Elicit Better LLM Agents",
+          "url": "https://huggingface.co/papers/2402.01030",
+          "type": "paper"
+        },
+        {
+          "title": "smolagents: building good agents",
+          "url": "https://huggingface.co/docs/smolagents/tutorials/building_good_agents",
+          "type": "docs"
+        },
+        {
+          "title": "smolagents: inspect runs with OpenTelemetry",
+          "url": "https://huggingface.co/docs/smolagents/tutorials/inspect_runs",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m5-l06",
+      "title": "smolagents II: retrieval agents, multi-agent systems, vision and browser agents",
+      "minutes": 75,
+      "sourceRef": "Unit 2.1 · Retrieval Agents, Quick Quiz 2, Multi-Agent Systems, Vision and Browser agents, Final Quiz, Conclusion",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit2/smolagents/retrieval_agents",
+      "colabUrl": "https://colab.research.google.com/#fileId=https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/retrieval_agents.ipynb",
+      "notebookUrl": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/retrieval_agents.ipynb",
+      "videoUrl": "https://www.youtube.com/embed/rObJel7-OLc?si=TnNwQ8rqXqun_pqE",
+      "summary": "Retrieval agents extend RAG by letting the agent formulate queries, critique results and retrieve in several steps; the notebook builds a DuckDuckGo agent and a PartyPlanningRetrieverTool wrapping a BM25Retriever over chunked party ideas. The multi-agent page solves the Batman filming locations task: a calculate_cargo_travel_time tool, a baseline CodeAgent with planning_interval, then a web_agent managed by a DeepSeek-R1 manager with plotting imports and a final_answer_checks callback that uses a multimodal model to validate the saved map. The vision page passes images to a CodeAgent at start (Joker versus Wonder Woman) and then builds a Selenium and Helium browser agent whose step_callback saves screenshots into ActionStep.observations_images.",
+      "concepts": [
+        {
+          "term": "Agentic RAG",
+          "def": "RAG where the agent controls retrieval and generation: it reformulates, decomposes or expands queries, reranks, retrieves in multiple steps and validates results."
+        },
+        {
+          "term": "BM25Retriever tool",
+          "def": "A Tool subclass that wraps a lexical retriever over chunked documents and returns the top-k passages as the observation."
+        },
+        {
+          "term": "Managed agents",
+          "def": "Sub-agents passed via managed_agents, each with a name and description, that a manager agent can call like tools; separate memories cut tokens and cost."
+        },
+        {
+          "term": "planning_interval",
+          "def": "Makes the agent write an explicit plan every N steps, which helps on long multi-step tasks."
+        },
+        {
+          "term": "final_answer_checks",
+          "def": "Callbacks that validate the final answer (for example a VLM judging the plot) and raise to force the agent to retry."
+        },
+        {
+          "term": "step_callbacks and observations_images",
+          "def": "Functions run at the end of each step; a browser agent uses one to screenshot the page and store it on the ActionStep for the VLM."
+        }
+      ],
+      "keyPoints": [
+        "Traditional RAG relies on a single similarity-based retrieval step; agentic RAG lets the agent decide when and how to retrieve again.",
+        "Enhanced strategies: query reformulation, decomposition, expansion, reranking with cross-encoders, multi-step retrieval, source integration and result validation.",
+        "Splitting a long task across a web agent and a manager keeps each agent focused and reduces input tokens per step.",
+        "manager_agent.visualize() prints the tree of agents, tools and authorized imports.",
+        "GoogleSearchTool needs a Serper or SerpAPI key; DuckDuckGoSearchTool is free but rate limited.",
+        "Vision examples require a capable VLM; the course used GPT-4o through OpenAIServerModel.",
+        "The browser agent gets tools like search_item_ctrl_f, go_back and close_popups plus helium_instructions in the task prompt."
+      ],
+      "walkthrough": [
+        "Run the DuckDuckGo retrieval agent on the luxury superhero party query.",
+        "Build PartyPlanningRetrieverTool over the five party ideas with RecursiveCharacterTextSplitter and BM25Retriever, then query it through a CodeAgent.",
+        "Install smolagents[litellm], plotly, geopandas, shapely, kaleido and define calculate_cargo_travel_time with @tool.",
+        "Run the baseline CodeAgent on the Batman locations task, then set planning_interval=4 and compare the reports.",
+        "Create web_agent and the manager with managed_agents, additional imports and final_answer_checks; run it and inspect python_executor.state['fig'].",
+        "Load two Joker images and run a tool-less CodeAgent with images=images to describe costume and identity.",
+        "Read vision_web_browser.py: browser tools, save_screenshot callback and the agent with step_callbacks; watch the video of the run.",
+        "Take Quick Quiz 2 and the ungraded smolagents final quiz Space."
+      ],
+      "exercise": {
+        "title": "A two-agent research team with a retriever",
+        "steps": [
+          "Create a retriever Tool over 20 short documents of your choice using BM25Retriever.",
+          "Build a web_agent (search plus visit webpage) and a manager agent that owns the retriever tool and manages the web agent.",
+          "Give the manager planning_interval=3 and a final_answer_checks function that rejects answers without a source list.",
+          "Run a question that needs both local documents and the web; save manager_agent.visualize() output and the final answer."
+        ],
+        "deliverable": "A notebook with the agent tree, the run trace and a final answer that cites both local and web sources.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why does separating memories between manager and web agent reduce cost even though more model calls happen?",
+        "What would you validate in a final_answer_checks callback for a RAG answer?",
+        "How does a browser agent avoid flooding the context with screenshots from every step?"
+      ],
+      "resources": [
+        {
+          "title": "Multi-agent notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/multiagent_notebook.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "Vision agents notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/vision_agents.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "Vision web browser script",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/smolagents/vision_web_browser.py",
+          "type": "repo"
+        },
+        {
+          "title": "Cookbook: Agentic RAG with query reformulation",
+          "url": "https://huggingface.co/learn/cookbook/agent_rag",
+          "type": "article"
+        },
+        {
+          "title": "Blog: We just gave sight to smolagents",
+          "url": "https://huggingface.co/blog/smolagents-can-see",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m5-l07",
+      "title": "LlamaIndex: components, QueryEngine tools, agents and workflows",
+      "minutes": 80,
+      "sourceRef": "Unit 2.2 · Introduction to LlamaIndex, LlamaHub, Components, Using Tools, Quick Quiz 1, Using Agents, Creating Agentic Workflows, Quick Quiz 2, Conclusion",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit2/llama-index/introduction",
+      "notebookUrl": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/components.ipynb",
+      "summary": "LlamaIndex is presented as a toolkit for agents over your data built from components, tools, agents and workflows, with LlamaHub as the registry (pip install llama-index-{component-type}-{framework-name}). The components notebook builds a RAG pipeline: SimpleDirectoryReader, IngestionPipeline with SentenceSplitter and HuggingFaceEmbedding into a ChromaVectorStore, VectorStoreIndex, as_query_engine with response modes, FaithfulnessEvaluator and Arize Phoenix tracing. Tools come in four kinds (FunctionTool, QueryEngineTool, ToolSpecs, utility tools, plus MCP). Agents are created with AgentWorkflow.from_tools_or_functions, remember state through Context, and combine as FunctionAgent or ReActAgent in multi-agent AgentWorkflows. Workflows chain @step functions through typed Events, support loops, branches, drawing and shared state.",
+      "concepts": [
+        {
+          "term": "QueryEngine",
+          "def": "The component that retrieves from an index and synthesizes an answer; wrapped as a QueryEngineTool it becomes a RAG tool for agents."
+        },
+        {
+          "term": "IngestionPipeline",
+          "def": "Transformations such as SentenceSplitter and HuggingFaceEmbedding that turn Documents into embedded Nodes, optionally written straight to a vector store."
+        },
+        {
+          "term": "FunctionTool",
+          "def": "Wraps any sync or async Python function; name and description default to the function name and docstring."
+        },
+        {
+          "term": "AgentWorkflow and Context",
+          "def": "AgentWorkflow runs one or more agents; passing a Context object to run keeps state and conversation across calls."
+        },
+        {
+          "term": "FunctionAgent vs ReActAgent",
+          "def": "FunctionAgent uses the LLM's function-calling API; ReActAgent works with any chat or text LLM and shows its reasoning."
+        },
+        {
+          "term": "Workflow events",
+          "def": "Steps decorated with @step are triggered by typed Events (StartEvent, custom Events, StopEvent); type hints with unions define branches and loops."
+        }
+      ],
+      "keyPoints": [
+        "RAG has five stages: loading, indexing, storing, querying and evaluation.",
+        "Response synthesizer modes: refine (one LLM call per chunk), compact (default, concatenates first) and tree_summarize.",
+        "Evaluators available: FaithfulnessEvaluator, AnswerRelevancyEvaluator, CorrectnessEvaluator.",
+        "Agents are async in LlamaIndex: use await agent.run(...).",
+        "One agent must be the root_agent of an AgentWorkflow; agents can hand off to each other by name and description.",
+        "Workflow state lives in ctx.store (await ctx.store.set / get); AgentWorkflow exposes it via initial_state and state_prompt.",
+        "draw_all_possible_flows renders the workflow to an HTML file for debugging."
+      ],
+      "walkthrough": [
+        "Install llama-index-llms-huggingface-api and llama-index-embeddings-huggingface, then call HuggingFaceInferenceAPI(...).complete('Hello').",
+        "Build the ingestion pipeline with SentenceSplitter and BAAI/bge-small-en-v1.5 embeddings into a Chroma collection, then create the VectorStoreIndex.",
+        "Create a query engine with response_mode='tree_summarize', ask a question and score it with FaithfulnessEvaluator.",
+        "Wrap a function in FunctionTool.from_defaults and the query engine in QueryEngineTool.from_defaults with a clear name and description.",
+        "Create an agent with AgentWorkflow.from_tools_or_functions and run it twice with the same Context to test memory.",
+        "Build two ReActAgents (calculator and info_lookup) inside one AgentWorkflow with a root agent.",
+        "Write a MultiStepWorkflow with a ProcessingEvent, add a LoopEvent branch, draw it, then add ctx.store state.",
+        "Take both LlamaIndex quizzes."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A LlamaIndex FunctionAgent with a plain function tool and a QueryEngineTool, run inside an AgentWorkflow with Context (adapted from Unit 2.2, Using Agents in LlamaIndex)",
+        "src": "from llama_index.core.agent.workflow import AgentWorkflow, FunctionAgent\nfrom llama_index.core.tools import QueryEngineTool\nfrom llama_index.core.workflow import Context\nfrom llama_index.llms.huggingface_api import HuggingFaceInferenceAPI\ndef multiply(a: int, b: int) -> int:\n    \"\"\"Multiplies two integers and returns the resulting integer\"\"\"\n    return a * b\nllm = HuggingFaceInferenceAPI(model_name=\"Qwen/Qwen2.5-Coder-32B-Instruct\")\n# wrap the QueryEngine built in the Components section as a RAG tool\nquery_engine_tool = QueryEngineTool.from_defaults(\n    query_engine=index.as_query_engine(llm=llm, similarity_top_k=3),\n    name=\"persona_db\",\n    description=\"Searches a database containing persona descriptions\",\n)\nalfred = FunctionAgent(            # FunctionAgent needs a function-calling LLM; ReActAgent works with any LLM\n    name=\"alfred\",\n    description=\"Answers questions using arithmetic and the persona database\",\n    tools=[multiply, query_engine_tool],   # plain functions are parsed for name and description\n    llm=llm,\n)\nworkflow = AgentWorkflow(agents=[alfred], root_agent=\"alfred\")\nctx = Context(workflow)                     # keeps state and history between runs\nresponse = await workflow.run(user_msg=\"What is 2 times 2?\", ctx=ctx)"
+      },
+      "exercise": {
+        "title": "A RAG workflow with an evaluation step",
+        "steps": [
+          "Index a folder of your own text files with SimpleDirectoryReader, an IngestionPipeline and Chroma.",
+          "Write a Workflow with three steps: retrieve (emits a RetrievedEvent with nodes), answer (emits an AnswerEvent), evaluate (FaithfulnessEvaluator; loops back to retrieve with a larger top_k if it fails, up to 2 times).",
+          "Store the attempt counter in ctx.store and draw the workflow with draw_all_possible_flows.",
+          "Expose the whole workflow to an AgentWorkflow agent as a QueryEngineTool or FunctionTool and ask it two questions."
+        ],
+        "deliverable": "A notebook containing the workflow code, its HTML drawing and two agent runs with faithfulness scores.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "What is the difference between as_retriever, as_query_engine and as_chat_engine?",
+        "Why do workflow type hints matter for control flow and not only for readability?",
+        "When would you choose a hand-written Workflow over AgentWorkflow?"
+      ],
+      "resources": [
+        {
+          "title": "LlamaIndex tools notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/tools.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "LlamaIndex agents notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/agents.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "LlamaIndex workflows notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/llama-index/workflows.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "LlamaHub",
+          "url": "https://llamahub.ai/",
+          "type": "tool"
+        },
+        {
+          "title": "LlamaIndex workflows documentation",
+          "url": "https://docs.llamaindex.ai/en/stable/understanding/workflows/",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m5-l08",
+      "title": "LangGraph: state, nodes, edges and a ReAct document agent",
+      "minutes": 80,
+      "sourceRef": "Unit 2.3 · Introduction to LangGraph, What is LangGraph?, Building Blocks, Building Your First LangGraph, Document Analysis Graph, Quick Quiz 1, Conclusion",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit2/langgraph/introduction",
+      "notebookUrl": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/mail_sorting.ipynb",
+      "summary": "LangGraph is LangChain's framework for controlling the flow of LLM applications; it sits on the control end of the control-versus-freedom trade-off and suits multi-step processes, persisted state, deterministic logic mixed with AI, human-in-the-loop and complex architectures. Its building blocks are a user-defined State (TypedDict), Nodes (functions that return state updates), Edges (direct or conditional) and the StateGraph container compiled and invoked. The first graph is Alfred's mail sorter: read, classify spam with an LLM, route with add_conditional_edges to handle_spam or draft_response, notify, END, traced with the Langfuse CallbackHandler. The document analysis graph adds messages with the add_messages reducer, bind_tools with extract_text (a GPT-4o vision tool) and divide, a ToolNode and tools_condition to form the ReAct loop.",
+      "concepts": [
+        {
+          "term": "State (TypedDict)",
+          "def": "The user-defined data that flows through the graph; nodes read it and return partial updates."
+        },
+        {
+          "term": "Node",
+          "def": "A Python function that takes the state, does work such as an LLM call or tool call, and returns updates to the state."
+        },
+        {
+          "term": "Conditional edge",
+          "def": "An edge chosen at runtime by a routing function whose return value is mapped to the next node."
+        },
+        {
+          "term": "StateGraph",
+          "def": "The builder that holds nodes and edges, starts at START, ends at END, and is compiled into a runnable graph."
+        },
+        {
+          "term": "add_messages reducer",
+          "def": "An Annotated operator on a messages field that appends new messages instead of overwriting the list."
+        },
+        {
+          "term": "ToolNode and tools_condition",
+          "def": "Prebuilt node that executes tool calls and prebuilt router that sends the flow to tools or END depending on whether the last message contains a tool call."
+        }
+      ],
+      "keyPoints": [
+        "LangChain gives model and tool interfaces; LangGraph orchestrates control flow, and the two can be used separately.",
+        "Code agents are free and less predictable; LangGraph is for when you, the human, design the flow and let the LLM decide at junctions.",
+        "The routing function's return value must match a key of the conditional edges mapping.",
+        "The mail sorter is not an agent because no tool is involved; it teaches the framework.",
+        "llm.bind_tools(tools, parallel_tool_calls=False) lets the assistant node emit tool calls that ToolNode executes.",
+        "The loop assistant -> tools_condition -> tools -> assistant continues until the model answers without a tool call.",
+        "graph.get_graph().draw_mermaid_png() visualizes the compiled graph; the examples use GPT-4o for compatibility."
+      ],
+      "walkthrough": [
+        "Define State with a graph_state string, three nodes and a decide_mood router; build, compile, draw and invoke the toy graph.",
+        "Open the mail sorting notebook, install langgraph and langchain_openai, and define EmailState.",
+        "Write read_email, classify_email, handle_spam, draft_response and notify_mr_hugg nodes.",
+        "Add route_email and wire the StateGraph with add_conditional_edges; run it on the legitimate and the lottery spam emails.",
+        "Add the Langfuse CallbackHandler through config={'callbacks': [langfuse_handler]} and open the trace.",
+        "Open the document analysis notebook: AgentState with add_messages, extract_text and divide tools, bind_tools, ToolNode and tools_condition.",
+        "Run Divide 6790 by 5 and the Batman training note image question; read the tool call and tool response messages.",
+        "Take the LangGraph quiz."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A LangGraph StateGraph that classifies an email and routes with a conditional edge (adapted from Unit 2.3, Building Your First LangGraph)",
+        "src": "from typing import TypedDict, Optional, Dict, Any\nfrom langgraph.graph import StateGraph, START, END\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.messages import HumanMessage\nclass EmailState(TypedDict):          # user-defined state that flows through every node\n    email: Dict[str, Any]\n    is_spam: Optional[bool]\n    email_draft: Optional[str]\nmodel = ChatOpenAI(temperature=0)\ndef classify_email(state: EmailState):   # a node reads the state and returns updates\n    text = model.invoke([HumanMessage(content=f\"Is this email spam or legitimate?\\n{state['email']['body']}\")]).content.lower()\n    return {\"is_spam\": \"spam\" in text and \"not spam\" not in text}\ndef draft_response(state: EmailState):\n    reply = model.invoke([HumanMessage(content=f\"As Alfred the butler, draft a polite reply to: {state['email']['body']}\")])\n    return {\"email_draft\": reply.content}\ndef route_email(state: EmailState) -> str:   # return value must match a key of the mapping below\n    return \"spam\" if state[\"is_spam\"] else \"legitimate\"\nbuilder = StateGraph(EmailState)\nbuilder.add_node(\"classify_email\", classify_email); builder.add_node(\"draft_response\", draft_response)\nbuilder.add_node(\"handle_spam\", lambda state: print(\"Moved to the spam folder.\") or {})\nbuilder.add_edge(START, \"classify_email\")\nbuilder.add_conditional_edges(\"classify_email\", route_email, {\"spam\": \"handle_spam\", \"legitimate\": \"draft_response\"})\nbuilder.add_edge(\"handle_spam\", END); builder.add_edge(\"draft_response\", END)\nprint(builder.compile().invoke({\"email\": {\"body\": \"CONGRATULATIONS! You have won $5,000,000!\"}, \"is_spam\": None, \"email_draft\": None}))"
+      },
+      "exercise": {
+        "title": "Add a human-in-the-loop branch to the mail sorter",
+        "steps": [
+          "Extend EmailState with a confidence field and have classify_email fill it from the LLM output.",
+          "Add a third route needs_review for confidence below a threshold that pauses and prints the email for a human decision.",
+          "Convert the sorter into a real agent: bind a lookup_sender tool to the model, add a ToolNode and tools_condition so the classifier can check a contact list.",
+          "Trace three runs with the Langfuse CallbackHandler and compare latencies of the spam and legitimate paths."
+        ],
+        "deliverable": "A notebook with the extended graph drawing, three traced runs and a short note on when the human branch fires.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "What does add_messages change compared with a plain list field in the state?",
+        "How is tools_condition different from the hand-written route_email router?",
+        "Which of the five LangGraph scenarios (control, persistence, mixed logic, human-in-the-loop, complex architectures) applies to the document agent?"
+      ],
+      "resources": [
+        {
+          "title": "Document analysis agent notebook",
+          "url": "https://huggingface.co/agents-course/notebooks/blob/main/unit2/langgraph/agent.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "LangGraph documentation",
+          "url": "https://langchain-ai.github.io/langgraph/",
+          "type": "docs"
+        },
+        {
+          "title": "LangChain Academy: Introduction to LangGraph",
+          "url": "https://academy.langchain.com/courses/intro-to-langgraph",
+          "type": "video"
+        },
+        {
+          "title": "Langfuse LangChain tracing integration",
+          "url": "https://langfuse.com/docs/integrations/langchain/tracing#add-langfuse-to-your-langchain-application",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m5-l09",
+      "title": "Use case: Alfred's agentic RAG gala agent in three frameworks",
+      "minutes": 80,
+      "sourceRef": "Unit 3 · Introduction, Agentic RAG, Creating a RAG Tool for Guest Stories, Building and Integrating Tools, Creating Your Gala Agent, Conclusion",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit3/agentic-rag/introduction",
+      "summary": "Unit 3 builds one real use case with code tabs for smolagents, LlamaIndex and LangGraph: Alfred must host a gala and answer questions about guests, news, weather and AI builders. The project is organized as an HF Space with tools.py, retriever.py and app.py. The retriever tool loads the agents-course/unit3-invitees dataset into Document objects and searches them with BM25Retriever. The tools page adds DuckDuckGo web search, a dummy WeatherInfoTool and a HubStatsTool built on huggingface_hub.list_models. The agent page assembles everything (smolagents CodeAgent with add_base_tools and planning_interval=3, LlamaIndex AgentWorkflow, LangGraph assistant plus ToolNode graph), runs four end-to-end examples and compares how each framework handles conversation memory.",
+      "concepts": [
+        {
+          "term": "Project structure",
+          "def": "tools.py for auxiliary tools, retriever.py for retrieval and app.py that assembles the agent, deployed as a Hugging Face Space."
+        },
+        {
+          "term": "Guest retriever tool",
+          "def": "A BM25 search over Documents built from the invitees dataset fields name, relation, description and email, returning the top three matches."
+        },
+        {
+          "term": "HubStatsTool",
+          "def": "A tool that calls list_models(author=..., sort='downloads', direction=-1, limit=1) to report an author's most downloaded model."
+        },
+        {
+          "term": "Memory across runs",
+          "def": "smolagents needs reset=False, LlamaIndex needs a Context object, LangGraph re-sends previous messages or uses MemorySaver."
+        },
+        {
+          "term": "Framework parity",
+          "def": "The same tool set expressed as smolagents Tool subclasses, LlamaIndex FunctionTools and LangChain Tool objects bound to a LangGraph assistant."
+        }
+      ],
+      "keyPoints": [
+        "The guest list is event-specific, changes often and contains exact details like emails, which is why RAG beats relying on model knowledge.",
+        "BM25 needs no embeddings and is a good start; sentence-transformers embeddings are the suggested upgrade.",
+        "Tool names and descriptions decide when the agent calls the retriever versus web search versus weather.",
+        "The smolagents version uses add_base_tools=True and planning_interval=3 for the full gala agent.",
+        "The weather tool is a dummy that returns random conditions; swap in a real API for production.",
+        "None of the three frameworks couples memory to the agent by default; it is an explicit choice.",
+        "Suggested extensions: embeddings-based retriever, conversation memory, web search for unknown guests, multiple indexes."
+      ],
+      "walkthrough": [
+        "Pick a framework tab and load agents-course/unit3-invitees with datasets, converting each row to a Document.",
+        "Implement the guest info retriever tool with BM25Retriever and test it on Lady Ada Lovelace.",
+        "Create the web search tool, the WeatherInfoTool and the HubStatsTool; test hub stats with the author facebook.",
+        "Assemble Alfred with all four tools (and planning if using smolagents).",
+        "Run the four examples: guest info, Paris fireworks weather, the Qwen or Google most popular model, and preparing for Dr. Nikola Tesla.",
+        "Enable memory (reset=False, Context, or message history) and ask a follow-up about the same guest.",
+        "Clone the Unit_3_Agentic_RAG Space, place your code in tools.py, retriever.py and app.py and deploy."
+      ],
+      "exercise": {
+        "title": "Port the gala agent to a second framework",
+        "steps": [
+          "Build the full gala agent in the framework you used in the walkthrough and deploy it as a Space.",
+          "Rebuild the same four tools in a second framework from the tabs and run the same four questions.",
+          "Add a fifth tool that returns the latest news for a topic and conversation starters for a guest.",
+          "Write a comparison: tool definition effort, memory handling and answer quality across the two frameworks."
+        ],
+        "deliverable": "Two Space URLs (or repos) plus a one-page comparison table of the two implementations.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why does the tutorial return only the top three retrieved guests rather than all matches?",
+        "Which of the four tools would you replace first for a real event, and with what?",
+        "How would you prevent the agent from leaking guest emails in answers?"
+      ],
+      "resources": [
+        {
+          "title": "Unit 3 Agentic RAG Space (reference implementation)",
+          "url": "https://huggingface.co/spaces/agents-course/Unit_3_Agentic_RAG",
+          "type": "repo"
+        },
+        {
+          "title": "Dataset: agents-course/unit3-invitees",
+          "url": "https://huggingface.co/datasets/agents-course/unit3-invitees/",
+          "type": "dataset"
+        },
+        {
+          "title": "sentence-transformers",
+          "url": "https://www.sbert.net/",
+          "type": "tool"
+        },
+        {
+          "title": "LangGraph MemorySaver tutorial",
+          "url": "https://langchain-ai.github.io/langgraph/tutorials/introduction/#part-3-adding-memory-to-the-chatbot",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m5-l10",
+      "title": "Final project: a GAIA agent, the student leaderboard and your certificate",
+      "minutes": 180,
+      "sourceRef": "Unit 4 · Introduction to the Final Unit, What is GAIA?, The Final Hands-On, Get Your Certificate Of Excellence, Conclusion, What Should You Learn Now?",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/unit4/introduction",
+      "summary": "The final unit asks you to build an agent and evaluate it on 20 level-1 questions from the GAIA validation set; scoring 30% or higher earns the Certificate of Completion. GAIA (466 questions, humans about 92%, GPT-4 with plugins about 15%) tests reasoning, multimodality, web browsing and tool use across three difficulty levels, with a public leaderboard on the Hub. The hands-on page documents the scoring API (GET /questions, GET /random-question, GET /files/{task_id}, POST /submit), stresses that answers are compared by exact match without the text FINAL ANSWER, and provides the Final_Assignment_Template Space that submits username, agent code link and answers. The certificate page walks through the Unit4-Final-Certificate Space, and the readings point to MCP and A2A as the protocols to learn next.",
+      "concepts": [
+        {
+          "term": "GAIA",
+          "def": "A benchmark of 466 real-world questions that are conceptually simple for humans but require multi-step reasoning, multimodal understanding, browsing and tool use."
+        },
+        {
+          "term": "GAIA levels",
+          "def": "Level 1 under 5 steps and minimal tools; level 2 5 to 10 steps with several tools; level 3 long-term planning and advanced tool integration."
+        },
+        {
+          "term": "Exact match scoring",
+          "def": "The course API compares submitted_answer to the ground truth exactly, so answer formatting (units, lists, plural forms) is part of the task."
+        },
+        {
+          "term": "Scoring API",
+          "def": "Routes to fetch questions and attached files and to POST answers with username and agent_code for the Students leaderboard."
+        },
+        {
+          "term": "Final_Assignment_Template",
+          "def": "A Gradio Space that logs in with HF, runs your agent over all questions and submits the answers list."
+        },
+        {
+          "term": "MCP and A2A",
+          "def": "Model Context Protocol connects agents to tools and data; Agent-to-Agent protocol connects agents to each other."
+        }
+      ],
+      "keyPoints": [
+        "You need 30% or higher on the 20-question level-1 subset to be eligible for the Certificate of Completion.",
+        "The subset was filtered by number of tools and steps needed; Deep Research reached 67.36% on the full validation set.",
+        "Submit only the answer, nothing else, and never include the text FINAL ANSWER.",
+        "Keep your Space public: the leaderboard shows the agent_code link and unverifiable scores may be removed.",
+        "Some tasks attach files available at GET /files/{task_id}; your agent needs file handling tools.",
+        "The example hard question requires an image, a multi-hop web lookup and a strictly formatted comma-separated plural list.",
+        "This unit gives less guidance on purpose and expects more advanced coding."
+      ],
+      "walkthrough": [
+        "Read the GAIA paper summary and the example question; list the capabilities it requires.",
+        "Open the scoring API docs and call GET /random-question and GET /files/{task_id} to see the data shape.",
+        "Duplicate Final_Assignment_Template, add your HF token and read how it builds the answers payload.",
+        "Replace the placeholder agent with a smolagents, LlamaIndex or LangGraph agent equipped with web search, page visiting, Python execution and file readers.",
+        "Add an answer-formatting step that strips explanations and normalizes numbers, lists and strings.",
+        "Run all 20 questions locally, log each trace, fix the most common failure, then submit from the Space.",
+        "Check the Students leaderboard, then claim the certificate in the Unit4-Final-Certificate Space with your full name.",
+        "Read the MCP and A2A pages in the additional readings."
+      ],
+      "exercise": {
+        "title": "Reach 30% on the course GAIA subset",
+        "steps": [
+          "Build a baseline agent with search, visit webpage and a Python tool; record its score.",
+          "Add file tools (CSV, Excel, images or audio as needed by the questions) and retries on tool errors.",
+          "Instrument the runs and find which questions fail on formatting versus on reasoning.",
+          "Iterate until the submitted score is at least 30%, then share the leaderboard entry."
+        ],
+        "deliverable": "A public Space with your agent code and a leaderboard entry of 30% or higher.",
+        "minutes": 150
+      },
+      "checkYourself": [
+        "Which GAIA design principle makes brute-force or memorization strategies ineffective?",
+        "Why does exact-match scoring push you to separate reasoning from final-answer formatting in the agent?",
+        "How does MCP relate to the tool abstractions you saw in all three frameworks?"
+      ],
+      "resources": [
+        {
+          "title": "GAIA: A Benchmark for General AI Assistants",
+          "url": "https://huggingface.co/papers/2311.12983",
+          "type": "paper"
+        },
+        {
+          "title": "GAIA leaderboard",
+          "url": "https://huggingface.co/spaces/gaia-benchmark/leaderboard",
+          "type": "tool"
+        },
+        {
+          "title": "Final assignment template Space",
+          "url": "https://huggingface.co/spaces/agents-course/Final_Assignment_Template",
+          "type": "repo"
+        },
+        {
+          "title": "Scoring API documentation",
+          "url": "https://agents-course-unit4-scoring.hf.space/docs",
+          "type": "docs"
+        },
+        {
+          "title": "Open-source DeepResearch blog",
+          "url": "https://huggingface.co/blog/open-deep-research",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m5-l11",
+      "title": "Bonus 1: fine-tuning an LLM for function calling with LoRA",
+      "minutes": 60,
+      "sourceRef": "Bonus Unit 1 · Introduction, What is Function Calling?, Let's Fine-Tune your model for Function-calling, Conclusion",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/bonus-unit1/introduction",
+      "colabUrl": "https://colab.research.google.com/#fileId=https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb",
+      "notebookUrl": "https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit1/bonus-unit1.ipynb",
+      "summary": "Function calling is a learned way for the model to act on its environment: instead of relying on prompting as in Unit 1, the model is fine-tuned to emit tool calls and interpret results. The unit shows how function calling adds an action and an observation to the conversation, represented through special tokens such as [AVAILABLE_TOOLS], [TOOL_CALLS] and [TOOL_RESULTS] in the Mistral chat template, and in many APIs as an assistant message with a function_call plus a tool role message. It then explains the three training stages (pre-training, instruction fine-tuning, alignment), why to start from google/gemma-2-2b-it, and LoRA, which trains small rank-decomposition adapters while freezing the base model. The notebook fine-tunes Gemma 2 2B for function calling with new special tokens that separate thinking, calls and tool responses.",
+      "concepts": [
+        {
+          "term": "Function calling",
+          "def": "A trained capability where the model structures its output as a call to a provided function and then reads the function result, relying less on prompting."
+        },
+        {
+          "term": "Tool role and function_call",
+          "def": "New conversation roles: the assistant message carries the call (name and JSON arguments) and a tool message carries the result."
+        },
+        {
+          "term": "Function-calling special tokens",
+          "def": "Template markers like [AVAILABLE_TOOLS], [TOOL_CALLS] and [TOOL_RESULTS] that delimit tools, calls and observations in the prompt."
+        },
+        {
+          "term": "Three training stages",
+          "def": "Pre-training on raw text, instruction fine-tuning to chat, and alignment to preferences; Hub models may have completed one or more."
+        },
+        {
+          "term": "LoRA",
+          "def": "Low-Rank Adaptation: inserts small adapter matrices into transformer linear layers, trains only them, and can be merged at inference with no extra latency."
+        },
+        {
+          "term": "SFTTrainer",
+          "def": "The TRL trainer used for supervised fine-tuning on chat-formatted data, assumed knowledge for the notebook."
+        }
+      ],
+      "keyPoints": [
+        "In Unit 1 the agent did not learn to use tools; it generalized from the tool list in the prompt. Function calling trains the behavior in.",
+        "Function calling was first introduced in GPT-4 and then reproduced by other models and APIs.",
+        "Starting from an instruction-tuned model minimizes what the model must learn; a base model would also need to learn chat.",
+        "LoRA adapters are a few hundred megabytes, train faster, use less memory and are easy to share.",
+        "The notebook adds new special tokens for internal reasoning, outgoing calls and tool responses, then fine-tunes with the Thought, Act, Observe cycle in the data.",
+        "This unit is optional and more advanced; the course suggests revisiting it after the frameworks."
+      ],
+      "walkthrough": [
+        "Compare the plain conversation list with the Mistral function-calling conversation that adds function_call and a tool message.",
+        "Map each Mistral special token to Thought, Action or Observation.",
+        "Open the Colab notebook and load google/gemma-2-2b-it and the function-calling dataset.",
+        "Add the new special tokens to the tokenizer and resize the embeddings as the notebook does.",
+        "Configure LoRA (rank, alpha, target modules) and train with SFTTrainer on a free GPU.",
+        "Run inference on a held-out example and check that the model emits a well-formed tool call before answering.",
+        "Push the adapter to the Hub and note the checkpoint size."
+      ],
+      "exercise": {
+        "title": "Fine-tune and evaluate a small function-calling model",
+        "steps": [
+          "Run the bonus notebook end to end and save the LoRA adapter to your Hub account.",
+          "Write 20 test prompts: 10 that need a tool call and 10 that do not.",
+          "Measure how often the fine-tuned model calls a tool when it should and when it should not; compare with the untuned gemma-2-2b-it using the same chat template.",
+          "Try a different base model or rank and report the change."
+        ],
+        "deliverable": "A Hub adapter link and a small table of tool-call precision and recall for tuned versus untuned models.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why does function calling make the explicit Thought step optional?",
+        "What are the trade-offs between prompting a general model with a tool list and fine-tuning a smaller model for function calling?",
+        "Why can merged LoRA weights run without extra latency?"
+      ],
+      "resources": [
+        {
+          "title": "Mistral function calling documentation",
+          "url": "https://docs.mistral.ai/capabilities/function_calling/",
+          "type": "docs"
+        },
+        {
+          "title": "google/gemma-2-2b-it",
+          "url": "https://huggingface.co/google/gemma-2-2b-it",
+          "type": "repo"
+        },
+        {
+          "title": "NLP course: LoRA chapter",
+          "url": "https://huggingface.co/learn/nlp-course/chapter11/4?fw=pt",
+          "type": "article"
+        },
+        {
+          "title": "OpenAI: function calling and other API updates",
+          "url": "https://openai.com/index/function-calling-and-other-api-updates/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m5-l12",
+      "title": "Bonus 2: agent observability and evaluation with OpenTelemetry and Langfuse",
+      "minutes": 45,
+      "sourceRef": "Bonus Unit 2 · Introduction, What is agent observability and evaluation?, Monitoring and evaluating agents, Quiz",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/bonus-unit2/introduction",
+      "colabUrl": "https://colab.research.google.com/#fileId=https%3A//huggingface.co/agents-course/notebooks/blob/main/bonus-unit2/monitoring-and-evaluating-agents.ipynb",
+      "notebookUrl": "https://huggingface.co/agents-course/notebooks/blob/main/bonus-unit2/monitoring-and-evaluating-agents.ipynb",
+      "summary": "Observability means understanding an agent from logs, metrics and traces; without it agents are black boxes. Tools such as Langfuse and Arize ingest OpenTelemetry data that frameworks like smolagents expose, representing a run as a trace made of spans. Key metrics are latency, cost (token usage), request errors, explicit and implicit user feedback, accuracy and automated evaluations such as LLM-as-a-judge, RAGAS or LLM Guard. Evaluation splits into offline (curated datasets with ground truth, repeatable, for CI) and online (live traffic, drift and unexpected queries), best combined in a loop. The notebook instruments a smolagents CodeAgent with SmolagentsInstrumentor, enriches traces with user_id, session_id and tags, collects thumbs-up feedback in Gradio with langfuse.create_score, applies an LLM-as-a-judge template, and runs the agent over GSM8K items stored as a Langfuse dataset.",
+      "concepts": [
+        {
+          "term": "Observability",
+          "def": "Understanding what happens inside an agent through external signals: logs, metrics and traces of actions, tool use and model calls."
+        },
+        {
+          "term": "Trace and span",
+          "def": "A trace is one complete agent task; spans are its individual steps such as a model call or a tool call."
+        },
+        {
+          "term": "OpenTelemetry",
+          "def": "The open standard for instrumenting code to emit traces, metrics and logs; smolagents exposes agent metadata through it."
+        },
+        {
+          "term": "Offline vs online evaluation",
+          "def": "Offline scores the agent on curated datasets with known answers; online monitors real user interactions, feedback and drift in production."
+        },
+        {
+          "term": "LLM-as-a-judge",
+          "def": "A separate LLM scores each output against a template such as correctness or toxicity, and the score is logged to the trace."
+        },
+        {
+          "term": "Langfuse dataset run",
+          "def": "Dataset items with input and expected output; item.run links each agent trace to the item so runs with different models or prompts can be compared."
+        }
+      ],
+      "keyPoints": [
+        "Metrics to watch: latency per step and run, cost from token usage, request errors (add retries and provider fallbacks), explicit and implicit feedback, accuracy.",
+        "Repeated rephrasing or retry clicks are implicit feedback that the agent is failing.",
+        "Start with offline evaluation before deploying; keep the test set updated with new edge cases and mix small smoke sets with larger sets.",
+        "The improvement loop: offline eval, deploy, monitor online, collect failures, add them to the offline set, iterate.",
+        "span.update_trace can attach input, output, user_id, session_id, tags and metadata; call langfuse.flush() in short scripts.",
+        "If you use LlamaIndex or LangGraph, Langfuse has dedicated instrumentation docs for both.",
+        "Lines of code is not an observability metric; latency, cost and feedback are."
+      ],
+      "walkthrough": [
+        "Install langfuse, smolagents[telemetry], openinference-instrumentation-smolagents, datasets and gradio.",
+        "Set LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST and HF_TOKEN; verify with get_client().auth_check().",
+        "Call SmolagentsInstrumentor().instrument() and run a trivial CodeAgent on 1+1 to confirm spans appear.",
+        "Run the Rubik's cubes in Notre Dame question and inspect the trace tree, token usage and latency.",
+        "Wrap a run in langfuse.start_as_current_span and enrich it with user_id, session_id and tags.",
+        "Launch the Gradio chat with a like handler that calls langfuse.create_score.",
+        "Define an LLM-as-a-judge template in Langfuse and watch scores arrive for new traces.",
+        "Create a Langfuse dataset from the first ten GSM8K items, run the agent through item.run and compare two runs."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Instrumenting a smolagents run with OpenTelemetry and Langfuse, then enriching the trace (adapted from Bonus Unit 2 notebook)",
+        "src": "import os\nfrom langfuse import get_client\nfrom openinference.instrumentation.smolagents import SmolagentsInstrumentor\nfrom smolagents import CodeAgent, DuckDuckGoSearchTool, InferenceClientModel\n\n# pip install langfuse 'smolagents[telemetry]' openinference-instrumentation-smolagents\nos.environ[\"LANGFUSE_PUBLIC_KEY\"] = \"pk-lf-...\"\nos.environ[\"LANGFUSE_SECRET_KEY\"] = \"sk-lf-...\"\nos.environ[\"LANGFUSE_HOST\"] = \"https://cloud.langfuse.com\"   # EU region; us.cloud.langfuse.com for US\n\nlangfuse = get_client()\nassert langfuse.auth_check(), \"check your Langfuse credentials\"\nSmolagentsInstrumentor().instrument()      # every agent run is now exported as an OpenTelemetry trace\n\nagent = CodeAgent(tools=[DuckDuckGoSearchTool()], model=InferenceClientModel())\n\nwith langfuse.start_as_current_span(name=\"Smolagent-Trace\") as span:\n    response = agent.run(\"What is the capital of Germany?\")\n    span.update_trace(                       # attributes used later for filtering and analysis\n        input=\"What is the capital of Germany?\", output=response,\n        user_id=\"smolagent-user-123\", session_id=\"smolagent-session-123456789\",\n        tags=[\"city-question\", \"testing-agents\"],\n    )\nlangfuse.flush()                             # flush events in short-lived applications"
+      },
+      "exercise": {
+        "title": "An offline eval harness for your gala or GAIA agent",
+        "steps": [
+          "Instrument the agent you built in Unit 3 or Unit 4 with SmolagentsInstrumentor (or the LlamaIndex or LangGraph integration).",
+          "Create a dataset of 15 questions with expected answers and upload it as a Langfuse dataset.",
+          "Run two configurations (different model or prompt) with item.run and attach an exact-match score to each trace.",
+          "Add an LLM-as-a-judge check for answer formatting and report cost, latency and accuracy per configuration."
+        ],
+        "deliverable": "A Langfuse dataset with two compared runs and a short write-up of accuracy, cost and latency differences.",
+        "minutes": 40
+      },
+      "checkYourself": [
+        "Which metric would reveal a bug that makes the agent loop on tool calls, and how fast?",
+        "Why is offline evaluation the minimum before any deployment, and what can it still miss?",
+        "What makes a good LLM-as-a-judge template and where could it be wrong?"
+      ],
+      "resources": [
+        {
+          "title": "Langfuse",
+          "url": "https://langfuse.com/",
+          "type": "tool"
+        },
+        {
+          "title": "OpenTelemetry documentation",
+          "url": "https://opentelemetry.io/docs/",
+          "type": "docs"
+        },
+        {
+          "title": "Arize",
+          "url": "https://www.arize.com",
+          "type": "tool"
+        },
+        {
+          "title": "RAGAS",
+          "url": "https://docs.ragas.io/",
+          "type": "tool"
+        },
+        {
+          "title": "GSM8K dataset",
+          "url": "https://huggingface.co/datasets/openai/gsm8k",
+          "type": "dataset"
+        }
+      ]
+    },
+    {
+      "id": "m5-l13",
+      "title": "Bonus 3: agents in games with a Pokemon battle agent",
+      "minutes": 40,
+      "sourceRef": "Bonus Unit 3 · Introduction, The State of the Art in Using LLMs in Games, From LLMs to AI Agents, Build Your Own Pokémon Battle Agent, Launching Your Pokémon Battle Agent, Conclusion",
+      "sourceUrl": "https://huggingface.co/learn/agents-course/bonus-unit3/introduction",
+      "summary": "The bonus unit surveys LLMs in games (Covert Protocol by NVIDIA and Inworld, Ubisoft's NEO NPCs, Mecha BREAK with NVIDIA ACE, and the published game Suck Up!) and explains what agents add: autonomy, adaptability and persistence that turn NPCs from reactive responders into proactive actors. It is honest about the limitation that reasoning latency makes real-time play at 30 FPS infeasible, which is why turn-based Pokemon is the target. The build page introduces Poke-env, the Pokemon Showdown simulator, the LLMAgentBase class that formats the battle state, exposes choose_move and choose_switch tools and falls back to a random move on invalid output, and a TemplateAgent where you implement _get_llm_decision. The launch page explains how to battle the stream agent and how to deploy your agent in the PShowdown pokemon_agents Space.",
+      "concepts": [
+        {
+          "term": "Agentic NPC",
+          "def": "A character that decides, plans and acts on game state even without player input, versus an LLM NPC that only talks more naturally."
+        },
+        {
+          "term": "Latency limit",
+          "def": "Thinking and acting tokens take too long for real-time games that run at about 30 frames per second; turn-based games allow deliberation."
+        },
+        {
+          "term": "Poke-env",
+          "def": "A Python library with a Player class for building Pokemon Showdown bots, repurposed here for LLM agents."
+        },
+        {
+          "term": "LLMAgentBase",
+          "def": "Extends Player: _format_battle_state turns the battle into text, choose_move calls the LLM decision and validates the chosen move or switch, with a random fallback."
+        },
+        {
+          "term": "STANDARD_TOOL_SCHEMA",
+          "def": "The two tools the LLM may call each turn: choose_move with a move name and choose_switch with a Pokemon name."
+        },
+        {
+          "term": "_get_llm_decision",
+          "def": "The abstract method you implement to send the battle state to an LLM and return a decision dict with name and arguments."
+        }
+      ],
+      "keyPoints": [
+        "LLM-powered NPCs already ship in demos and games, but most examples are dialogue, not agency.",
+        "Agents bring autonomy, adaptability and persistence to NPCs.",
+        "Claude Plays Pokemon and Gemini Plays Pokemon show that token budgets for thinking plus acting rule out fast-paced games today.",
+        "The base class normalizes move and species names and falls back to choose_random_move when the LLM picks an invalid or unavailable action.",
+        "Three complete examples with OpenAI, Mistral and Gemini models are provided in the twitch_streaming Space's agents.py.",
+        "To compete, duplicate the pokemon_agents Space, add your class to agent.py, register it in app.py and send a battle invitation on the course's Showdown server."
+      ],
+      "walkthrough": [
+        "Read the four state-of-the-art examples and note which ones involve decisions versus dialogue only.",
+        "Read LLMAgentBase: trace a turn from _format_battle_state through _get_llm_decision to create_order and the fallbacks.",
+        "Study the TemplateAgent blueprint and the reference agents.py implementations.",
+        "Implement _get_llm_decision with your provider: system prompt on type matchups, tool schema, parse the function call.",
+        "Battle the stream agent from the Pokemon Showdown Space to feel the opponent.",
+        "Duplicate the pokemon_agents Space, register your agent, enter your Showdown username and send an invitation."
+      ],
+      "exercise": {
+        "title": "A battle agent with memory",
+        "steps": [
+          "Implement TemplateAgent with any function-calling LLM and get it to complete a full battle without fallbacks.",
+          "Add a short battle_history summary to the prompt so the agent remembers the opponent's revealed moves.",
+          "Log each turn's state, decision and fallback reason; count invalid decisions over five battles.",
+          "Tune the prompt to cut invalid decisions and report win rate against the random baseline."
+        ],
+        "deliverable": "A deployed agent in your duplicated Space plus a log of five battles with decision validity and win statistics.",
+        "minutes": 40
+      },
+      "checkYourself": [
+        "Why is a validated fallback action essential in a game agent, and what would happen without it?",
+        "Which parts of the Thought-Action-Observation cycle map to _format_battle_state, choose_move and the next turn's state?",
+        "What decoding or architecture changes would be needed for real-time agents in games?"
+      ],
+      "resources": [
+        {
+          "title": "Poke-env repository",
+          "url": "https://github.com/hsahovic/poke-env",
+          "type": "repo"
+        },
+        {
+          "title": "Poke-env documentation",
+          "url": "https://poke-env.readthedocs.io/en/stable/",
+          "type": "docs"
+        },
+        {
+          "title": "Reference agents.py (OpenAI, Mistral, Gemini agents)",
+          "url": "https://huggingface.co/spaces/Jofthomas/twitch_streaming/blob/main/agents.py",
+          "type": "repo"
+        },
+        {
+          "title": "Pokemon agents challenge Space",
+          "url": "https://huggingface.co/spaces/PShowdown/pokemon_agents",
+          "type": "tool"
+        },
+        {
+          "title": "Pokemon Showdown Space",
+          "url": "https://huggingface.co/spaces/Jofthomas/Pokemon_showdown",
+          "type": "tool"
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "smolagents documentation",
+      "url": "https://huggingface.co/docs/smolagents",
+      "type": "docs",
+      "note": "Reference for CodeAgent, ToolCallingAgent, tools, models and secure code execution."
+    },
+    {
+      "title": "LlamaIndex component guides",
+      "url": "https://docs.llamaindex.ai/en/stable/module_guides/",
+      "type": "docs",
+      "note": "Deep dives on loaders, indexes, query engines, agents and workflows used in Unit 2.2."
+    },
+    {
+      "title": "LangGraph documentation",
+      "url": "https://langchain-ai.github.io/langgraph/",
+      "type": "docs",
+      "note": "Graphs, state, persistence, human-in-the-loop and prebuilt ReAct components from Unit 2.3."
+    },
+    {
+      "title": "huggingface/agents-course on GitHub",
+      "url": "https://github.com/huggingface/agents-course",
+      "type": "repo",
+      "note": "Source of every course page; open issues and PRs here."
+    },
+    {
+      "title": "agents-course/notebooks",
+      "url": "https://huggingface.co/agents-course/notebooks",
+      "type": "repo",
+      "note": "All Colab notebooks for Units 1 to 2 and the bonus units."
+    },
+    {
+      "title": "Students leaderboard",
+      "url": "https://huggingface.co/spaces/agents-course/Students_leaderboard",
+      "type": "tool",
+      "note": "Where your Unit 4 GAIA score and Space link are published."
+    },
+    {
+      "title": "GAIA: A Benchmark for General AI Assistants",
+      "url": "https://huggingface.co/papers/2311.12983",
+      "type": "paper",
+      "note": "The benchmark behind the final project: 466 questions, three levels, exact-match answers."
+    },
+    {
+      "title": "GAIA leaderboard",
+      "url": "https://huggingface.co/spaces/gaia-benchmark/leaderboard",
+      "type": "tool",
+      "note": "Public leaderboard on the 300 test questions and the prompting example referenced by Unit 4."
+    },
+    {
+      "title": "Unit 1 certification app",
+      "url": "https://huggingface.co/spaces/agents-course/unit1-certification-app",
+      "type": "tool",
+      "note": "Claim the Certificate of Fundamentals after passing the Unit 1 quiz."
+    },
+    {
+      "title": "Unit 4 final certificate Space",
+      "url": "https://huggingface.co/spaces/agents-course/Unit4-Final-Certificate",
+      "type": "tool",
+      "note": "Claim the Certificate of Completion once your score is 30% or higher."
+    },
+    {
+      "title": "Hugging Face Discord",
+      "url": "https://discord.gg/UrrTSsSyjb",
+      "type": "tool",
+      "note": "Study groups and the agents-course question, general and showcase channels."
+    },
+    {
+      "title": "Anthropic: Model Context Protocol announcement",
+      "url": "https://www.anthropic.com/news/model-context-protocol",
+      "type": "article",
+      "note": "The tool protocol all three frameworks can consume; recommended next topic in Unit 4."
+    },
+    {
+      "title": "Google: A2A, a new era of agent interoperability",
+      "url": "https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/",
+      "type": "article",
+      "note": "Agent-to-agent protocol complementing MCP, from the additional readings."
+    },
+    {
+      "title": "Hugging Face MCP course",
+      "url": "https://huggingface.co/learn/mcp-course/",
+      "type": "article",
+      "note": "Free follow-up course linked from the tools pages for building MCP servers and clients."
+    },
+    {
+      "title": "Langfuse",
+      "url": "https://langfuse.com/",
+      "type": "tool",
+      "note": "Open-source observability platform used in Unit 2 and Bonus Unit 2 for traces, scores and datasets."
+    },
+    {
+      "title": "OpenTelemetry",
+      "url": "https://opentelemetry.io/",
+      "type": "tool",
+      "note": "The instrumentation standard smolagents uses to export agent traces."
+    },
+    {
+      "title": "Arize",
+      "url": "https://www.arize.com",
+      "type": "tool",
+      "note": "Alternative observability platform; its Phoenix handler is used for LlamaIndex tracing."
+    },
+    {
+      "title": "Executable Code Actions Elicit Better LLM Agents",
+      "url": "https://huggingface.co/papers/2402.01030",
+      "type": "paper",
+      "note": "The research behind smolagents' code-first design."
+    },
+    {
+      "title": "Anthropic: Building Effective Agents",
+      "url": "https://www.anthropic.com/research/building-effective-agents",
+      "type": "article",
+      "note": "Design principles for when to use workflows versus agents, cited by the smolagents unit."
+    },
+    {
+      "title": "LangChain Academy: Introduction to LangGraph",
+      "url": "https://academy.langchain.com/courses/intro-to-langgraph",
+      "type": "video",
+      "note": "Full free course recommended for going beyond the LangGraph introduction."
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "Course definition of an Agent",
+      "back": "A system that leverages an AI model to interact with its environment to achieve a user-defined objective, combining reasoning, planning and the execution of actions, often via external tools."
+    },
+    {
+      "front": "Five levels of the agency spectrum",
+      "back": "Simple processor, router, tool caller, multi-step agent, multi-agent."
+    },
+    {
+      "front": "What is a chat template?",
+      "back": "A Jinja2 template in the tokenizer that converts a list of role/content messages into the exact prompt string with the model's special tokens."
+    },
+    {
+      "front": "EOS tokens for Llama 3, SmolLM2 and Gemma",
+      "back": "<|eot_id|>, <|im_end|> and <end_of_turn>."
+    },
+    {
+      "front": "What must a tool definition contain?",
+      "back": "A textual description, a callable, typed arguments and optionally typed outputs."
+    },
+    {
+      "front": "What does the @tool decorator automate?",
+      "back": "Extracting name, docstring, argument types and return type via inspect to build the tool description for the system prompt."
+    },
+    {
+      "front": "ReAct vs chain-of-thought",
+      "back": "Both reason step by step; ReAct interleaves actions and observations with external tools, CoT stays internal."
+    },
+    {
+      "front": "Stop and parse approach",
+      "back": "The LLM emits the action in a fixed format and stops; a parser extracts tool and arguments; the result is appended as an observation."
+    },
+    {
+      "front": "Why stop=[\"Observation:\"] in the dummy agent?",
+      "back": "Otherwise the model keeps generating and hallucinates the tool result instead of letting the agent run the real function."
+    },
+    {
+      "front": "CodeAgent vs ToolCallingAgent",
+      "back": "CodeAgent writes Python snippets as actions; ToolCallingAgent emits JSON tool calls via the provider's tool-calling API."
+    },
+    {
+      "front": "smolagents memory steps",
+      "back": "SystemPromptStep, TaskStep and ActionStep, written to chat messages by write_memory_to_messages before each model call."
+    },
+    {
+      "front": "Two ways to define a smolagents tool",
+      "back": "The @tool decorator on a typed, docstringed function, or a Tool subclass with name, description, inputs, output_type and forward."
+    },
+    {
+      "front": "Why split work between a manager and a web agent?",
+      "back": "Each agent stays focused and separate memories reduce input tokens per step, lowering latency and cost."
+    },
+    {
+      "front": "QueryEngineTool",
+      "back": "Wraps a LlamaIndex QueryEngine with a name and description so an agent can use RAG as one tool among others."
+    },
+    {
+      "front": "How do LlamaIndex agents remember?",
+      "back": "Pass a Context object: await agent.run(msg, ctx=ctx)."
+    },
+    {
+      "front": "LlamaIndex Workflow building blocks",
+      "back": "A Workflow subclass with @step methods triggered by Events, from StartEvent to StopEvent, with unions for branches and loops."
+    },
+    {
+      "front": "LangGraph core components",
+      "back": "State (TypedDict), Nodes (functions returning updates), Edges (direct or conditional) and the StateGraph compiled into a runnable graph."
+    },
+    {
+      "front": "tools_condition in LangGraph",
+      "back": "A prebuilt router that sends the flow to the tools node if the last message has a tool call, otherwise to END."
+    },
+    {
+      "front": "GAIA passing threshold in the course",
+      "back": "30% or higher on 20 level-1 validation questions, scored by exact match, with no FINAL ANSWER text."
+    },
+    {
+      "front": "Trace vs span",
+      "back": "A trace is a complete agent task; spans are its individual steps such as one LLM call or one tool call."
+    },
+    {
+      "front": "Offline vs online evaluation",
+      "back": "Offline uses curated datasets with ground truth before deployment; online monitors live interactions, feedback and drift."
+    },
+    {
+      "front": "Function-calling special tokens in Mistral's template",
+      "back": "[AVAILABLE_TOOLS], [/AVAILABLE_TOOLS], [TOOL_CALLS], [TOOL_RESULTS], [/TOOL_RESULTS]."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Which statement best describes the role of special tokens in LLMs?",
+      "o": [
+        "They are extra vocabulary words that improve text quality",
+        "They mark structure such as the end of a sequence (EOS) or the boundaries between message roles",
+        "They are random tokens inserted to increase response variability",
+        "They are only used during pre-training and removed at inference"
+      ],
+      "a": 1,
+      "e": "Special tokens like <|im_end|> or <|eot_id|> delimit sequences and turns; chat templates insert them so each model gets the format it was trained on.",
+      "lesson": "m5-l02"
+    },
+    {
+      "q": "What is the key difference between Actions and Tools?",
+      "o": [
+        "They are identical and interchangeable",
+        "Actions are the steps the agent takes; Tools are the functions it can call to perform those steps",
+        "Tools require an LLM while Actions do not",
+        "Actions are physical and Tools are digital"
+      ],
+      "a": 1,
+      "e": "An action is what the agent does to reach its goal and may involve several tools; a tool is a specific callable described to the model.",
+      "lesson": "m5-l03"
+    },
+    {
+      "q": "In the dummy agent notebook, why is stop=[\"Observation:\"] passed to the chat completion call?",
+      "o": [
+        "To make the model answer faster",
+        "To prevent the model from fabricating the tool result so the agent can run the real function and insert its output",
+        "To stop the model from using more than one tool",
+        "To remove the Thought lines from the output"
+      ],
+      "a": 1,
+      "e": "Without the stop sequence the model wrote its own Observation; stopping before it lets the agent execute get_weather and resume generation with the real observation.",
+      "lesson": "m5-l04"
+    },
+    {
+      "q": "How does smolagents position code-based versus JSON-based actions?",
+      "o": [
+        "It only supports JSON actions and requires a parser for every call",
+        "It focuses on code actions through CodeAgent but also offers JSON tool calls through ToolCallingAgent",
+        "It forbids external function calls entirely",
+        "It requires converting every code snippet to JSON before running"
+      ],
+      "a": 1,
+      "e": "smolagents is code-first because research shows LLMs act better in code, yet ToolCallingAgent provides the JSON alternative for simpler systems.",
+      "lesson": "m5-l05"
+    },
+    {
+      "q": "When should you subclass Tool instead of using the @tool decorator in smolagents?",
+      "o": [
+        "Only for retrieval tools",
+        "Only in multi-agent systems",
+        "When you need more flexibility, custom metadata or state such as a retriever initialized in __init__",
+        "Whenever you want to skip writing a docstring"
+      ],
+      "a": 2,
+      "e": "The decorator is recommended for simple function tools; a Tool subclass with name, description, inputs, output_type and forward suits complex tools.",
+      "lesson": "m5-l05"
+    },
+    {
+      "q": "What is the main benefit of splitting the Batman locations task into a manager agent and a managed web agent?",
+      "o": [
+        "It removes the need for any web search",
+        "Each agent stays focused and separate memories reduce input tokens, latency and cost",
+        "It lets the model skip planning entirely",
+        "It guarantees deterministic outputs"
+      ],
+      "a": 1,
+      "e": "The multi-agent page shows the single agent's context filling up; the manager plus web_agent split separates memories and keeps each agent on its core task.",
+      "lesson": "m5-l06"
+    },
+    {
+      "q": "Which method keeps conversation state across calls for a LlamaIndex agent?",
+      "o": [
+        "agent.run(query_str)",
+        "agent.chat(query_str, ctx=ctx)",
+        "agent.run(query_str, ctx=ctx)",
+        "agent.interact(query_str)"
+      ],
+      "a": 2,
+      "e": "Agents are stateless by default; passing the same Context object to run preserves history and workflow state.",
+      "lesson": "m5-l07"
+    },
+    {
+      "q": "What is a conditional edge in LangGraph?",
+      "o": [
+        "An edge that needs user confirmation before proceeding",
+        "An edge that is followed only when the input is valid",
+        "An edge chosen by a routing function that evaluates the current state to pick the next node",
+        "An edge that always connects START to END"
+      ],
+      "a": 2,
+      "e": "add_conditional_edges takes a routing function whose return value is mapped to node names, creating dynamic branching from the state.",
+      "lesson": "m5-l08"
+    },
+    {
+      "q": "What is a key feature of agentic RAG as built in the gala use case?",
+      "o": [
+        "It can only use document-based tools",
+        "It answers without any tools, like a chatbot",
+        "The agent can decide to use any tool, including the retriever, web search, weather or Hub stats, to answer",
+        "It only works with function-calling agents"
+      ],
+      "a": 2,
+      "e": "Instead of always retrieving, Alfred chooses between the guest retriever, web search, weather and Hub stats tools depending on the question.",
+      "lesson": "m5-l09"
+    },
+    {
+      "q": "How does the course's Unit 4 scoring API grade your agent's answers?",
+      "o": [
+        "With an LLM judge that accepts paraphrases",
+        "By exact match against the ground truth, so the submission must contain only the answer and not the text FINAL ANSWER",
+        "By keyword overlap above 50%",
+        "By human review on the leaderboard"
+      ],
+      "a": 1,
+      "e": "The hands-on page states that /submit compares answers in an exact match manner and asks you to omit FINAL ANSWER; 30% or higher earns the certificate.",
+      "lesson": "m5-l10"
+    },
+    {
+      "q": "What does function calling change in the conversation structure compared with the plain user/assistant exchange?",
+      "o": [
+        "Nothing; tool calls are hidden in the system prompt",
+        "It adds an action (the assistant's function_call) and an observation (a tool role message), represented by special tokens in the chat template",
+        "It replaces the assistant role with a tool role",
+        "It removes the need for a system message"
+      ],
+      "a": 1,
+      "e": "The Mistral example shows an assistant message with function_call followed by a tool message, rendered with tokens like [TOOL_CALLS] and [TOOL_RESULTS].",
+      "lesson": "m5-l11"
+    },
+    {
+      "q": "What best describes offline evaluation of an AI agent?",
+      "o": [
+        "Evaluating the agent on real user interactions in production",
+        "Assessing performance on curated datasets with known ground truth before or during development",
+        "Monitoring internal logs in real time",
+        "Running the agent without any metrics"
+      ],
+      "a": 1,
+      "e": "Offline evaluation uses test sets such as GSM8K with expected answers; it is repeatable and the minimum step before deploying, complemented by online evaluation.",
+      "lesson": "m5-l12"
+    }
+  ],
+  "project": {
+    "title": "Build, trace and submit a GAIA level-1 agent",
+    "brief": "Starting from the Final_Assignment_Template Space, build an agent in the framework of your choice that answers the course's 20 GAIA level-1 questions through the scoring API. Equip it with web search, page reading, Python execution and file tools, add retries and a strict final-answer formatter, instrument it with OpenTelemetry and Langfuse, and iterate on traces until it scores 30% or higher on the student leaderboard.",
+    "hours": 8,
+    "steps": [
+      "Duplicate the Final_Assignment_Template Space, add your HF_TOKEN and run the baseline to understand the questions, attached files and the answers payload.",
+      "Choose smolagents, LlamaIndex or LangGraph and build the agent with web search, visit webpage, a Python interpreter and readers for the file types present in the questions.",
+      "Add retries with backoff around tool and model calls and a max_steps or iteration budget per question.",
+      "Write an answer-formatting step that returns only the final value: no explanations, correct units, lists and plural forms, and never the text FINAL ANSWER.",
+      "Instrument the agent with SmolagentsInstrumentor or the Langfuse LlamaIndex or LangGraph integration and tag each trace with the task_id.",
+      "Run all 20 questions, classify failures from the traces (retrieval, reasoning, formatting, tool error) and fix the largest category first.",
+      "Submit from your public Space, verify your entry on the Students leaderboard and claim the certificate once you reach 30% or higher.",
+      "Write a short README describing the tool set, the failure analysis and the final score."
+    ],
+    "rubric": [
+      {
+        "criterion": "Tool set and architecture",
+        "meets": "The agent has search, browsing, code execution and file tools wired into a documented agent loop in one framework, with a clear system prompt."
+      },
+      {
+        "criterion": "Robustness",
+        "meets": "Tool and model errors are retried with backoff, every question has a step budget, and the agent never crashes the full run."
+      },
+      {
+        "criterion": "Answer formatting",
+        "meets": "Submitted answers contain only the value, obey the question's format (units, list order, plurals) and never include FINAL ANSWER."
+      },
+      {
+        "criterion": "Observability",
+        "meets": "Every question's run is a trace tagged with its task_id, and the README cites at least three traces used to fix failures."
+      },
+      {
+        "criterion": "Score and reproducibility",
+        "meets": "The public Space scores 30% or higher on the leaderboard and another student can rerun it with only an HF token."
+      }
+    ],
+    "stretch": [
+      "Add a manager plus web-agent multi-agent structure and compare score, cost and latency with the single agent.",
+      "Build an offline evaluation dataset in Langfuse from the 20 questions and compare two models or prompts side by side.",
+      "Expose your best tools through an MCP server and load them with ToolCollection.from_mcp or McpToolSpec."
+    ]
+  },
+  "glossary": [
+    {
+      "term": "Agent",
+      "def": "A system using an AI model to reason, plan and act on its environment through tools to achieve a user-defined objective."
+    },
+    {
+      "term": "Agency spectrum",
+      "def": "The range from simple processor to router, tool caller, multi-step agent and multi-agent, by how much the LLM controls program flow."
+    },
+    {
+      "term": "Chat template",
+      "def": "The tokenizer's Jinja2 template that turns messages into a prompt with the model's special tokens."
+    },
+    {
+      "term": "Special tokens",
+      "def": "Model-specific tokens such as EOS and role delimiters that structure prompts and generations."
+    },
+    {
+      "term": "Thought-Action-Observation cycle",
+      "def": "The agent loop of reasoning, emitting a tool call, and reading the tool result, repeated until a final answer."
+    },
+    {
+      "term": "ReAct",
+      "def": "Prompting that interleaves reasoning steps with actions and observations."
+    },
+    {
+      "term": "Stop and parse",
+      "def": "Generating an action in a fixed format, halting generation, then parsing and executing it."
+    },
+    {
+      "term": "CodeAgent",
+      "def": "smolagents agent whose actions are Python snippets executed in a sandbox with an import allowlist."
+    },
+    {
+      "term": "ToolCallingAgent",
+      "def": "smolagents agent that emits JSON tool calls through the model provider's tool-calling API."
+    },
+    {
+      "term": "Managed agent",
+      "def": "A smolagents sub-agent with a name and description that a manager agent can delegate to."
+    },
+    {
+      "term": "QueryEngine",
+      "def": "LlamaIndex component that retrieves from an index and synthesizes an answer; wrapped as QueryEngineTool for agents."
+    },
+    {
+      "term": "AgentWorkflow",
+      "def": "LlamaIndex runner for one or more FunctionAgent or ReActAgent instances with a root agent and optional shared state."
+    },
+    {
+      "term": "Workflow event",
+      "def": "A typed message that triggers a @step in a LlamaIndex Workflow; StartEvent and StopEvent bound the run."
+    },
+    {
+      "term": "StateGraph",
+      "def": "LangGraph builder holding a typed state, nodes and edges that is compiled into an invokable graph."
+    },
+    {
+      "term": "Conditional edge",
+      "def": "A LangGraph edge whose target is chosen by a routing function evaluating the state."
+    },
+    {
+      "term": "ToolNode and tools_condition",
+      "def": "LangGraph prebuilt node that executes tool calls and router that loops to it while the model keeps calling tools."
+    },
+    {
+      "term": "Agentic RAG",
+      "def": "Retrieval-augmented generation where the agent controls when and how to retrieve, reformulate, rerank and validate."
+    },
+    {
+      "term": "GAIA",
+      "def": "Benchmark of 466 real-world assistant questions in three levels, scored by exact match; the course uses 20 level-1 items."
+    },
+    {
+      "term": "Function calling",
+      "def": "A trained capability to emit structured tool calls and read tool results, encoded with dedicated roles and special tokens."
+    },
+    {
+      "term": "Trace and span",
+      "def": "Observability units: a trace is a full agent run, a span is one step inside it, exported via OpenTelemetry."
+    }
+  ]
+}
