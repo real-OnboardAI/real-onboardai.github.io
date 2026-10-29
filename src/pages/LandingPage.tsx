@@ -75,6 +75,9 @@ const LandingPage = () => {
               >
                 AI4YoungMinds
               </Link>
+              <a href="/ai-learning/" className="text-slate-600 hover:text-blue-600 font-medium transition-colors">
+                AI Learning
+              </a>
               <Link
                 to="/contactus"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"

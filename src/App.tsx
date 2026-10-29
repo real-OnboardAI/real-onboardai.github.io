@@ -15,6 +15,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const ExternalRedirect = ({ to }: { to: string }) => {
+  window.location.replace(to);
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -32,6 +37,8 @@ const App = () => (
           <Route path="/AIStrategy" element={<AIStrategy />} />
           <Route path="/aistrategy" element={<AIStrategy />} />
           <Route path="/ai4young" element={<AI4Young />} />
+          {/* The AI Learning portal is a static app in public/ai-learning/; send the bare path there. */}
+          <Route path="/ai-learning" element={<ExternalRedirect to="/ai-learning/" />} />
           {/* /talk was shared on LinkedIn for the Oct 15, 2026 AI Tinkerers talk; keep it landing on /speaker. */}
           <Route path="/talk" element={<Navigate to="/speaker" replace />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

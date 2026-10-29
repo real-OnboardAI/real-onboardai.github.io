@@ -1,0 +1,1554 @@
+{
+  "id": "m3",
+  "num": 3,
+  "title": "Mastering LLMs: Evals, RAG, Fine-tuning",
+  "short": "Practitioner talks",
+  "stage": "Engineering the application",
+  "weeks": "Weeks 6–7",
+  "hours": 12,
+  "level": "Intermediate",
+  "source": {
+    "name": "Mastering LLMs (Parlance Labs education)",
+    "authors": "Hamel Husain & Dan Becker with guest speakers",
+    "url": "https://parlance-labs.com/education/",
+    "kind": "recorded conference talks and course workshops with chapter notes, plus companion notebooks",
+    "license": "Talks are freely viewable on YouTube; the ftcourse notebook repo has no license file, so verify before reusing code or data",
+    "format": "4 workshop recordings (1.5 to 2.5 hours each) and about 25 shorter talks, each with timestamped chapter notes and resource links on parlance-labs.com; 8 Jupyter notebooks in the parlance-labs/ftcourse repo",
+    "setup": "All talks are free on YouTube and need no account. The companion ftcourse notebooks need a CUDA GPU (or Modal or RunPod credits) for the Axolotl preprocessing, training and local inference steps; the prompt, eval and curation notebooks run on CPU. The Honeycomb case study data (original prompt, synthetic queries, training CSV) and the hc.yml config live in the ftcourse repo."
+  },
+  "blurb": "The talks and workshops from Hamel Husain and Dan Becker's Mastering LLMs course, organised into a practical path through evaluation, retrieval, fine-tuning and deployment, anchored by the Honeycomb natural-language-to-query case study.",
+  "why": "Modules 1 and 2 taught how models work and how to call them; this module is where you learn to engineer an application around one. The speakers are practitioners describing real systems, so the lessons are about workflow: write evals before you optimise, measure retrieval instead of guessing, fine-tune only when the prompt baseline has plateaued, and plan serving before training. The Honeycomb notebooks give you a complete loop to replicate on your own task before the agents and production modules build on it.",
+  "outcomes": [
+    "Decide, with evidence, whether a task should be solved by prompting, retrieval, fine-tuning or a combination, and defend the choice.",
+    "Build a three-level evaluation stack: deterministic assertions, an LLM judge aligned with a domain expert, and ongoing human review with traces you can read.",
+    "Measure and improve a retrieval pipeline using relevance judgments, recall and nDCG, BM25 plus embeddings, re-ranking and metadata filters.",
+    "Fine-tune a 7B model with Axolotl and QLoRA from a YAML config, inspect the tokenised data, sanity check the result and estimate memory needs beforehand.",
+    "Serve a fine-tuned model through a reasoned choice of serving stack (Replicate, vLLM, LoRAX, Modal) and expose it through a Gradio UI or the llm CLI."
+  ],
+  "prerequisites": [
+    "Comfortable Python including virtual environments, pytest and pandas",
+    "Module 1 and Module 2 content: tokenisation, embeddings, prompting an API and basic RAG",
+    "Access to a CUDA GPU (cloud or local, 24 GB is enough for QLoRA on 7B) for the training exercises"
+  ],
+  "lessons": [
+    {
+      "id": "m3-l01",
+      "title": "When and Why to Fine-Tune an LLM (Workshop 1)",
+      "minutes": 75,
+      "sourceRef": "Workshop 1: When and Why to Fine Tune an LLM, Hamel Husain and Dan Becker",
+      "sourceUrl": "https://parlance-labs.com/education/fine_tuning_course/workshop_1.html",
+      "notebookUrl": "https://github.com/parlance-labs/ftcourse/blob/master/01_prompt.ipynb",
+      "videoUrl": "https://www.youtube.com/watch?v=cPn0nHFsvFg",
+      "summary": "The opening session of the Fine Tuning for Data Scientists and Software Engineers course. Dan Becker lays out the course philosophy (keep it simple, ship a prototype, start with prompting and vibe checks, add assertions as you go) and then explains what fine-tuning actually is: training on input/output pairs embedded in a template. Hamel Husain introduces the Honeycomb natural-language-to-query case study that the rest of the course replicates, and the pair walk through case studies where fine-tuning helped (Honeycomb, a DPO customer-service model) and where it failed (a regression-style logistics task, an over-scoped real estate chatbot). The companion notebook 01_prompt.ipynb shows the original Honeycomb prompt that Honeycomb shipped before any fine-tuning.",
+      "concepts": [
+        {
+          "term": "Fine-tuning",
+          "def": "Adapting a pre-trained model to a task by continuing training on a targeted dataset of input/output pairs so bespoke behaviour lives in the weights instead of the prompt."
+        },
+        {
+          "term": "Prompt template",
+          "def": "The fixed scaffold that wraps each input/output pair during training and must be reproduced exactly at inference; inconsistency here is a leading source of fine-tuning bugs."
+        },
+        {
+          "term": "Eval-driven workflow",
+          "def": "A development loop in which evaluations (assertions, LLM judges, human review) are written early and used to decide every change, including whether to fine-tune at all."
+        },
+        {
+          "term": "Direct Preference Optimization (DPO)",
+          "def": "A fine-tuning method that trains on pairs of better and worse responses so the model learns a gradient of quality and can exceed its training examples."
+        },
+        {
+          "term": "Base model",
+          "def": "A pre-trained model before instruction tuning; it completes text but is not helpful out of the box, which is why instruction fine-tuning exists."
+        }
+      ],
+      "keyPoints": [
+        "Keep it simple: start with prompt engineering on a strong commercial model, ship a prototype, and only justify fine-tuning after you can see the prompt approach plateau.",
+        "Fine-tuning is the same process as pre-training with different data; the model learns from input/output pairs wrapped in a template, and template consistency between training and inference is essential.",
+        "Signs fine-tuning is worth it: you want bespoke behaviour, the prompt is ballooning with rules you repeat every call, you need lower latency or data privacy, you want to own the model, and you have (or can synthesize) enough high-quality pairs.",
+        "Do not fine-tune for tasks that need a wide range of skills and styles, that change requirements often, or that the next-token loss approximates badly (Dan's package-value regression project underperformed for exactly these reasons).",
+        "A 7B model fine-tuned on a narrow domain task can match or beat GPT-4-class generalists; Honeycomb's query assistant is the running example.",
+        "Scope control matters: the Rechat chatbot was tamed by moving functions into focused modules, and the DPD chatbot incident shows guardrails alone do not control scope.",
+        "DPO on roughly 200 better/worse pairs produced customer-service replies that managers rated above human agents, showing preference data can work where plain SFT would not."
+      ],
+      "walkthrough": [
+        "Course philosophy: keep it simple, ship a prototype in days not months, prompt before you fine-tune (05:24–14:47)",
+        "The eval-driven workflow and what fine-tuning is: input/output pairs inside a template (14:47–23:30)",
+        "Templating pitfalls and why abstractions that build the template for you are where errors creep in (23:30–28:20)",
+        "Is fine-tuning dead? Owning the model, privacy and domain-specific tasks as reasons to proceed (28:20–32:41)",
+        "Case study where fine-tuning fell short: poor data and a regression task (32:41–39:00)",
+        "Case study: Honeycomb NL-to-query, the original long prompt with RAG'd schema, syntax manual and few-shot examples; open 01_prompt.ipynb alongside (39:00–51:06)",
+        "Rechat and DPD chatbot case studies on scope and guardrails (1:11:23–1:22:51)",
+        "Recap of when to fine-tune, preference optimization and the DPO customer-service case (1:22:51–1:29:54)"
+      ],
+      "exercise": {
+        "title": "Audit a candidate task for fine-tuning",
+        "steps": [
+          "Open sample_data/original_prompt.txt in the ftcourse repo and label each part of the Honeycomb prompt: schema from RAG, syntax manual, few-shot examples, edge-case rules.",
+          "Pick a task from your own work and write a one-page memo: can you obtain at least a few hundred high-quality input/output pairs, how often do requirements change, and is the output well modelled by next-token loss.",
+          "Apply Dan's recap checklist (bespoke behaviour, expected value versus operational complexity, data availability) and give a go or no-go recommendation.",
+          "Sketch the prompt-only baseline you would ship first and the two or three vibe checks you would run on it."
+        ],
+        "deliverable": "A one-page fine-tune go/no-go memo for one of your own tasks plus an annotated copy of the Honeycomb prompt.",
+        "minutes": 40
+      },
+      "checkYourself": [
+        "Why did Hamel describe pre-training and fine-tuning as essentially the same process, and what practical consequence does that have for data quality?",
+        "What would you look for in a prompt to decide that its contents should be moved into model weights?",
+        "Why might DPO succeed on a task where supervised fine-tuning on the same examples would not?"
+      ],
+      "resources": [
+        {
+          "title": "Your AI Product Needs Evals (Hamel's eval-centred workflow)",
+          "url": "https://hamel.dev/blog/posts/evals",
+          "type": "article"
+        },
+        {
+          "title": "Axolotl fine-tuning tool",
+          "url": "https://axolotl.ai",
+          "type": "tool"
+        },
+        {
+          "title": "Hugging Face chat templating docs",
+          "url": "https://huggingface.co/docs/transformers/en/chat_templating",
+          "type": "docs"
+        },
+        {
+          "title": "Gorilla function-calling leaderboard",
+          "url": "https://gorilla.cs.berkeley.edu/leaderboard.html",
+          "type": "tool"
+        },
+        {
+          "title": "Hamel's notes on building data-cleaning tools with Gradio and Streamlit",
+          "url": "https://hamel.dev/notes/llm/finetuning/04_data_cleaning.html",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m3-l02",
+      "title": "Fine-Tuning with Axolotl: the Honeycomb loop end to end (Workshop 2)",
+      "minutes": 90,
+      "sourceRef": "Workshop 2: Fine-Tuning with Axolotl, Dan Becker and Hamel Husain with Wing Lian and Zach Mueller",
+      "sourceUrl": "https://parlance-labs.com/education/fine_tuning_course/workshop_2.html",
+      "notebookUrl": "https://github.com/parlance-labs/ftcourse/blob/master/05_training.ipynb",
+      "videoUrl": "https://www.youtube.com/watch?v=mmsa4wDsiy0",
+      "summary": "The hands-on core of the course. Dan compares 7B and 70B models, explains LoRA and QLoRA, and walks through an Axolotl config and the CLI commands for preprocess, train and inference. Hamel then runs the complete Honeycomb case study, which maps one to one onto the eight ftcourse notebooks: the prompt (01), Level 1 assertions (02), synthetic data generation (03), data preparation and inspecting Axolotl's preprocessed tokens (04), training with W&B logging (05), a local sanity check (06), Level 2 evals with an LLM critic (07) and data curation (08). Wing Lian covers predicting training time and debugging Axolotl, Zach Mueller explains GPU memory estimation, DDP, FSDP and Accelerate, and Hamel shows training on Modal.",
+      "concepts": [
+        {
+          "term": "LoRA",
+          "def": "Low-Rank Adaptation trains two small matrices whose product has the shape of a weight matrix, so only a small fraction of parameters are updated and memory and time drop sharply."
+        },
+        {
+          "term": "QLoRA",
+          "def": "LoRA on top of a 4-bit quantized base model, cutting VRAM further at the cost of possible quantization error when adapters are merged back into higher-precision weights."
+        },
+        {
+          "term": "Axolotl",
+          "def": "A YAML-configured wrapper over Hugging Face training tools that handles dataset formats, templates, adapters, distributed training and logging for LLM fine-tuning."
+        },
+        {
+          "term": "Level 1 eval",
+          "def": "Assertions and unit tests that need no LLM, give instant feedback, and double as filters for training data and inference-time checks."
+        },
+        {
+          "term": "Level 2 eval",
+          "def": "An LLM critic aligned with a domain expert through rounds of human labelling, used to judge outputs and to filter or heal training data."
+        },
+        {
+          "term": "train_on_inputs",
+          "def": "An Axolotl setting; when false, loss is computed only on the response tokens so the model is not trained to reproduce the prompt."
+        }
+      ],
+      "keyPoints": [
+        "For most narrow tasks a 7B model is enough and far cheaper than 70B; try several current model families rather than committing to one.",
+        "Improving data beats tweaking hyperparameters; Hamel chose runs by eval loss but spent most effort on data.",
+        "Always inspect the preprocessed data Axolotl writes to last_run_prepared by decoding input_ids; flattened text exposes stray spaces and template mistakes that are invisible in JSONL.",
+        "The Honeycomb loop: prototype a prompt with a strong model, write assertions (check_query), generate roughly 30k synthetic examples by rewording and column substitution, filter with the assertions, train QLoRA on Mistral 7B, sanity check locally, build a critic aligned with the domain expert, then curate and deduplicate.",
+        "Wing's defaults: adapter rank 16 or 32 with alpha about twice the rank; 4-bit saves memory and time but can degrade quality.",
+        "GPU memory for a full fine-tune with Adam is roughly model weights plus gradients plus two optimizer states; FSDP shards these across GPUs and can offload to CPU so models larger than one GPU's VRAM become trainable.",
+        "Modal's Axolotl wrapper lets you run the same config in the cloud without managing machines, and the same preprocessed-data inspection applies there."
+      ],
+      "walkthrough": [
+        "Choosing a base model: 7B versus 70B, model families, LoRA versus full fine-tuning and QLoRA (00:51–14:35)",
+        "Axolotl config walkthrough, CLI preprocess/train/inference, Alpaca template and token-level debugging tools (15:47–36:06)",
+        "Honeycomb prompt and Level 1 assertions: notebooks 01_prompt and 02_evals_L1 (37:14–46:14)",
+        "Generating synthetic data by rewording queries and substituting columns: notebook 03_gen_data (46:14–49:45)",
+        "Data format, hc.yml config and viewing data after preprocessing: notebook 04_prep_data (49:45–57:31)",
+        "Training with Axolotl, watching W&B, then local inference as a sanity check: notebooks 05_training and 06_sanity_check (57:31–1:02:44)",
+        "Level 2 evals with an LLM critic and curating, filtering and deduplicating data: notebooks 07_evals_L2 and 08_curate (1:02:44–1:11:09)",
+        "Debugging Axolotl, estimating GPU memory, DDP versus FSDP, Accelerate, and training on Modal (1:11:09–1:53:00)"
+      ],
+      "code": {
+        "lang": "yaml",
+        "caption": "Excerpt of hc.yml, the Axolotl QLoRA config used to train the Honeycomb model on Mistral 7B",
+        "src": "base_model: mistralai/Mistral-7B-v0.1\nmodel_type: MistralForCausalLM\ntokenizer_type: LlamaTokenizer\nload_in_4bit: true\nadapter: qlora\ndatasets:\n  - path: sample_data/alpaca_synth_queries.jsonl\n    type: sharegpt\n    conversation: alpaca\nval_set_size: 0.1\nsequence_len: 896\nlora_r: 32\nlora_alpha: 16\nlora_target_linear: true\ngradient_accumulation_steps: 4\nmicro_batch_size: 16\nnum_epochs: 3\noptimizer: adamw_bnb_8bit\nlr_scheduler: cosine\nlearning_rate: 0.0002\ntrain_on_inputs: false\nbf16: true\ngradient_checkpointing: true\nflash_attention: true\nhub_model_id: hamel/hc-mistral-alpaca"
+      },
+      "exercise": {
+        "title": "Run the Honeycomb notebooks and inspect what the model actually sees",
+        "steps": [
+          "Clone the ftcourse repo, read notebooks 01 to 04, and run python -m axolotl.cli.preprocess hc.yml on a GPU machine (or Modal).",
+          "Decode the first three examples from last_run_prepared with the Mistral tokenizer and write down every special token and space you did not expect.",
+          "Change hub_model_id and the wandb fields, launch accelerate launch -m axolotl.cli.train hc.yml, and record eval loss per epoch.",
+          "Reproduce the prompt function from 06_sanity_check.ipynb and confirm your assembled prompt matches the training template byte for byte.",
+          "Run two of Phillip's feedback queries from 07_evals_L2.ipynb (slow requests, slowest endpoints) through your model and note whether the known failure modes appear."
+        ],
+        "deliverable": "A short log containing the decoded training example, your eval-loss curve, and the sanity-check outputs with a note on template mismatches you found.",
+        "minutes": 90
+      },
+      "checkYourself": [
+        "Why does Hamel insist on decoding preprocessed input_ids rather than trusting the JSONL, and what class of bug does this catch?",
+        "What are the trade-offs of training with 4-bit QLoRA if you intend to serve the merged model in fp16?",
+        "Which of the eight notebook steps would you expect to spend the most human time on, and why?"
+      ],
+      "resources": [
+        {
+          "title": "ftcourse companion notebooks (Honeycomb case study)",
+          "url": "https://github.com/parlance-labs/ftcourse",
+          "type": "repo"
+        },
+        {
+          "title": "hc.yml Axolotl config",
+          "url": "https://github.com/parlance-labs/ftcourse/blob/master/hc.yml",
+          "type": "repo"
+        },
+        {
+          "title": "Axolotl Mistral QLoRA example config",
+          "url": "https://github.com/axolotl-ai-cloud/axolotl/blob/main/examples/mistral/qlora.yml",
+          "type": "repo"
+        },
+        {
+          "title": "LoRA Learns Less and Forgets Less",
+          "url": "https://arxiv.org/abs/2405.09673",
+          "type": "paper"
+        },
+        {
+          "title": "Trained Honeycomb adapter on the Hub (parlance-labs/hc-mistral-alpaca)",
+          "url": "https://huggingface.co/parlance-labs/hc-mistral-alpaca",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m3-l03",
+      "title": "Instrumenting and Evaluating LLMs (Workshop 3)",
+      "minutes": 90,
+      "sourceRef": "Workshop 3: Instrumenting & Evaluating LLMs, Hamel Husain and Dan Becker with Harrison Chase, Bryan Bischof, Shreya Shankar and Eugene Yan",
+      "sourceUrl": "https://parlance-labs.com/education/fine_tuning_course/workshop_3.html",
+      "notebookUrl": "https://github.com/parlance-labs/ftcourse/blob/master/07_evals_L2.ipynb",
+      "videoUrl": "https://www.youtube.com/watch?v=SnbGD677_u0",
+      "summary": "A long session on making evaluation the centre of the development cycle. Hamel and Dan show the three levels: unit tests and assertions, LLM-as-judge aligned to a human, and ongoing human review, and why traces must be effortless to read. Harrison Chase demonstrates LangSmith for logging traces and running dataset experiments. Bryan Bischof lists common evaluation mistakes and how to evaluate RAG and agent pipelines. Eugene Yan walks through fine-tuning NLI classifiers to detect hallucinated summaries and how to evaluate agents step by step. Shreya Shankar presents SPADE for auto-generating assertions from prompt edit history and discusses interfaces for evaluation assistants. The Q&A covers when to build evals, temperature, retrieval metrics and CI.",
+      "concepts": [
+        {
+          "term": "LLM-as-judge",
+          "def": "Using a strong model to grade outputs, trusted only after its verdicts are shown to correlate with a human expert and re-checked periodically."
+        },
+        {
+          "term": "Trace",
+          "def": "The ordered sequence of events in one request (prompts, retrieved documents, tool calls, turns) that you must be able to read quickly to understand failures."
+        },
+        {
+          "term": "SPADE",
+          "def": "A method from Shreya Shankar that synthesizes data-quality assertions for LLM pipelines by analysing the history of prompt edits and failures."
+        },
+        {
+          "term": "Natural language inference (NLI)",
+          "def": "Classifying whether a hypothesis is entailed by, neutral to, or contradicts a premise; Eugene Yan fine-tunes NLI models to flag unfaithful summaries."
+        },
+        {
+          "term": "A/B test",
+          "def": "Comparing two variants on live traffic, used to counter the subjectivity and noise of human scoring."
+        }
+      ],
+      "keyPoints": [
+        "To write unit tests for an LLM feature, enumerate the features it must cover, define scenarios for each, generate synthetic inputs for the scenarios, and log the results so you can see them.",
+        "To trust an LLM judge, iterate its prompt against a spreadsheet of human labels until agreement is high, then keep measuring that agreement; use the most powerful model you can afford.",
+        "Human evaluation never goes away: it keeps judges honest and prevents overfitting to past labels, but it is noisy, so A/B tests help.",
+        "Bryan's mistakes to avoid: ignoring established methods, ignoring domain experts, delaying evals, confusing product metrics with eval metrics, picking a framework before defining metrics, and leaning on LLM judges too early.",
+        "For RAG, set a retrieval baseline on labelled query-document pairs before touching chunking or indexing; for agents, evaluate each planning step and require structured outputs.",
+        "Shreya's SPADE generates assertion candidates from prompt edit taxonomies, and better UIs for reviewing outputs make humans faster at refining criteria.",
+        "Q&A rules of thumb: build a working system first, do not fine-tune judges, use temperature 0 for determinism, and evaluate retrievers on recall, ranking and the ability to return nothing."
+      ],
+      "walkthrough": [
+        "Evals as the core of the development cycle and a pytest unit test for a simple LLM pipeline (02:05–11:11)",
+        "Writing unit tests: enumerate features and scenarios, generate synthetic inputs, log outputs (11:11–18:56)",
+        "LLM as judge aligned to a human, its failure modes, human evals and A/B tests (18:56–31:20)",
+        "Analysing and logging traces; Harrison Chase's LangSmith walkthrough with datasets and experiments (31:20–51:35)",
+        "Bryan Bischof on common evaluation mistakes and building evals for RAG and agents (51:35–1:12:40)",
+        "Eugene Yan: fine-tuning NLI classifiers to catch hallucinated summaries, evaluating agents, guardrails and vibe checks (1:12:40–1:44:24)",
+        "Shreya Shankar: SPADE auto-generated assertions and interfaces for evaluation assistants (1:44:24–2:04:45)",
+        "Q&A: when to build evals, judges, temperature, retrieval metrics, unit tests in CI, contamination (2:04:45–2:30:34)"
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Level 1 evals: deterministic assertions on Honeycomb queries, adapted from ftcourse tests/test_validation.py and utils/validate.py",
+        "src": "import pytest\nfrom validate import check_query, InvalidQueryException  # ftcourse/utils/validate.py\n\ndef is_valid(query_spec: str, columns: list[str]) -> bool:\n    \"\"\"Level 1 eval: no LLM involved, instant feedback.\n    The same check filters synthetic training data and can heal outputs at inference.\"\"\"\n    try:\n        check_query(query_spec, columns)\n        return True\n    except InvalidQueryException:\n        return False\n\ndef test_valid_query():\n    q = '{\"calculations\":[{\"column\":\"duration_ms\",\"op\":\"MAX\"}]}'\n    assert check_query(q, [\"duration_ms\"]) is None\n\ndef test_invalid_column_is_rejected():\n    q = '{\"calculations\":[{\"column\":\"invalid_column\",\"op\":\"MAX\"}]}'\n    with pytest.raises(InvalidQueryException) as exc:\n        check_query(q, [\"duration_ms\"])\n    assert \"Invalid column\" in str(exc.value)\n\ndef test_bad_json_is_rejected():\n    with pytest.raises(InvalidQueryException):\n        check_query(\"not json\", [\"duration_ms\"])"
+      },
+      "exercise": {
+        "title": "Build a critic and measure its agreement with you",
+        "steps": [
+          "Take 25 outputs from a prompt-based system you have (or the Honeycomb sample data) and label each good or bad with a one-sentence critique, as Phillip did for Hamel.",
+          "Write a critic prompt in the style of 07_evals_L2.ipynb that returns JSON with critique and outcome fields, seeded with three of your labelled examples.",
+          "Run the critic on the remaining examples and compute agreement with your labels; revise the prompt or examples and repeat for two rounds.",
+          "Record where the critic disagrees with you and classify those disagreements as judge error, label error or ambiguous spec."
+        ],
+        "deliverable": "A spreadsheet of 25 labelled examples with critic verdicts, agreement rate per round and a list of disagreement categories.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Which of Bryan's six mistakes have you seen in a real project, and what was the cost?",
+        "Why do Hamel and Dan say assertions are not just for tests, and where else in the Honeycomb loop are they used?",
+        "What would convince you that an LLM judge is trustworthy enough to gate a deployment?"
+      ],
+      "resources": [
+        {
+          "title": "Automated evaluation with LLMs (section of Hamel's evals post)",
+          "url": "https://hamel.dev/blog/posts/evals/#automated-evaluation-w-llms",
+          "type": "article"
+        },
+        {
+          "title": "LangSmith",
+          "url": "https://www.langchain.com/langsmith",
+          "type": "tool"
+        },
+        {
+          "title": "Eugene Yan's fine-tuning and evaluation notebooks",
+          "url": "https://github.com/eugeneyan/visualizing-finetunes",
+          "type": "repo"
+        },
+        {
+          "title": "LLM Evaluators Recognize and Favor Their Own Generations",
+          "url": "https://arxiv.org/abs/2404.13076",
+          "type": "paper"
+        },
+        {
+          "title": "ftcourse 08_curate notebook (filtering with L1 and L2 evals)",
+          "url": "https://github.com/parlance-labs/ftcourse/blob/master/08_curate.ipynb",
+          "type": "notebook"
+        }
+      ]
+    },
+    {
+      "id": "m3-l04",
+      "title": "Deploying Fine-Tuned Models (Workshop 4)",
+      "minutes": 75,
+      "sourceRef": "Workshop 4: Deploying Fine-Tuned Models, Hamel Husain and Dan Becker with Travis Addair, Charles Frye and Joe Hoover",
+      "sourceUrl": "https://parlance-labs.com/education/fine_tuning_course/workshop_4.html",
+      "videoUrl": "https://www.youtube.com/watch?v=GzEcyBykkdo",
+      "summary": "The final course session covers getting a fine-tuned model into production. Dan recaps LoRA adapters (merge or hot-swap), pushes a model to the Hugging Face Hub and deploys it on Inference Endpoints, and frames deployment choices by speed, scale, reliability and pace of change. Hamel shows the Honeycomb model served on Replicate with Cog, including a predict.py walkthrough. Joe Hoover explains why LLMs are slow (memory bandwidth, kernel launch overhead), continuous batching, speculative decoding and the Replicate and cog-vllm workflow. Travis Addair presents Predibase and LoRAX for serving many adapters on one base model, the QLoRA dequantization problem, and throughput versus latency trade-offs. Charles Frye closes with Modal, including an OpenAI-compatible endpoint.",
+      "concepts": [
+        {
+          "term": "Continuous batching",
+          "def": "Serving technique that swaps finished sequences out of a batch and new requests in, keeping the GPU busy and raising throughput."
+        },
+        {
+          "term": "LoRAX",
+          "def": "Predibase's open-source inference server that loads one base model and serves thousands of LoRA adapters, swapping them per request."
+        },
+        {
+          "term": "Speculative decoding",
+          "def": "Using a small draft model (or extra heads) to propose several tokens that the large model verifies in one pass, cutting latency."
+        },
+        {
+          "term": "AWQ quantization",
+          "def": "Activation-aware 4-bit weight quantization used to shrink the merged Honeycomb model for faster vLLM serving."
+        },
+        {
+          "term": "Cog",
+          "def": "Replicate's open-source tool that packages a model and a predict.py into a Docker container with a standard API."
+        }
+      ],
+      "keyPoints": [
+        "Many projects are not real-time: batch jobs tolerate cold starts and can run on cheap serverless GPUs, so decide latency needs before choosing infrastructure.",
+        "Deployment decisions hinge on speed, scale, pace of improvement, real-time inputs, reliability and model complexity; simple FastAPI serving is fine for proofs of concept, Kubernetes plus Triton or TensorRT is for scale.",
+        "LLMs are slow mainly because of memory bandwidth and per-kernel launch overhead; fixes are fused kernels, flash and paged attention, quantization, CUDA graphs, KV caching and continuous batching.",
+        "Serving QLoRA-trained adapters on fp16 weights introduces quantization error; dequantizing the NF4 weights back to fp16 gives fast serving with the exact weights the adapter was trained against.",
+        "LoRAX serves many adapters on one base model, avoiding a merged copy per customer; merging adapters is often inefficient and awkward.",
+        "Throughput and latency pull in opposite directions: bigger batches raise throughput at a latency cost, while quantization, distillation and better hardware improve both.",
+        "Serverless suits low-to-medium uniform traffic with second-level latency; dedicated capacity suits spiky batch loads or high QPS with strict SLOs."
+      ],
+      "walkthrough": [
+        "LoRA recap, merge versus hot-swap adapters, performance versus cost, and why many projects are not real-time (01:24–13:56)",
+        "Pushing a LoRA to the Hugging Face Hub and serving it with Inference Endpoints (13:56–18:30)",
+        "Deployment considerations and simple versus advanced model serving (18:30–26:20)",
+        "Honeycomb on Replicate with Cog, including the predict.py walkthrough (26:20–41:33)",
+        "Joe Hoover: what makes LLMs slow, continuous batching, performance metrics, Replicate and cog-vllm (41:33–1:20:19)",
+        "Travis Addair: Predibase, LoRAX, QLoRA dequantization, speculative decoding, throughput versus latency (1:20:19–2:02:38)",
+        "Charles Frye: deploying on Modal with an OpenAI-compatible endpoint (2:02:38–2:23:37)"
+      ],
+      "exercise": {
+        "title": "Choose and justify a serving path for the Honeycomb model",
+        "steps": [
+          "Read the replicate-examples directory in ftcourse (mistral-vllm-3 and mistral-vllm-awq) and note how the predict function loads weights and formats the prompt.",
+          "Fill in the deployment considerations table from the session notes for the Honeycomb use case: latency target, QPS, reliability, pace of change.",
+          "Decide between serverless and dedicated serving and between fp16 merged, dequantized and AWQ weights, and justify each choice in two sentences.",
+          "Optionally deploy the parlance-labs/hc-mistral-alpaca-merged-awq model with vLLM on Modal or Replicate and measure time to first token and tokens per second."
+        ],
+        "deliverable": "A one-page deployment plan with the filled-in considerations table and, if deployed, measured latency and throughput.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why can serving a QLoRA adapter on the original fp16 weights degrade quality, and what is the fix Travis describes?",
+        "Which optimizations improve both latency and throughput, and which trade one for the other?",
+        "For your own application, is it closer to the serverless or the dedicated column, and what evidence would change your mind?"
+      ],
+      "resources": [
+        {
+          "title": "ftcourse Replicate examples",
+          "url": "https://github.com/parlance-labs/ftcourse/tree/master/replicate-examples",
+          "type": "repo"
+        },
+        {
+          "title": "vLLM documentation",
+          "url": "https://docs.vllm.ai/en/stable/",
+          "type": "docs"
+        },
+        {
+          "title": "LoRAX multi-LoRA inference server",
+          "url": "https://github.com/predibase/lorax",
+          "type": "repo"
+        },
+        {
+          "title": "Continuous batching for LLM inference (Anyscale)",
+          "url": "https://www.anyscale.com/blog/continuous-batching-llm-inference",
+          "type": "article"
+        },
+        {
+          "title": "Honeycomb merged AWQ model on the Hub",
+          "url": "https://huggingface.co/parlance-labs/hc-mistral-alpaca-merged-awq",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m3-l05",
+      "title": "Eval frameworks: Inspect, lm-evaluation-harness and Braintrust",
+      "minutes": 75,
+      "sourceRef": "Inspect, An OSS framework for LLM evals (JJ Allaire); A Deep Dive on LLM Evaluation (Hailey Schoelkopf); LLM Eval For Text2SQL (Ankur Goyal)",
+      "sourceUrl": "https://parlance-labs.com/education/evals/allaire.html",
+      "videoUrl": "https://youtu.be/kNaZU9bz-UM",
+      "summary": "Three talks on evaluation tooling. JJ Allaire introduces Inspect, the UK AI Safety Institute's framework built around datasets, solvers and scorers, shows a Honeycomb eval, the Inspect View log viewer, composable solvers such as chain of thought and self-critique, agent scenarios and running evals from notebooks through to CI. Hailey Schoelkopf of EleutherAI explains how benchmark evaluation actually works in the LM Evaluation Harness: log-likelihood and multiple-choice scoring, perplexity, free-form generation scoring, tokenization effects, and why transparency and reproducibility are hard. Ankur Goyal of Braintrust builds a text-to-SQL eval on the NBA dataset from scratch: data, task function and scorers, bootstrapping a golden dataset, autoevals scorers, synthetic questions and model comparisons in a dashboard.",
+      "concepts": [
+        {
+          "term": "Solver",
+          "def": "In Inspect, a composable step in an evaluation plan such as generate, chain_of_thought or self_critique that transforms the task state."
+        },
+        {
+          "term": "Scorer",
+          "def": "In Inspect, the component that grades a solver's final output using text matching, model grading or custom logic."
+        },
+        {
+          "term": "Log-likelihood evaluation",
+          "def": "Scoring a model by the probability it assigns to candidate continuations rather than by generated text, cheap and common for multiple choice."
+        },
+        {
+          "term": "Perplexity",
+          "def": "Exponentiated average negative log-likelihood per token; useful for tracking but not comparable across different tokenizers."
+        },
+        {
+          "term": "Golden dataset",
+          "def": "A small set of human-reviewed input/expected-output pairs that anchors an eval before synthetic or production data is added."
+        },
+        {
+          "term": "autoevals",
+          "def": "Braintrust's open-source library of scoring functions, from heuristics to LLM-graded checks, for non-deterministic LLM outputs."
+        }
+      ],
+      "keyPoints": [
+        "Inspect separates datasets (input and target), solvers (a plan of steps) and scorers; the same task can run interactively in a notebook or in batch in CI, and every run writes a log you can browse with inspect view.",
+        "Inspect's scorers range from pattern matching to model-graded facts, and solvers can wrap external agents such as LangChain, which is how it supports cybersecurity-style evaluations.",
+        "Multiple-choice and log-likelihood evals are cheap and reproducible but may not reflect how users actually use the model; generation evals are closer to reality but hard to score and sensitive to tokenization and prompt format.",
+        "Perplexity depends on the tokenizer, so comparing perplexities across model families is misleading.",
+        "Reproducibility requires reporting exact prompts, few-shot formats, normalisation and code; small implementation differences change leaderboard numbers.",
+        "Ankur's recipe: start with five handwritten questions and a binary no-error scorer, review outputs to form a golden dataset, add autoevals scorers for answer correctness, then grow the dataset with validated synthetic questions.",
+        "Comparing models and prompts in a dashboard is only meaningful once the scorers are trusted; in the demo, GPT-4 scored lower than GPT-4o across datasets and synthetic data did not help."
+      ],
+      "walkthrough": [
+        "Allaire: why Inspect exists and the Honeycomb eval example (00:00–03:45)",
+        "Allaire: datasets, solvers and scorers; eval results in Inspect View; composability and agent scenarios (03:45–26:50)",
+        "Allaire: logging, model providers, and the notebook-to-CI workflow (26:50–35:29)",
+        "Schoelkopf: why scoring is hard; log-likelihood and multiple-choice evaluation (01:49–18:46)",
+        "Schoelkopf: perplexity, text generation evaluation, transparency and reproducibility (18:46–38:23)",
+        "Goyal: evals as data plus task plus scoring; the text2sql function on the NBA dataset (02:11–13:16)",
+        "Goyal: autoevals scorers, model-generated questions, comparing GPT-4 and GPT-4o in the dashboard (17:03–33:45)"
+      ],
+      "exercise": {
+        "title": "Port a Honeycomb-style check into Inspect",
+        "steps": [
+          "pip install inspect-ai, then write a task whose dataset is ten NLQ/columns pairs from the ftcourse sample data with the expected query as target.",
+          "Write a custom scorer that calls the ftcourse check_query validator and returns correct or incorrect; add a model_graded_fact scorer as a second opinion.",
+          "Run inspect eval against two models and open inspect view to compare per-sample results.",
+          "Write three sentences on where the deterministic scorer and the model-graded scorer disagree and which you would trust."
+        ],
+        "deliverable": "An Inspect task file plus a screenshot or export of the log view comparing two models.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "When would you prefer a log-likelihood eval over a generation eval, and what would you lose?",
+        "How does Ankur's data, task, scoring decomposition map onto Hamel's Level 1 and Level 2 evals?",
+        "What has to be published for someone else to reproduce your benchmark number exactly?"
+      ],
+      "resources": [
+        {
+          "title": "Inspect documentation",
+          "url": "https://ukgovernmentbeis.github.io/inspect_ai/",
+          "type": "docs"
+        },
+        {
+          "title": "Inspect workshop source code and slides",
+          "url": "https://github.com/jjallaire/inspect-llm-workshop",
+          "type": "repo"
+        },
+        {
+          "title": "LM Evaluation Harness",
+          "url": "https://github.com/EleutherAI/lm-evaluation-harness",
+          "type": "repo"
+        },
+        {
+          "title": "Lessons from the Trenches on Reproducible Evaluation of Language Models",
+          "url": "https://arxiv.org/abs/2405.14782",
+          "type": "paper"
+        },
+        {
+          "title": "Braintrust Text2SQL cookbook notebook",
+          "url": "https://github.com/braintrustdata/braintrust-cookbook/blob/main/examples/Text2SQL/Text2SQL.ipynb",
+          "type": "notebook"
+        }
+      ]
+    },
+    {
+      "id": "m3-l06",
+      "title": "Beyond the Basics of RAG: rerankers, BM25 and metadata",
+      "minutes": 40,
+      "sourceRef": "Beyond the Basics of RAG, Ben Clavié",
+      "sourceUrl": "https://parlance-labs.com/education/rag/ben.html",
+      "videoUrl": "https://youtu.be/0nA5QG3087g",
+      "summary": "Ben Clavié of Answer.ai, creator of RAGatouille and the rerankers library, argues that cosine similarity is not all you need. He defines RAG as simply retrieval stitched to generation, shows the MVP pipeline, then upgrades it piece by piece: bi-encoders for cheap candidate generation, cross-encoders for accurate re-ranking, TF-IDF and BM25 keyword search for acronyms and domain terms, score combination, and metadata filtering. He presents the full compact pipeline in code and answers questions on fine-tuning encoders, fusing scores, long context, chunking and ColBERT late interaction.",
+      "concepts": [
+        {
+          "term": "Bi-encoder",
+          "def": "An embedding model that encodes queries and documents independently so document vectors can be precomputed and searched quickly."
+        },
+        {
+          "term": "Cross-encoder",
+          "def": "A model that reads the query and a document together and outputs a relevance score; slow but accurate, so it re-ranks a short candidate list."
+        },
+        {
+          "term": "BM25",
+          "def": "A term-frequency scoring function built unsupervised from corpus statistics; cheap, strong on exact terms and acronyms, and a standard baseline."
+        },
+        {
+          "term": "Metadata filtering",
+          "def": "Restricting candidates by structured attributes such as date, author or product before or during vector search to avoid semantically similar but wrong documents."
+        },
+        {
+          "term": "ColBERT",
+          "def": "A late-interaction retriever that keeps one vector per token and scores by max similarity, approaching cross-encoder accuracy at retrieval scale."
+        }
+      ],
+      "keyPoints": [
+        "RAG is not an end-to-end system or a silver bullet; it is retrieval plus generation, and most failures are retrieval failures.",
+        "Bi-encoders compress a whole document into one vector and are lossy; cross-encoders see query and document together and give much better relevance, so use them to re-rank the top candidates rather than the whole corpus.",
+        "Keyword search still matters: BM25 handles exact terms, acronyms and domain jargon that embeddings blur, and adding full-text search to vector search is a cheap, large win in technical domains.",
+        "Combine embedding and BM25 scores with a roughly balanced weighting, or take top candidates from each ranker; the right fusion depends on your data.",
+        "Metadata filtering removes documents that are semantically close but wrong (for example the wrong year or product) and should be part of the pipeline, not an afterthought.",
+        "Fine-tune the bi-encoder to be looser (high recall) and the cross-encoder to be stricter (high precision); chunk with overlap and never cut sentences mid-way.",
+        "Long context windows do not remove the need for retrieval; they change how much you can afford to pass through."
+      ],
+      "walkthrough": [
+        "What RAG is and is not; the MVP pipeline and where vector databases fit (02:20–08:46)",
+        "Bi-encoders versus cross-encoders and re-ranking (08:46–14:38)",
+        "Keyword search: TF-IDF and BM25 and why they still matter (14:38–19:33)",
+        "Combining embedding and keyword scores; metadata filtering (19:33–22:37)",
+        "The full compact pipeline in code (22:37–26:05)",
+        "Q&A: fine-tuning encoders, score fusion, long context, chunking strategies and ColBERT (26:14–end)"
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Ben's upgraded pipeline in miniature: BM25 plus bi-encoder candidates, then a cross-encoder re-rank with the rerankers library",
+        "src": "import numpy as np\nfrom rank_bm25 import BM25Okapi\nfrom sentence_transformers import SentenceTransformer, util\nfrom rerankers import Reranker  # github.com/AnswerDotAI/rerankers\n\ndocs = load_chunks()                       # list[str], already chunked with overlap\nquery = \"p99 latency by http.route in the last 2 hours\"\n\n# 1) cheap candidate generation: keyword (BM25) + semantic (bi-encoder)\nbm25 = BM25Okapi([d.split() for d in docs])\nkw = np.array(bm25.get_scores(query.split()))\nenc = SentenceTransformer(\"BAAI/bge-small-en-v1.5\")\nsem = util.cos_sim(enc.encode(query), enc.encode(docs))[0].numpy()\nnorm = lambda s: (s - s.min()) / (s.max() - s.min() + 1e-9)\ncombined = 0.5 * norm(kw) + 0.5 * norm(sem)   # roughly balanced weighting\ncand = np.argsort(-combined)[:20]\n\n# 2) accurate but expensive: cross-encoder re-rank of the 20 candidates only\nranker = Reranker(\"cross-encoder\")\nresults = ranker.rank(query=query,\n                      docs=[docs[i] for i in cand],\n                      doc_ids=[int(i) for i in cand])\nfor r in results.top_k(5):\n    print(round(r.score, 3), r.document.text[:80])"
+      },
+      "exercise": {
+        "title": "Measure what re-ranking and BM25 add",
+        "steps": [
+          "Take 30 questions over a document set you know (project docs, a wiki) and record the one chunk that best answers each.",
+          "Build the MVP pipeline (single embedding model, cosine top-5) and compute hit rate at 5.",
+          "Add BM25 and combine scores, then add a cross-encoder re-rank of the top 20; recompute hit rate at 5 after each change.",
+          "Add one metadata filter relevant to your corpus and note which failures it fixes."
+        ],
+        "deliverable": "A table of hit rate at 5 for four pipeline variants with two example queries that changed outcome at each step.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why is a cross-encoder too expensive to run over the whole corpus, and what makes it worth running over 20 candidates?",
+        "Give an example from your own domain where BM25 would beat an embedding model, and one where the reverse holds.",
+        "How would you decide between weighted score fusion and taking the union of top candidates?"
+      ],
+      "resources": [
+        {
+          "title": "RAGatouille (ColBERT late interaction for RAG)",
+          "url": "https://github.com/bclavie/RAGatouille",
+          "type": "repo"
+        },
+        {
+          "title": "rerankers: unified API for re-ranking models",
+          "url": "https://github.com/AnswerDotAI/rerankers",
+          "type": "repo"
+        },
+        {
+          "title": "Fine-tuning with Sentence Transformers",
+          "url": "https://www.sbert.net/docs/sentence_transformer/training_overview.html",
+          "type": "docs"
+        },
+        {
+          "title": "GLiNER: generalist named entity recognition",
+          "url": "https://arxiv.org/abs/2311.08526",
+          "type": "paper"
+        },
+        {
+          "title": "Elasticsearch dense vector field type",
+          "url": "https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m3-l07",
+      "title": "Retrieval evals and the RAG improvement loop (Bergum, Liu)",
+      "minutes": 60,
+      "sourceRef": "Back to Basics for RAG (Jo Bergum); Systematically improving RAG applications (Jason Liu)",
+      "sourceUrl": "https://parlance-labs.com/education/rag/jo.html",
+      "videoUrl": "https://youtu.be/nc0BupOkrhI",
+      "summary": "Two complementary talks on improving retrieval with measurement rather than folklore. Jo Bergum of Vespa covers information retrieval fundamentals: building your own relevance judgments (binary or graded), metrics such as recall at k, precision at k, nDCG and reciprocal rank, using LLMs as relevance judges, sparse versus dense representations, BM25 as the baseline, hybrid retrieval, why chunking is still needed for precise embeddings, and real-world signals beyond text similarity. Jason Liu then presents a playbook for systematically improving a deployed RAG application: collect feedback, use cosine and reranker scores as weak signals, cluster queries by topic to find where users are unhappy, distinguish inventory gaps from capability gaps, monitor drift and use synthetic data to test changes before deployment.",
+      "concepts": [
+        {
+          "term": "Relevance judgment",
+          "def": "A human or LLM label saying whether (binary) or how much (graded 0, 1, 2) a document answers a query; the raw material for retrieval evals."
+        },
+        {
+          "term": "nDCG",
+          "def": "Normalized discounted cumulative gain, a ranking metric that rewards highly relevant documents near the top using graded labels."
+        },
+        {
+          "term": "Reciprocal rank",
+          "def": "One divided by the position of the first relevant hit; 1 if it is first, 0.5 if second, averaged over queries as MRR."
+        },
+        {
+          "term": "Hybrid retrieval",
+          "def": "Combining sparse (BM25 or learned sparse) and dense embedding retrieval, often fused with reciprocal rank fusion, to cover vocabulary mismatch."
+        },
+        {
+          "term": "Inventory versus capability gap",
+          "def": "Jason Liu's split between questions you cannot answer because the content is missing and questions you cannot answer because the system lacks a capability such as date filtering."
+        }
+      ],
+      "keyPoints": [
+        "Build your own retrieval eval: a set of queries with judged documents lets you say a change raised nDCG by 30 percent instead of guessing; Jo's examples come from Vespa's own documentation search.",
+        "Recall at k ignores position, precision at k ignores grades, nDCG uses graded labels and position, reciprocal rank measures where the first relevant hit lands; LGTM at few is the industry default and it is not a metric.",
+        "LLMs can judge query-passage relevance well enough to bootstrap labels, per Microsoft and Bing research, which makes evals affordable for small teams.",
+        "BM25 is a strong, cheap baseline with no transformer at query time; hybrid retrieval fixes out-of-vocabulary failures of embeddings but is not a silver bullet either.",
+        "Embedding precision falls off past roughly 256 tokens because of pooling, so chunk for representation even if you store several vectors per document.",
+        "Jason's loop: ask for better feedback, cluster queries with BERTopic or LDA, compare satisfaction against relevancy per cluster, then fix inventory gaps with content and capability gaps with new tools or indexes.",
+        "Monitor query patterns over time and use synthetic queries per topic to test improvements before shipping; instrument the product like a recommender system so implicit feedback is captured."
+      ],
+      "walkthrough": [
+        "Bergum: RAG beyond question answering, retrieval for few-shot labelling (01:19–03:31)",
+        "Bergum: building IR evals with binary and graded judgments; recall, precision, nDCG and reciprocal rank (03:31–12:41)",
+        "Bergum: LLMs as relevance judges and the Microsoft research behind it (12:41–17:04)",
+        "Bergum: sparse versus dense representations, BM25 baseline, hybrid retrieval and chunking for precision (17:04–27:53)",
+        "Bergum: real-world retrieval beyond text similarity and takeaways (27:53–31:07)",
+        "Liu: the RAG playbook, feedback mechanisms, cosine and reranker scores as weak signals (02:03–05:32)",
+        "Liu: topic clustering of queries, satisfaction versus relevancy, topic versus capability gaps (05:32–11:30)",
+        "Liu: monitoring drift, synthetic data for pre-deployment tests, Q&A on fine-tuned embeddings, PDFs and chunking (11:30–01:07:21)"
+      ],
+      "exercise": {
+        "title": "Stand up a retrieval eval and cluster real queries",
+        "steps": [
+          "Collect 50 real or realistic queries for your corpus; for each, retrieve the top 10 with your current system.",
+          "Label relevance of the top 10 with an LLM judge using a strict prompt, then spot-check 20 percent by hand and record agreement.",
+          "Compute recall at 10, MRR and nDCG at 10 for BM25 alone, embeddings alone and a hybrid.",
+          "Cluster the 50 queries into topics and mark which clusters have low scores; classify each weak cluster as inventory or capability gap."
+        ],
+        "deliverable": "A metrics table for three retrievers and a short list of weak query clusters with a proposed fix for each.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why does Jo refuse to tell you a universal cosine threshold, and what should you do instead?",
+        "How would a cluster with high relevancy scores but low user satisfaction change where you spend engineering time?",
+        "What is lost if you skip chunking because your model has a long context window?"
+      ],
+      "resources": [
+        {
+          "title": "Systematically Improving Your RAG (Jason Liu)",
+          "url": "https://jxnl.co/writing/2024/05/22/systematically-improving-your-rag/",
+          "type": "article"
+        },
+        {
+          "title": "Stop using LGTM@Few as a metric",
+          "url": "https://jxnl.co/writing/2024/02/05/when-to-lgtm-at-k/",
+          "type": "article"
+        },
+        {
+          "title": "Low-Hanging Fruit for RAG Search",
+          "url": "https://jxnl.co/writing/2024/05/11/low-hanging-fruit-for-rag-search/",
+          "type": "article"
+        },
+        {
+          "title": "Instructor: structured outputs for LLMs",
+          "url": "https://python.useinstructor.com/",
+          "type": "tool"
+        },
+        {
+          "title": "Jason Liu talk video: Systematically improving RAG applications",
+          "url": "https://youtu.be/RrDBV6odPKo",
+          "type": "video"
+        }
+      ]
+    },
+    {
+      "id": "m3-l08",
+      "title": "Napkin math for fine-tuning and slaying OOMs",
+      "minutes": 60,
+      "sourceRef": "Napkin Math For Fine Tuning parts 1 and 2 (Johno Whitaker); Slaying OOMs with PyTorch FSDP and torchao (Mark Saroufim and Jane Xu)",
+      "sourceUrl": "https://parlance-labs.com/education/fine_tuning/napkin_math.html",
+      "videoUrl": "https://youtu.be/-2ebSQROew4",
+      "summary": "Johno Whitaker of Answer.ai builds intuition for GPU-poor fine-tuning: the training loop, what CPU, GPU and RAM each contribute, how to count memory for weights, gradients, optimizer states and activations, and how LoRA, quantization, CPU offloading and FSDP change the arithmetic, with a live profiling example and a QLoRA plus FSDP case study. His follow-up session answers questions on saturating GPUs, hyperparameters, sequence length and starting small. Mark Saroufim and Jane Xu from PyTorch then show how to defeat out-of-memory errors natively: estimating VRAM, 4-bit quantization kernels generated with torch.compile, QLoRA in pure PyTorch, memory over a training step, FSDP sharding strategies, CPU offload, FSDP2 and trace-based profiling, pointing to torchtune for end-to-end recipes.",
+      "concepts": [
+        {
+          "term": "Optimizer state",
+          "def": "Extra per-parameter tensors kept by optimizers such as Adam (two moments), typically doubling or quadrupling memory beyond the weights."
+        },
+        {
+          "term": "Activation memory",
+          "def": "Intermediate tensors saved for the backward pass; grows with batch size and sequence length and is cut by gradient checkpointing."
+        },
+        {
+          "term": "FSDP",
+          "def": "Fully Sharded Data Parallel, which splits parameters, gradients and optimizer states across GPUs and gathers them just in time, enabling models larger than one GPU."
+        },
+        {
+          "term": "CPU offloading",
+          "def": "Parking parameters or optimizer states in host RAM and streaming them to the GPU when needed, trading speed for capacity."
+        },
+        {
+          "term": "Memory-bound versus compute-bound",
+          "def": "Whether a step is limited by moving bytes or by arithmetic; it decides whether saturating the GPU helps and which optimizations matter."
+        }
+      ],
+      "keyPoints": [
+        "Full fine-tuning with Adam in mixed precision costs on the order of 12 to 16 bytes per parameter before activations, so a 7B model needs roughly 100 GB; LoRA freezes the base (2 bytes per parameter in bf16) and QLoRA shrinks it to about half a byte.",
+        "Activations are the hidden cost: they scale with batch size and sequence length, which is why gradient checkpointing, shorter sequences and smaller micro-batches are the first OOM fixes.",
+        "Run controlled experiments and profile instead of guessing; PyTorch's memory snapshot tools show which tensors live at peak.",
+        "CPU offloading is rarely used because PCIe bandwidth makes it slow, but it is a valid option when a single large GPU is unavailable.",
+        "Johno's practical advice: defaults are fine for hyperparameters unless the last few percent matter, start with a tiny model and dataset to make the loop fast, and look at sequence length before anything else.",
+        "FSDP shards weights, gradients and optimizer state (full shard, shard grad op, hybrid shard); FSDP2 adds flexibility over dtypes and per-parameter sharding, and torchtune packages these as recipes.",
+        "QLoRA with FSDP, pioneered at Answer.ai, lets two 24 GB consumer GPUs fine-tune a 70B model; torch.compile can generate the quantization kernels without hand-written CUDA."
+      ],
+      "walkthrough": [
+        "Whitaker: the training loop and hardware (CPU, GPU, RAM) (04:40–12:28)",
+        "Whitaker: memory for full fine-tuning: parameters, gradients, optimizer states, activations (13:12–18:14)",
+        "Whitaker: LoRA, quantization, combining techniques and CPU offloading (18:14–28:31)",
+        "Whitaker: real-world profiling example and the QLoRA plus FSDP case study (28:31–54:25)",
+        "Saroufim: estimating VRAM, 4-bit quantization with torch.compile, QLoRA in PyTorch (01:24–14:38)",
+        "Xu: memory during a training step, FSDP sharding strategies, CPU offload, FSDP2 and profiling traces (15:20–47:38)",
+        "Whitaker part 2: saturating GPUs, hyperparameter defaults, sequence length, start-small development loop (01:01–29:35)"
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Napkin math: bytes per parameter for full fine-tuning, LoRA and QLoRA, ignoring activations",
+        "src": "# Rule of thumb from the talks (per parameter, before activations):\n#   full FT, bf16 weights + bf16 grads + Adam states (2 x fp32) ~= 2 + 2 + 8 bytes\n#   LoRA: frozen base in bf16 (2 bytes) + trainable adapter params with their own grads/states\n#   QLoRA: frozen base in 4-bit (~0.5 byte) + the same adapter overhead\ndef full_ft_gb(params_b, weight=2, grad=2, optim=8):\n    return params_b * (weight + grad + optim)          # billions x bytes == GB\n\ndef lora_gb(params_b, base_bytes=2, trainable_frac=0.01, per_trainable=12):\n    return params_b * base_bytes + params_b * trainable_frac * per_trainable\n\ndef qlora_gb(params_b, trainable_frac=0.01, per_trainable=12):\n    return params_b * 0.5 + params_b * trainable_frac * per_trainable\n\ndef activations_gb(layers, hidden, seq, micro_batch, bytes_per=2, checkpointing=True):\n    # very rough: a few hidden-sized tensors per layer per token; checkpointing keeps ~1 per layer\n    per_layer = (1 if checkpointing else 8) * seq * micro_batch * hidden * bytes_per\n    return layers * per_layer / 1e9\n\nfor name, fn in [(\"full bf16+Adam\", full_ft_gb), (\"LoRA\", lora_gb), (\"QLoRA\", qlora_gb)]:\n    print(f\"{name:15s} 7B: {fn(7):6.1f} GB   70B: {fn(70):6.1f} GB\")\nprint(\"activations, Mistral-7B-ish, seq 896, micro-batch 16, checkpointing:\",\n      round(activations_gb(32, 4096, 896, 16), 1), \"GB\")"
+      },
+      "exercise": {
+        "title": "Predict, then measure, peak memory for hc.yml",
+        "steps": [
+          "Using the napkin-math functions, predict peak VRAM for the ftcourse hc.yml config (Mistral 7B, QLoRA, sequence length 896, micro-batch 16, gradient checkpointing on).",
+          "Run one training step on a GPU with torch.cuda.max_memory_allocated recorded, or read the W&B system metrics from Hamel's public run.",
+          "Change micro_batch_size to 4 and sequence_len to 512 and repeat; explain the delta using the activation term.",
+          "Write down which single change you would make first if you hit an OOM, and why."
+        ],
+        "deliverable": "A table of predicted versus measured peak memory for two configurations and a one-paragraph explanation of the gap.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why does QLoRA reduce memory so much more than LoRA when both train the same number of adapter parameters?",
+        "In which regime does saturating the GPU stop helping, and how would you detect that regime?",
+        "What does FSDP's full shard strategy buy you over DDP, and what does it cost?"
+      ],
+      "resources": [
+        {
+          "title": "Answer.ai FSDP plus QLoRA benchmarks",
+          "url": "https://github.com/AnswerDotAI/fsdp_qlora/blob/main/benchmarks_03_2024.md",
+          "type": "repo"
+        },
+        {
+          "title": "Understanding GPU memory (PyTorch blog)",
+          "url": "https://pytorch.org/blog/understanding-gpu-memory-1/",
+          "type": "article"
+        },
+        {
+          "title": "torchtune: native PyTorch LLM fine-tuning",
+          "url": "https://github.com/pytorch/torchtune",
+          "type": "repo"
+        },
+        {
+          "title": "Slaying OOMs talk video",
+          "url": "https://youtu.be/UvRl4ansfCg",
+          "type": "video"
+        },
+        {
+          "title": "Napkin Math part 2 follow-up session",
+          "url": "https://www.youtube.com/watch?v=u2fJ6K8FjS8",
+          "type": "video"
+        }
+      ]
+    },
+    {
+      "id": "m3-l09",
+      "title": "When to fine-tune: practitioner views (Corbitt, Yang, Ameisen)",
+      "minutes": 60,
+      "sourceRef": "Fine-tuning when you've already deployed LLMs in prod (Kyle Corbitt); Best Practices For Fine Tuning Mistral (Sophia Yang); Why Fine Tuning is Dead (Emmanuel Ameisen)",
+      "sourceUrl": "https://parlance-labs.com/education/fine_tuning/kyle.html",
+      "videoUrl": "https://youtu.be/4EPZZkVrXC4",
+      "summary": "Three practitioners with different vantage points on the same question. Kyle Corbitt of OpenPipe gives ten commandments for teams that already have a prompt in production: do not fine-tune by default, write a prompt first, review and use your real data, reserve a test set, pick an appropriately sized model, write fast and slow evals, and never fire and forget because data drifts. Sophia Yang of Mistral shows the Mistral fine-tuning API and the open-source mistral-finetune codebase end to end, with real developer use cases and a reminder to try prompting first. Emmanuel Ameisen of Anthropic defends the provocation that fine-tuning is dead: frontier models improve faster than your fine-tune, RAG beats fine-tuning for injecting knowledge, most ML time is data work regardless, and prices and context windows are trending in favour of prompting.",
+      "concepts": [
+        {
+          "term": "Fast evals and slow evals",
+          "def": "Kyle Corbitt's split between cheap checks run during training and expensive, production-faithful evaluations run on final outputs."
+        },
+        {
+          "term": "Data drift",
+          "def": "A change in the distribution of production inputs after deployment that silently degrades a fine-tuned model until it is retrained on fresh examples."
+        },
+        {
+          "term": "Fine-tuning API",
+          "def": "A hosted service (Mistral, OpenAI) that takes JSONL conversations and returns a LoRA-tuned model, removing GPU management but not the data work."
+        },
+        {
+          "term": "Knowledge injection",
+          "def": "Getting facts into a model's answers; the papers Emmanuel cites find retrieval beats fine-tuning for this, especially for less popular knowledge."
+        },
+        {
+          "term": "Dynamic few-shot",
+          "def": "Retrieving the most relevant examples from a database per request instead of fine-tuning them in, a common substitute for fine-tuning."
+        }
+      ],
+      "keyPoints": [
+        "Prompted models are the default: they iterate fastest and establish the baseline; fine-tune only for quality, latency or cost reasons the prompt cannot meet.",
+        "Review your real data before training and do not throw away hard examples; relabel them, and remember that larger models generalise past imperfect labels.",
+        "Reserve a test set, choose the smallest model that works, write fast evals for the training loop and slow evals for production fidelity, and keep an outer loop of evaluation and retraining to handle drift.",
+        "Mistral's permissive terms allow distilling bigger models into smaller ones; the API flow is prepare JSONL, upload, create job, use model, and the open-source codebase does the same locally.",
+        "Prompt template details matter even with hosted fine-tuning; spacing differences between Mistral versions have bitten users.",
+        "Emmanuel's argument: you are aiming at a moving target, fine-tuning is poor at adding knowledge compared with RAG, and 80 percent of the work is data regardless of whether you train.",
+        "Hamel's counterpoint across the talks: for narrow domains with specific formats and private data, a small fine-tuned model still wins on cost and control, which is exactly the Honeycomb story."
+      ],
+      "walkthrough": [
+        "Corbitt: commandments one to four, do not fine-tune, write a prompt, review and use thy actual data (0:00–17:40)",
+        "Corbitt: reserve a test set and choose an appropriate model (17:40–23:01)",
+        "Corbitt: write fast evals and slow evals, do not fire and forget, do not take the commandments too seriously (23:01–31:17)",
+        "Yang: Mistral model lineup, LoRA fine-tuning API, prompting versus fine-tuning and demos (02:52–10:57)",
+        "Yang: end-to-end fine-tuning API walkthrough and open-source mistral-finetune (12:09–19:10)",
+        "Ameisen: trends in ML practice, prompts versus fine-tuning benchmarks, fine-tuning versus RAG for knowledge (02:53–26:24)",
+        "Ameisen: moving targets, data and engineering as most of the work, price and context trends, dynamic few-shot (34:38–49:49)"
+      ],
+      "exercise": {
+        "title": "Write your own fine-tuning decision record",
+        "steps": [
+          "For one production prompt you own, list the quality, latency and cost numbers it currently achieves and the targets you need.",
+          "Pull 100 real input/output pairs from logs, review them by hand, and relabel at least ten.",
+          "Split off a test set and write two fast evals and one slow eval following Kyle's definitions.",
+          "Using Emmanuel's arguments, write the strongest case against fine-tuning this prompt, then decide and schedule a drift review date."
+        ],
+        "deliverable": "A decision record with current versus target metrics, the test set description, the eval definitions and a dated go/no-go.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Which of Kyle's commandments would you most likely be tempted to skip, and what would it cost you?",
+        "Where do Emmanuel and Hamel actually agree, and where is the real disagreement?",
+        "Why does hosted fine-tuning remove less work than people expect?"
+      ],
+      "resources": [
+        {
+          "title": "OpenPipe",
+          "url": "https://openpipe.ai/",
+          "type": "tool"
+        },
+        {
+          "title": "Mistral fine-tuning guide",
+          "url": "https://docs.mistral.ai/capabilities/finetuning/",
+          "type": "docs"
+        },
+        {
+          "title": "Mistral fine-tuning API example notebook",
+          "url": "https://github.com/mistralai/cookbook/blob/main/mistral_finetune_api.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "Fine-Tuning or Retrieval? Comparing Knowledge Injection in LLMs",
+          "url": "https://arxiv.org/abs/2312.05934",
+          "type": "paper"
+        },
+        {
+          "title": "Why Fine Tuning is Dead talk video",
+          "url": "https://youtu.be/h1c_jmk97Ss",
+          "type": "video"
+        }
+      ]
+    },
+    {
+      "id": "m3-l10",
+      "title": "Prompt engineering from first principles (Berryman)",
+      "minutes": 40,
+      "sourceRef": "Prompt Engineering, John Berryman",
+      "sourceUrl": "https://parlance-labs.com/education/prompt_eng/berryman.html",
+      "videoUrl": "https://youtu.be/htBTho6oEJA",
+      "summary": "John Berryman, co-author of the O'Reilly prompt engineering book and an early GitHub Copilot engineer, explains prompting from how LLMs work upward. He covers few-shot prompting, chain-of-thought and think step by step, document mimicry (making the prompt look like a document the model has seen many times), and intuitions such as treating the model as a mechanical human that needs familiar language and not too much information. He then frames LLM applications as transformation layers that collect, rank, trim and assemble context, using Copilot's prompt construction as the example, before covering chat roles, function calling and a worked thermostat tool-calling loop.",
+      "concepts": [
+        {
+          "term": "Few-shot prompting",
+          "def": "Including worked examples in the prompt so the model continues an established pattern instead of guessing the format."
+        },
+        {
+          "term": "Chain of thought",
+          "def": "Prompting the model to reason in steps before answering, either with reasoning examples or a plain think step by step instruction."
+        },
+        {
+          "term": "Document mimicry",
+          "def": "Shaping the prompt like a familiar document type (transcript, README, code file with comments) so the model's priors do the work."
+        },
+        {
+          "term": "Context assembly",
+          "def": "The application pipeline that collects candidate context, ranks it, trims to budget and assembles the final prompt; Copilot's file paths, open tabs and current document are the example."
+        },
+        {
+          "term": "Function calling",
+          "def": "Declaring tools with names, descriptions and argument schemas so the model can emit structured calls, with a loop of tool call, tool result and assistant reply."
+        }
+      ],
+      "keyPoints": [
+        "Few-shot examples control output format and style by setting a predictable pattern; the model is completing a document, so make the document unambiguous.",
+        "Chain of thought fixes many reasoning failures; think step by step gets most of the benefit without spending prompt budget on long examples.",
+        "Document mimicry is the most under-used technique: mimic transcripts, Markdown or code with comments, as Copilot does with file paths and snippets written as comments.",
+        "Treat the model as a dumb mechanical human: use familiar language and constructs, keep instructions clear, and do not bury it in information.",
+        "An LLM application is a transformation layer: turn the user's situation into text the model can act on, then turn the model's text back into actions.",
+        "Context collection is collect, rank, trim, assemble; relevance of context dominates everything else once the prompt is well formed.",
+        "Chat roles and function calling are special syntax layered on completion; the thermostat example shows how a tool loop gives the model context awareness over several turns."
+      ],
+      "walkthrough": [
+        "How LLMs came about and why the large part matters (00:47–05:33)",
+        "Few-shot prompting, chain of thought and think step by step (06:09–12:25)",
+        "Document mimicry and intuitions for effective prompts (12:25–18:11)",
+        "Applications as transformation layers; collect, rank, trim and assemble context, the Copilot example (18:11–25:27)",
+        "Chat interfaces with roles, then function calling and tool usage loops (25:27–33:56)",
+        "Thermostat tool-calling example and Q&A on few-shot practice, hyperparameters and code outputs (33:56–end)"
+      ],
+      "exercise": {
+        "title": "Rewrite a prompt with document mimicry and measure it",
+        "steps": [
+          "Take an existing prompt from your work and rewrite it three ways: plain instructions, few-shot with three examples, and a document-mimicry version shaped as a familiar document type.",
+          "Define a tiny eval of 20 inputs with assertions (format, required fields, forbidden content).",
+          "Run all three variants at temperature 0 and compare pass rates and token counts.",
+          "Add a think step by step instruction to the best variant and check whether pass rate or latency changes."
+        ],
+        "deliverable": "A comparison table of pass rate and prompt tokens for four prompt variants with the winning prompt attached.",
+        "minutes": 40
+      },
+      "checkYourself": [
+        "Which document would you mimic for your main use case, and what signals in it tell the model what to do?",
+        "When would few-shot examples hurt rather than help?",
+        "How does Berryman's collect, rank, trim, assemble framing relate to the RAG lessons in this module?"
+      ],
+      "resources": [
+        {
+          "title": "Prompt Engineering for LLMs (O'Reilly book)",
+          "url": "https://www.oreilly.com/library/view/prompt-engineering-for/9781098156145/",
+          "type": "article"
+        },
+        {
+          "title": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+          "url": "https://arxiv.org/abs/2201.11903",
+          "type": "paper"
+        },
+        {
+          "title": "ReAct: Synergizing Reasoning and Acting in Language Models",
+          "url": "https://arxiv.org/abs/2210.03629",
+          "type": "paper"
+        },
+        {
+          "title": "OpenAI function calling announcement",
+          "url": "https://openai.com/index/function-calling-and-other-api-updates/",
+          "type": "docs"
+        },
+        {
+          "title": "Anthropic: use XML tags to structure prompts",
+          "url": "https://docs.anthropic.com/en/docs/use-xml-tags",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m3-l11",
+      "title": "Shipping LLM apps: Modal, Gradio and the llm CLI",
+      "minutes": 60,
+      "sourceRef": "Modal: Simple Scalable Serverless Services (Charles Frye); Building LLM Applications w/Gradio (Freddy Boulton); LLMs on the command line (Simon Willison)",
+      "sourceUrl": "https://parlance-labs.com/education/applications/charles.html",
+      "videoUrl": "https://www.youtube.com/watch?v=pK7Odr0WDpQ",
+      "summary": "Three tool-focused talks for getting models in front of users. Charles Frye explains the components of a scalable service and how Modal makes them Pythonic: functions that run remotely via gRPC, Volumes for weights and datasets, FastAPI web endpoints, cron jobs, and why serverless pooling is cheaper than provisioning for peak. Freddy Boulton of Hugging Face builds a chatbot with gr.ChatInterface, shows streaming from any generator, multimodal inputs, queueing and concurrency for production, mounting Gradio inside FastAPI, authentication and Gradio Lite in the browser. Simon Willison demonstrates his llm command-line tool: installing, keys, plugins for remote and local models, templates, piping scraped web pages into prompts for ad hoc RAG, storing embeddings in SQLite and exploring logs with Datasette.",
+      "concepts": [
+        {
+          "term": "Modal Volume",
+          "def": "A distributed file system that looks like local files to your Python code, designed for read-heavy artefacts such as model weights and datasets."
+        },
+        {
+          "term": "Serverless pooling",
+          "def": "A provider aggregating many users' bursty demand so each pays for utilisation rather than peak capacity."
+        },
+        {
+          "term": "gr.ChatInterface",
+          "def": "Gradio's high-level component that turns a respond(message, history) function into a complete chat UI with streaming."
+        },
+        {
+          "term": "Gradio queue",
+          "def": "Built-in request queueing and concurrency limits that keep a demo stable under load and can batch requests."
+        },
+        {
+          "term": "llm CLI",
+          "def": "Simon Willison's plugin-based command-line tool that runs prompts against remote and local models, logs everything to SQLite and computes embeddings."
+        }
+      ],
+      "keyPoints": [
+        "Scalable services are about how data is obtained, stored and processed across machines; Modal wraps compute, storage and I/O in Python decorators so you do not manage containers.",
+        "Use Volumes for weights and datasets, Mounts for local code, FastAPI endpoints for I/O, and add authentication because there is no built-in DDoS protection.",
+        "Remote procedure calls make remote functions feel local, which means imports and global scope must be managed deliberately.",
+        "A Gradio chatbot is about 50 lines; streaming works for any generator, including images, and multimodal textboxes accept attachments.",
+        "Gradio is production capable with queueing, concurrency control, multiple servers, FastAPI mounting and OAuth via Hugging Face or Google; Gradio Lite runs entirely in the browser with Pyodide.",
+        "The llm tool treats models as Unix filters: pipe files-to-prompt or shot-scraper output into llm, save system prompts as templates, and compare models by swapping the -m flag.",
+        "llm embed-multi stores embeddings in SQLite and llm similar queries them, which is a complete small RAG stack explorable in Datasette."
+      ],
+      "walkthrough": [
+        "Frye: components of scalable services and how Modal makes scaling easier (01:06–07:40)",
+        "Frye: distributed compute dashboard, databases, Volumes, FastAPI endpoints, serverless economics and RPC (07:40–37:08)",
+        "Boulton: the ChatInterface demo, why Gradio over other UI frameworks, streaming and multimodal components (00:00–20:42)",
+        "Boulton: production use with queueing, mounting in FastAPI, authentication, Gradio Lite and upcoming features (20:42–56:18)",
+        "Willison: installing llm, setting keys, plugins for Claude and local models, chat mode (01:40–26:16)",
+        "Willison: bash scripts and pipelines, scraping with shot-scraper into prompts, embeddings and similarity search in SQLite (26:16–end)"
+      ],
+      "exercise": {
+        "title": "Put the Honeycomb model behind a UI and a CLI",
+        "steps": [
+          "Write a respond(message, history) function that calls your fine-tuned (or a hosted) model with the Honeycomb prompt template and wrap it in gr.ChatInterface with a column-list textbox as an additional input.",
+          "Enable the queue with a concurrency limit, mount the app inside a FastAPI application and add a health endpoint.",
+          "Deploy the FastAPI app as a Modal web endpoint with weights on a Volume, or run it locally if you have no Modal account.",
+          "Install llm, save your prompt as a template, and pipe ten NLQs from queries.csv through llm -t to compare two models side by side."
+        ],
+        "deliverable": "A running chat UI URL or screenshot plus a text file of ten NLQs with outputs from two models via the llm CLI.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why is pooled serverless capacity cheaper for bursty GPU workloads, and when would dedicated capacity win?",
+        "What do Gradio's queue and concurrency settings protect you from, and how would you size them?",
+        "How does logging every prompt and response to SQLite change the way you iterate on prompts?"
+      ],
+      "resources": [
+        {
+          "title": "Modal",
+          "url": "https://modal.com",
+          "type": "tool"
+        },
+        {
+          "title": "MiniModal toy project",
+          "url": "https://github.com/charlesfrye/minimodal",
+          "type": "repo"
+        },
+        {
+          "title": "Gradio performance guide",
+          "url": "https://www.gradio.app/guides/setting-up-a-demo-for-maximum-performance",
+          "type": "docs"
+        },
+        {
+          "title": "llm command-line tool documentation",
+          "url": "https://llm.datasette.io/en/stable/",
+          "type": "docs"
+        },
+        {
+          "title": "Simon Willison's talk notes",
+          "url": "https://github.com/simonw/language-models-on-the-command-line/blob/main/README.md",
+          "type": "article"
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "Mastering LLMs course page on Maven",
+      "url": "https://maven.com/parlance-labs/fine-tuning",
+      "type": "docs",
+      "note": "The original course and conference that all of these talks come from; the free recordings are linked from parlance-labs.com."
+    },
+    {
+      "title": "parlance-labs/ftcourse companion notebooks",
+      "url": "https://github.com/parlance-labs/ftcourse",
+      "type": "repo",
+      "note": "The eight Honeycomb notebooks, hc.yml, sample data, tests and Replicate examples used throughout lessons 1 to 4."
+    },
+    {
+      "title": "Your AI Product Needs Evals (Hamel Husain)",
+      "url": "https://hamel.dev/blog/posts/evals",
+      "type": "article",
+      "note": "The written version of the three-level evaluation framework that organises this module."
+    },
+    {
+      "title": "Hamel's notes on tokenizer gotchas when fine-tuning",
+      "url": "https://hamel.dev/notes/llm/finetuning/05_tokenizer_gotchas.html",
+      "type": "article",
+      "note": "Explains the stray spaces and special tokens you will see when decoding Axolotl's preprocessed data."
+    },
+    {
+      "title": "Hamel's notes on curating and cleaning data with custom tools",
+      "url": "https://hamel.dev/notes/llm/finetuning/04_data_cleaning.html",
+      "type": "article",
+      "note": "How to build small Gradio or Streamlit tools for annotation, referenced in workshop 1."
+    },
+    {
+      "title": "Hamel's notes on LLM inference",
+      "url": "https://hamel.dev/notes/llm/inference/03_inference.html",
+      "type": "article",
+      "note": "Benchmarks of inference servers that complement the deployment workshop."
+    },
+    {
+      "title": "AI Evals For Engineers & PMs (Hamel Husain and Shreya Shankar)",
+      "url": "https://maven.com/parlance-labs/evals?promoCode=oai-evals",
+      "type": "docs",
+      "note": "The follow-on evals course from the same instructors, linked from the Parlance Labs site."
+    },
+    {
+      "title": "Axolotl",
+      "url": "https://axolotl.ai",
+      "type": "tool",
+      "note": "The fine-tuning tool used in workshop 2 and the project."
+    },
+    {
+      "title": "Axolotl office hours with Wing Lian",
+      "url": "https://youtu.be/6Pg6SVEooys?si=YOjCIZIO_NAegqkj",
+      "type": "video",
+      "note": "Wing answers questions about advanced Axolotl features and common pitfalls."
+    },
+    {
+      "title": "Inspect: an OSS framework for LLM evals",
+      "url": "https://ukgovernmentbeis.github.io/inspect_ai/",
+      "type": "docs",
+      "note": "Datasets, solvers and scorers; the framework from JJ Allaire's talk."
+    },
+    {
+      "title": "LM Evaluation Harness",
+      "url": "https://github.com/EleutherAI/lm-evaluation-harness",
+      "type": "repo",
+      "note": "EleutherAI's benchmark harness behind the Open LLM Leaderboard, discussed by Hailey Schoelkopf."
+    },
+    {
+      "title": "Braintrust cookbook",
+      "url": "https://www.braintrustdata.com/docs/cookbook",
+      "type": "docs",
+      "note": "Worked eval pipelines including the Text2SQL example from Ankur Goyal's talk."
+    },
+    {
+      "title": "RAGatouille",
+      "url": "https://github.com/bclavie/RAGatouille",
+      "type": "repo",
+      "note": "Ben Clavie's library for using and training ColBERT late-interaction retrieval."
+    },
+    {
+      "title": "rerankers",
+      "url": "https://github.com/AnswerDotAI/rerankers",
+      "type": "repo",
+      "note": "One API over cross-encoders and other re-rankers; used in the lesson 6 snippet."
+    },
+    {
+      "title": "Instructor",
+      "url": "https://python.useinstructor.com/",
+      "type": "tool",
+      "note": "Jason Liu's structured-output library; his RAG writing collection is linked from the same site."
+    },
+    {
+      "title": "Creating, curating, and cleaning data for LLMs (Daniel van Strien)",
+      "url": "https://parlance-labs.com/education/fine_tuning/daniel.html",
+      "type": "video",
+      "note": "Bonus talk on dataset curation with Argilla and Lilac, relevant to the curate step of the project."
+    },
+    {
+      "title": "FSDP, DeepSpeed and Accelerate (Zach Mueller)",
+      "url": "https://parlance-labs.com/education/fine_tuning/zach.html",
+      "type": "video",
+      "note": "Deeper treatment of distributed training than the workshop 2 segment, with a memory estimator link."
+    },
+    {
+      "title": "Efficient finetuning of Llama 3 with FSDP QDoRA (Answer.ai)",
+      "url": "https://www.answer.ai/posts/2024-04-26-fsdp-qdora-llama3.html",
+      "type": "article",
+      "note": "The technique behind training 70B models on two consumer GPUs, cited in several talks."
+    },
+    {
+      "title": "LoRA Learns Less and Forgets Less",
+      "url": "https://arxiv.org/abs/2405.09673",
+      "type": "paper",
+      "note": "Evidence on the trade-off between LoRA and full fine-tuning discussed in workshop 2."
+    },
+    {
+      "title": "Practical Tips for Finetuning LLMs (Sebastian Raschka)",
+      "url": "https://magazine.sebastianraschka.com/p/practical-tips-for-finetuning-llms",
+      "type": "article",
+      "note": "Compact hyperparameter and LoRA guidance recommended in workshop 2."
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "What is the first rule of Dan Becker's course philosophy for AI projects?",
+      "back": "Keep it simple: start with prompt engineering on a strong API model, ship a prototype fast, add vibe checks then assertions, and only fine-tune once you have proven you need to."
+    },
+    {
+      "front": "What does Hamel mean by Level 1 evals?",
+      "back": "Deterministic assertions and unit tests that involve no LLM, run instantly, and also serve to filter training data and heal outputs at inference."
+    },
+    {
+      "front": "What does Hamel mean by Level 2 evals?",
+      "back": "An LLM critic whose verdicts are aligned with a domain expert through rounds of human labelling, then used to judge and filter outputs at scale."
+    },
+    {
+      "front": "How does LoRA reduce fine-tuning cost?",
+      "back": "It trains two low-rank matrices whose product matches a weight matrix's shape, so only a small fraction of parameters receive gradients and optimizer state."
+    },
+    {
+      "front": "What does QLoRA add on top of LoRA, and what is the catch?",
+      "back": "The frozen base model is stored in 4-bit, cutting VRAM to roughly half a byte per parameter; merging adapters into higher-precision weights can introduce quantization error."
+    },
+    {
+      "front": "What does Axolotl's train_on_inputs: false do?",
+      "back": "Masks the prompt tokens from the loss so the model is trained only to produce the response."
+    },
+    {
+      "front": "Why decode input_ids from last_run_prepared before training?",
+      "back": "The flattened text reveals template bugs, unexpected spaces and special tokens that are invisible in the JSONL and must match inference exactly."
+    },
+    {
+      "front": "Wing Lian's rule of thumb for LoRA rank and alpha?",
+      "back": "Rank 16 or 32 with alpha about twice the rank."
+    },
+    {
+      "front": "Rough bytes per parameter for a full fine-tune with Adam in mixed precision?",
+      "back": "About 12 to 16 bytes: 2 for bf16 weights, 2 for gradients, and 8 for two fp32 Adam moments, plus activations on top."
+    },
+    {
+      "front": "What does FSDP shard across GPUs?",
+      "back": "Parameters, gradients and optimizer states (full shard), or only gradients and optimizer states (shard grad op); hybrid shard keeps a full model per node."
+    },
+    {
+      "front": "Name the three components of an Inspect evaluation.",
+      "back": "Datasets (input and target), solvers (a plan such as chain_of_thought, generate, self_critique) and scorers (pattern match, model graded, custom)."
+    },
+    {
+      "front": "Why are perplexities not comparable across model families?",
+      "back": "Perplexity is per token and different tokenizers split text differently, so the same text yields different token counts and scores."
+    },
+    {
+      "front": "Ankur Goyal's three components of any eval?",
+      "back": "Data, a task function that maps input to output, and scoring functions; most eval problems are fixed by changing one of the three."
+    },
+    {
+      "front": "Bi-encoder versus cross-encoder?",
+      "back": "A bi-encoder embeds query and document separately for fast search; a cross-encoder reads them together for an accurate relevance score and is used to re-rank a short candidate list."
+    },
+    {
+      "front": "Why keep BM25 in a modern RAG pipeline?",
+      "back": "It is cheap, needs no transformer at query time, is a strong baseline, and handles exact terms, acronyms and domain jargon that embeddings blur."
+    },
+    {
+      "front": "What does reciprocal rank measure?",
+      "back": "One over the position of the first relevant result: 1 if first, 0.5 if second; averaged over queries as MRR."
+    },
+    {
+      "front": "Jason Liu's distinction between inventory and capability gaps?",
+      "back": "Inventory gaps are questions with no supporting content; capability gaps are questions the system cannot answer because it lacks a feature such as date filtering or table parsing."
+    },
+    {
+      "front": "Kyle Corbitt's first two commandments of fine-tuning?",
+      "back": "Thou shalt not fine-tune (by default), and thou shalt write a prompt first to establish a baseline."
+    },
+    {
+      "front": "What is the QLoRA serving dilemma and its fix?",
+      "back": "Serving fp16 weights with a QLoRA adapter introduces quantization mismatch while serving 4-bit is slow; dequantize the NF4 weights to fp16 so they are numerically identical to what the adapter saw."
+    },
+    {
+      "front": "What is document mimicry in prompt engineering?",
+      "back": "Shaping the prompt like a document type the model has seen often (transcript, Markdown, code with comments) so its priors produce the desired continuation."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "According to workshop 1, which situation is the weakest reason to fine-tune?",
+      "o": [
+        "The prompt keeps growing with rules you repeat on every call",
+        "You need lower latency than a frontier API gives",
+        "The task is a regression over numeric values with noisy labels",
+        "You must keep customer data off third-party APIs"
+      ],
+      "a": 2,
+      "e": "Dan's logistics case study failed because the next-token loss approximates regression poorly and the data was weak; the other three are the canonical reasons to fine-tune.",
+      "lesson": "m3-l01"
+    },
+    {
+      "q": "In the Honeycomb loop, where are Level 1 assertions used besides tests?",
+      "o": [
+        "Only in CI",
+        "To filter synthetic training data and to heal outputs at inference",
+        "To replace the LLM critic",
+        "To compute perplexity"
+      ],
+      "a": 1,
+      "e": "Notebook 02 states that assertions serve tests, data filtering and curation, and inference-time healing.",
+      "lesson": "m3-l02"
+    },
+    {
+      "q": "Why did Hamel need a critic (Philip in a box) rather than just training on Honeycomb's data?",
+      "o": [
+        "The data was too small",
+        "Axolotl cannot train on CSV files",
+        "The training data and the baseline model shared the same bad query patterns, so a judge aligned with the expert was needed to filter and improve them",
+        "GPT-4 refused to generate queries"
+      ],
+      "a": 2,
+      "e": "Notebook 07 shows that GPT-3.5 and the provided training data produced the same bad queries, so Hamel encoded Phillip's judgment into a few-shot critic to filter and generate better data.",
+      "lesson": "m3-l02"
+    },
+    {
+      "q": "Which is NOT one of Bryan Bischof's listed evaluation mistakes?",
+      "o": [
+        "Delaying evaluations",
+        "Confusing product metrics with eval metrics",
+        "Using temperature 0 for judges",
+        "Relying on LLMs as evaluators too early"
+      ],
+      "a": 2,
+      "e": "Temperature 0 was recommended in the Q&A for determinism; the other three are on Bryan's list.",
+      "lesson": "m3-l03"
+    },
+    {
+      "q": "Travis Addair's recommended way to serve a QLoRA-trained adapter fast without quality loss is to:",
+      "o": [
+        "Serve the 4-bit model as is",
+        "Dequantize the NF4 base weights to fp16 so they match what the adapter trained against",
+        "Merge the adapter into the original fp16 weights",
+        "Retrain with full fine-tuning"
+      ],
+      "a": 1,
+      "e": "Dequantized weights are numerically identical to the quantized ones the adapter saw, giving fp16 speed without quantization mismatch.",
+      "lesson": "m3-l04"
+    },
+    {
+      "q": "In Inspect, which component would you modify to add a self-critique step before the final answer?",
+      "o": [
+        "The dataset",
+        "The scorer",
+        "The solver plan",
+        "The log viewer"
+      ],
+      "a": 2,
+      "e": "Solvers are composed into a plan such as chain_of_thought, generate, self_critique; scorers only grade the final output.",
+      "lesson": "m3-l05"
+    },
+    {
+      "q": "Hailey Schoelkopf warns that comparing perplexity across models is misleading mainly because:",
+      "o": [
+        "Perplexity ignores rare words",
+        "Different tokenizers change the token count for the same text",
+        "Perplexity requires multiple-choice data",
+        "Open models do not report it"
+      ],
+      "a": 1,
+      "e": "Perplexity is a per-token quantity, so tokenizer differences alter it independent of model quality.",
+      "lesson": "m3-l05"
+    },
+    {
+      "q": "Ben Clavie recommends running a cross-encoder on:",
+      "o": [
+        "The entire corpus at index time",
+        "Only the top candidates returned by cheaper retrievers",
+        "Queries only, to expand them",
+        "Metadata fields"
+      ],
+      "a": 1,
+      "e": "Cross-encoders are accurate but expensive because they read query and document together, so they re-rank a short candidate list.",
+      "lesson": "m3-l06"
+    },
+    {
+      "q": "Which metric uses graded relevance labels and rewards relevant documents near the top?",
+      "o": [
+        "Recall at k",
+        "Precision at k",
+        "nDCG",
+        "Hit rate"
+      ],
+      "a": 2,
+      "e": "Jo Bergum describes nDCG as incorporating graded labels and rank position, unlike recall or precision at k.",
+      "lesson": "m3-l07"
+    },
+    {
+      "q": "Roughly how much GPU memory does a full fine-tune of a 7B model with Adam in mixed precision need before activations?",
+      "o": [
+        "About 7 GB",
+        "About 14 GB",
+        "About 84 to 112 GB",
+        "About 1 TB"
+      ],
+      "a": 2,
+      "e": "At 12 to 16 bytes per parameter (weights, gradients, two optimizer states), 7B parameters need roughly 84 to 112 GB.",
+      "lesson": "m3-l08"
+    },
+    {
+      "q": "Kyle Corbitt's slow evals are:",
+      "o": [
+        "Evals that time out",
+        "Cheap checks run every training step",
+        "Detailed, production-faithful evaluations of final outcomes",
+        "Human A/B tests only"
+      ],
+      "a": 2,
+      "e": "Fast evals are quick and cheap during training; slow evals assess final outcomes and production-level performance.",
+      "lesson": "m3-l09"
+    },
+    {
+      "q": "John Berryman describes an LLM application primarily as:",
+      "o": [
+        "A database",
+        "A transformation layer that turns the user's situation into text and the model's text back into actions",
+        "A fine-tuned classifier",
+        "A vector store"
+      ],
+      "a": 1,
+      "e": "His framing is that apps collect, rank, trim and assemble context into a prompt and then act on the completion.",
+      "lesson": "m3-l10"
+    }
+  ],
+  "project": {
+    "title": "Replicate the Honeycomb fine-tuning loop on your own NL-to-structured task",
+    "brief": "Choose a task that maps natural language to a structured output you can validate (a query language, a filter DSL, an API call schema, a config fragment). Follow the eight ftcourse notebooks step by step on your task: prompt baseline with a strong model, Level 1 assertions, synthetic data, Axolotl QLoRA training on a 7B model, a sanity check, Level 2 evals with an aligned judge, and data curation. The point is the loop and the evidence it produces, not the final accuracy number.",
+    "hours": 10,
+    "steps": [
+      "Write a validator for your structured output (the equivalent of check_query) and a pytest file with at least eight assertion tests covering valid and invalid cases.",
+      "Build the prompt baseline with a strong API model, run 50 inputs through it, and record the Level 1 pass rate as your baseline.",
+      "Generate 1,000 or more synthetic examples by rewording inputs and substituting schema elements, filter them with the validator, and deduplicate on (input, schema) and (input, output) pairs.",
+      "Convert the data to a conversation format, adapt hc.yml (base model, dataset path, sequence length, hub_model_id), run axolotl preprocess, and decode three examples to verify the template.",
+      "Train with QLoRA on a 7B model, log to W&B, and pick the run by eval loss.",
+      "Load the adapter locally, reconstruct the exact training template, and sanity check ten inputs including two known-hard cases.",
+      "Label 25 outputs with a domain expert (or yourself acting as one), build a few-shot critic that returns critique and outcome, and iterate until agreement is at least 80 percent.",
+      "Use the validator and critic to filter and heal the synthetic data, retrain once, and compare Level 1 and Level 2 pass rates against the prompt baseline."
+    ],
+    "rubric": [
+      {
+        "criterion": "Level 1 evals",
+        "meets": "A validator with tests that catch malformed output, unknown schema elements and invalid operators, and a recorded baseline pass rate for the prompt-only system."
+      },
+      {
+        "criterion": "Synthetic data quality",
+        "meets": "At least 1,000 generated examples, filtered by the validator and deduplicated, with a short note on the distribution of complexity."
+      },
+      {
+        "criterion": "Training correctness",
+        "meets": "A working Axolotl config, a decoded preprocessed example proving the template, a W&B run with eval loss, and an adapter on the Hub or on disk."
+      },
+      {
+        "criterion": "Level 2 judge",
+        "meets": "A critic prompt with few-shot critiques, 25 human labels, and a measured agreement rate across at least two rounds of iteration."
+      },
+      {
+        "criterion": "Honest comparison",
+        "meets": "A final table comparing the prompt baseline and the fine-tuned model on Level 1 and Level 2 pass rates, with failure examples and a decision on whether fine-tuning was worth it."
+      }
+    ],
+    "stretch": [
+      "Serve the merged or AWQ-quantized model with vLLM on Modal or Replicate and measure latency against the API baseline.",
+      "Port your Level 1 and Level 2 checks into Inspect as scorers and run both models through inspect eval.",
+      "Wrap the model in a Gradio ChatInterface with the schema as an additional input and collect thumbs up or down feedback for the next curation round."
+    ]
+  },
+  "glossary": [
+    {
+      "term": "Vibe check",
+      "def": "Informal manual inspection of a handful of outputs; the first eval you run and never the last."
+    },
+    {
+      "term": "Level 1 / Level 2 / Level 3 evals",
+      "def": "Hamel Husain's ladder of assertions, aligned LLM judges, and human review or A/B tests."
+    },
+    {
+      "term": "LLM-as-judge",
+      "def": "A model grading another model's output, trusted only after agreement with an expert is measured."
+    },
+    {
+      "term": "Synthetic data",
+      "def": "Training or test examples generated by an LLM from a seed prompt, usually by rewording and substitution, then filtered."
+    },
+    {
+      "term": "Curation",
+      "def": "Filtering, healing and deduplicating a dataset using evals so the model learns from good examples only."
+    },
+    {
+      "term": "LoRA",
+      "def": "Low-Rank Adaptation; parameter-efficient fine-tuning via small trainable matrices added to frozen weights."
+    },
+    {
+      "term": "QLoRA",
+      "def": "LoRA with the frozen base model quantized to 4-bit (NF4)."
+    },
+    {
+      "term": "Axolotl",
+      "def": "YAML-driven fine-tuning tool that wraps Hugging Face training libraries."
+    },
+    {
+      "term": "Accelerate",
+      "def": "Hugging Face library that makes a training loop device and distribution agnostic, with configs for FSDP and DeepSpeed."
+    },
+    {
+      "term": "FSDP",
+      "def": "Fully Sharded Data Parallel training that splits parameters, gradients and optimizer state across GPUs."
+    },
+    {
+      "term": "Gradient checkpointing",
+      "def": "Recomputing activations during the backward pass instead of storing them, trading compute for memory."
+    },
+    {
+      "term": "Sample packing",
+      "def": "Concatenating several short training examples into one sequence to avoid padding waste."
+    },
+    {
+      "term": "DPO",
+      "def": "Direct Preference Optimization; fine-tuning on pairs of preferred and rejected responses."
+    },
+    {
+      "term": "Bi-encoder",
+      "def": "Embedding model that encodes queries and documents independently."
+    },
+    {
+      "term": "Cross-encoder",
+      "def": "Re-ranking model that scores a query-document pair jointly."
+    },
+    {
+      "term": "BM25",
+      "def": "Classic sparse keyword scoring function and the standard retrieval baseline."
+    },
+    {
+      "term": "nDCG",
+      "def": "Ranking metric using graded relevance and position discounting."
+    },
+    {
+      "term": "Continuous batching",
+      "def": "Inference scheduling that refills the batch as sequences finish."
+    },
+    {
+      "term": "Speculative decoding",
+      "def": "Drafting several tokens cheaply and verifying them with the large model in one pass."
+    },
+    {
+      "term": "LoRAX",
+      "def": "Inference server that serves many LoRA adapters on one shared base model."
+    }
+  ]
+}
