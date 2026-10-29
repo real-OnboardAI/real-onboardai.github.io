@@ -103,6 +103,39 @@ const SPEAKER_PHOTOS: SpeakerPhoto[] = [
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RESEARCH WORK
+// Published papers and preprints, newest first. To add one, append an entry
+// with its title, authors, venue, date and DOI (or a plain link).
+// ─────────────────────────────────────────────────────────────────────────────
+type ResearchPaper = {
+  title: string;
+  authors: string;
+  type: string;
+  venue: string;
+  date: string;
+  doi?: string;
+  url: string;
+  summary: string;
+  tags: string[];
+};
+
+const RESEARCH_PAPERS: ResearchPaper[] = [
+  {
+    title:
+      "A Layered Defense Framework for Mitigating Hallucinations in Large Language Models: An Empirical Study of Verification, Retrieval, Prompt Engineering, and Alignment",
+    authors: "Rajesh Govindarajan",
+    type: "Preprint",
+    venue: "Zenodo",
+    date: "Jun 10, 2026",
+    doi: "10.5281/zenodo.23768596",
+    url: "https://zenodo.org/records/23768596",
+    summary:
+      "An empirical study of layered defenses against LLM hallucinations, combining verification, retrieval, prompt engineering and alignment.",
+    tags: ["Retrieval-Augmented Generation", "LLM-as-a-Judge", "RLHF", "Context Poisoning"],
+  },
+];
+
 const Speaker = () => {
   return (
     <div className="onboardai-root min-h-screen bg-slate-50 text-slate-800 font-sans antialiased selection:bg-blue-200 selection:text-blue-900">
@@ -277,8 +310,85 @@ const Speaker = () => {
       </section>
 
 
+      {/* Research Work */}
+      <section className="py-24 bg-white border-t border-slate-100">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <span className="text-blue-600 font-bold tracking-wider uppercase text-sm mb-2 block">
+              Publications
+            </span>
+            <h2 className="font-heading text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+              Research Work
+            </h2>
+            <div className="w-20 h-1 bg-blue-500 mx-auto rounded-full" />
+          </div>
+
+          <div className="flex flex-col gap-6">
+            {RESEARCH_PAPERS.map((paper) => (
+              <article
+                key={paper.url}
+                className="bg-slate-50 rounded-2xl p-6 md:p-8 border border-slate-100 hover:border-blue-200 transition-colors flex flex-col md:flex-row gap-6"
+              >
+                <div className="w-14 h-14 shrink-0 bg-white rounded-xl shadow-sm flex items-center justify-center text-blue-600 text-2xl">
+                  <i className="fa-solid fa-file-lines" />
+                </div>
+                <div className="flex flex-col gap-2 min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-blue-600">
+                    {paper.type} · {paper.venue} · {paper.date}
+                  </p>
+                  <h3 className="font-heading font-bold text-xl text-slate-900 leading-snug">
+                    <a
+                      href={paper.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-blue-600 transition-colors"
+                    >
+                      {paper.title}
+                    </a>
+                  </h3>
+                  <p className="text-sm text-slate-500">{paper.authors}</p>
+                  <p className="text-slate-600 leading-relaxed">{paper.summary}</p>
+                  {paper.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {paper.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-xs px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-600"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2 text-sm font-medium">
+                    <a
+                      href={paper.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-2"
+                    >
+                      Read the paper <i className="fa-solid fa-arrow-up-right-from-square text-xs" />
+                    </a>
+                    {paper.doi && (
+                      <a
+                        href={`https://doi.org/${paper.doi}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-500 hover:text-blue-600 break-all"
+                      >
+                        DOI: {paper.doi}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-slate-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl p-10 md:p-16 text-center border border-blue-100 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white rounded-full opacity-50 blur-2xl" />
