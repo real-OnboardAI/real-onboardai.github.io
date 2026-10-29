@@ -1,0 +1,1674 @@
+{
+  "id": "m7",
+  "num": 7,
+  "title": "LLM Inference in Production",
+  "short": "Serving & scaling",
+  "stage": "Production",
+  "weeks": "Week 12",
+  "hours": 10,
+  "level": "Advanced",
+  "source": {
+    "name": "LLM Inference Handbook",
+    "authors": "BentoML, now maintained by Modular",
+    "url": "https://bentoml.com/llm",
+    "kind": "online handbook with interactive calculators",
+    "license": "CC BY 4.0 for docs; Apache-2.0 for site code (verify in repo)",
+    "format": "About 50 web pages in seven chapters (foundations, planning, model preparation, model interaction, inference optimization, kernel optimization, infrastructure and operations), with embedded calculators and simulators",
+    "setup": "No account needed to read. The canonical site is now https://handbook.modular.com and the source repository is https://github.com/modular/llm-inference-handbook (docs licensed CC BY 4.0). For the exercises and project you need one NVIDIA GPU with at least 24 GB (an L4, A10G or better; an 80 GB H100 for the 70B examples), Python 3.10+, and vLLM or SGLang installed with a matching CUDA driver; a Hugging Face token is required for gated models such as Llama."
+  },
+  "blurb": "A systems-level tour of serving LLMs in production: metrics, hardware sizing, deployment choices, batching, KV cache management, speculative decoding, parallelism, routing, kernels, and the observability and operations that keep it all within an SLO.",
+  "why": "Everything built in the earlier modules (applications, retrieval, agents) eventually hits a latency, cost or compliance wall that only the inference layer can fix. This module turns the vocabulary of serving (TTFT, TPOT, goodput, KV cache, continuous batching, prefix caching, disaggregation) into formulas and experiments you can run, so you can size GPUs, pick a framework, benchmark honestly and operate a deployment. It is the capstone of the Production stage because it connects model behavior to hardware and to the dollars on the GPU bill.",
+  "outcomes": [
+    "Explain the prefill and decode phases, derive why one is compute-bound and the other memory-bound, and connect each to TTFT and ITL.",
+    "Measure TTFT, TPOT, ITL, E2EL, throughput and goodput correctly, state SLOs with percentiles, and critique benchmark claims.",
+    "Size a deployment: estimate weight memory, KV cache per token and concurrency bounds, choose GPU type, count, precision and parallelism, and justify serverless versus self-hosted versus BYOC versus on-prem.",
+    "Configure and evaluate serving optimizations in vLLM or SGLang: continuous batching, chunked prefill, PagedAttention block size, prefix caching, KV cache offloading, speculative decoding and prefill-decode disaggregation.",
+    "Design the production platform around the engine: cache-aware routing, concurrency-based autoscaling, cold-start mitigation, multi-region placement, LLM-specific observability and a latency runbook."
+  ],
+  "prerequisites": [
+    "Python and comfort with the OpenAI-compatible chat API (streaming, parameters) from earlier modules",
+    "Transformer basics: tokenization, attention, Q/K/V and autoregressive generation (Module 1)",
+    "Command-line Linux, Docker and access to at least one NVIDIA GPU (cloud instance is fine)"
+  ],
+  "lessons": [
+    {
+      "id": "m7-l01",
+      "title": "What Inference Is and How a Token Gets Generated",
+      "minutes": 45,
+      "sourceRef": "What is LLM inference?; Training vs. inference; How does an LLM work?",
+      "sourceUrl": "https://handbook.modular.com/llm-inference-basics/how-does-llm-inference-work/",
+      "summary": "The three opening pages of the handbook define inference as the forward pass that turns tokens into a next-token distribution, and serving as everything that makes that computation a reliable service (APIs, queuing, batching, scaling, observability). They contrast training (one-time, batch, hours to weeks) with inference (ongoing, real-time, scales with traffic), then walk through tokenization, the decoder-only Transformer, attention with its causal mask, and the two phases of inference: a compute-bound prefill that builds the KV cache and a memory-bound autoregressive decode loop. The pages close with the context window, diffusion LLMs as an emerging alternative, and FAQs on why inference is slow.",
+      "concepts": [
+        {
+          "term": "Inference vs. serving",
+          "def": "Inference is the forward pass (tokens in, next-token distribution out); serving is the production machinery around it: API surface, scheduling, batching, load balancing, autoscaling, health checks and observability."
+        },
+        {
+          "term": "Prefill",
+          "def": "The phase that processes the whole prompt in parallel, computes Q, K and V for every token and writes K and V into the KV cache; it is compute-bound and determines TTFT."
+        },
+        {
+          "term": "Decode",
+          "def": "The autoregressive phase that generates one token per forward pass, reading model weights and the growing KV cache from memory each step; it is memory-bandwidth-bound and determines inter-token latency."
+        },
+        {
+          "term": "KV cache",
+          "def": "Stored key and value vectors for every processed token at every layer, so each decode step only computes K and V for the new token instead of recomputing the whole sequence."
+        },
+        {
+          "term": "Causal mask",
+          "def": "An attention mask that sets scores for future positions to negative infinity before softmax so a token can only attend to itself and earlier positions."
+        },
+        {
+          "term": "Context window",
+          "def": "The maximum number of tokens the model can process in one pass; the full conversation history is resent every turn and fills it up."
+        }
+      ],
+      "keyPoints": [
+        "Inference is where models meet users; it runs on every request, so over time it usually costs more than training even though a single training run is far more expensive.",
+        "Each LLM has its own tokenizer and fixed vocabulary; text becomes token IDs, and the output head scores every vocabulary entry, so a larger vocabulary means a larger final projection.",
+        "Attention compares the query of the current token with keys of earlier tokens via a scaled dot product (QK^T / sqrt(d_k)), applies softmax, and takes a weighted sum of values; the K and V it computes are exactly what the KV cache stores.",
+        "Prefill processes all prompt tokens at once with large matrix multiplications and saturates compute; decode produces one token per pass and spends most of its time streaming weights plus KV cache from HBM.",
+        "Decode stops at a max token limit, a stop sequence or an end-of-sequence token, after which generated token IDs are detokenized back into text.",
+        "For Llama 3 8B in FP16 one 8K-token sequence holds about 1 GB of KV cache while weights take about 16 GB, so on an 80 GB GPU the KV cache, not the weights, caps concurrency at roughly 60 such sequences.",
+        "Collocating prefill and decode on the same GPU makes them interfere: a long prefill stalls every in-flight decode, which is the motivation for chunked prefill and prefill-decode disaggregation later in the module."
+      ],
+      "walkthrough": [
+        "Read What is LLM inference? and write down the difference between an inference server, an inference framework, and serving versus inference in your own words.",
+        "Read Training vs. inference and copy the comparison table (purpose, data, compute, cost model, hardware, time, tools) into your notes.",
+        "Work through the tokenization example for The quick brown fox and note how tokens map to IDs.",
+        "Follow the attention section: identify Q, K and V, the scaled dot product, softmax, and where the causal mask is applied.",
+        "Step through the prefill and decode sections and label which metric each phase drives (TTFT for prefill, ITL for decode).",
+        "Read the context window section and the KV cache FAQ, including the Llama 3 8B memory example.",
+        "Skim the diffusion LLM section and the FAQ on why inference is slow to connect sequential decoding with memory bottlenecks."
+      ],
+      "exercise": {
+        "title": "Trace one request end to end",
+        "steps": [
+          "Pick an open model such as meta-llama/Llama-3.1-8B-Instruct and load its tokenizer with the transformers library.",
+          "Tokenize a 300-word prompt and record the token count and a few token-to-ID mappings.",
+          "Run generation with streaming enabled and timestamp the arrival of the first token and each later token.",
+          "Annotate the timeline with the phases: tokenization, prefill (up to the first token), decode (every later token), detokenization.",
+          "Estimate the KV cache the request consumed using the numbers from the handbook FAQ (about 128 KB per token for Llama 3 8B in FP16)."
+        ],
+        "deliverable": "A one-page annotated timeline of a single request showing where prefill ends, where decode begins, and the estimated KV cache footprint.",
+        "minutes": 40
+      },
+      "checkYourself": [
+        "Why is prefill compute-bound while decode is memory-bound, and what does that imply for which hardware spec matters in each phase?",
+        "If an LLM has no real memory, how does a multi-turn chat keep context, and what does that cost per turn?",
+        "Which optimizations in this module exist only because decoder-only models separate prefill and decode?"
+      ],
+      "resources": [
+        {
+          "title": "What is LLM inference?",
+          "url": "https://handbook.modular.com/llm-inference-basics/what-is-llm-inference/",
+          "type": "docs"
+        },
+        {
+          "title": "Training vs. inference",
+          "url": "https://handbook.modular.com/llm-inference-basics/training-inference-differences/",
+          "type": "docs"
+        },
+        {
+          "title": "Attention Is All You Need",
+          "url": "https://arxiv.org/abs/1706.03762",
+          "type": "paper"
+        },
+        {
+          "title": "DistServe: Disaggregating Prefill and Decoding for Goodput-optimized LLM Serving",
+          "url": "https://arxiv.org/abs/2401.09670",
+          "type": "paper"
+        },
+        {
+          "title": "Large Language Diffusion Models",
+          "url": "https://arxiv.org/abs/2502.09992",
+          "type": "paper"
+        }
+      ]
+    },
+    {
+      "id": "m7-l02",
+      "title": "Metrics: TTFT, TPOT, ITL, E2EL, Throughput, Goodput and SLOs",
+      "minutes": 45,
+      "sourceRef": "Key metrics for LLM inference",
+      "sourceUrl": "https://handbook.modular.com/llm-inference-basics/llm-inference-metrics/",
+      "summary": "This page defines the vocabulary every later optimization is measured against. Latency is broken into Time to First Token (TTFT), end-to-end latency (E2EL), token generation time, Time per Output Token (TPOT) and Inter-Token Latency (ITL), with explicit formulas and a warning that request-weighted TPOT and token-weighted ITL differ when averaged across many requests. It explains mean, median and P99, then throughput as requests per second and input/output tokens per second, and why TPS can be gamed. Goodput, the rate of requests that meet an SLO, is presented as the metric that reflects service quality, followed by a table of which metric to prioritize per use case and the system knobs (DP, TP, EP, batch size, precision, disaggregation) that trade latency for throughput.",
+      "concepts": [
+        {
+          "term": "TTFT",
+          "def": "Time to First Token: the time from sending a request until the first token arrives; it reflects queueing plus prefill."
+        },
+        {
+          "term": "TPOT",
+          "def": "Time per Output Token: the average gap between tokens after the first one, TPOT = (E2EL - TTFT) / (output tokens - 1)."
+        },
+        {
+          "term": "Goodput",
+          "def": "Requests per second that complete while meeting the defined SLOs, so throughput that violates latency targets does not count."
+        },
+        {
+          "term": "SLO",
+          "def": "Service-Level Objective: a target such as 95% of chatbot requests having TTFT below 200 ms, usually part of a broader SLA."
+        }
+      ],
+      "keyPoints": [
+        "Token Generation Time = E2EL - TTFT, and TPOT = (E2EL - TTFT) / (Total Output Tokens - 1).",
+        "Average TPOT across N requests is (TPOT_1 + ... + TPOT_N) / N (request-weighted); average ITL is the sum of all ITLs divided by total output tokens (token-weighted), so long responses dominate ITL but not TPOT.",
+        "Always check how a benchmark or framework defines TPOT and ITL before comparing numbers; definitions differ across tools and papers.",
+        "Mean tracks trends, median shows the typical user, P99 (or P90/P95) exposes tail latency that can break an SLA; a healthy median can hide users waiting ten times longer.",
+        "Requests per second = completed requests / time window, but it ignores work per request; input TPS and output TPS separate prompt-heavy from generation-heavy workloads.",
+        "Raising batch size and concurrency raises aggregate TPS until saturation, but also raises queueing, TTFT and per-user TPOT, so throughput alone is misleading.",
+        "Typical targets quoted on the page: chat TTFT under about 500 ms, code completion TTFT under about 100 ms, a once-a-day report tolerating 30 s total latency; agentic workflows care most about E2EL because downstream steps wait for the full response."
+      ],
+      "walkthrough": [
+        "Read the latency section and reproduce each formula (Token Generation Time, TPOT, Average ITL, Average TPOT) by hand for a toy request with E2EL 4.2 s, TTFT 0.2 s and 101 output tokens.",
+        "Compare request-weighted TPOT and token-weighted ITL for two requests of very different lengths and confirm they diverge.",
+        "Read the mean, median and P99 section and decide which percentile you would put in an SLA for an interactive chatbot.",
+        "Read the throughput section and list the four factors that affect RPS and the four that affect TPS.",
+        "Read the goodput definition and write an SLO for your own use case in the form the page uses (percentile, metric, threshold).",
+        "Study the latency-versus-throughput tables and map your use case to a primary metric and the system knobs that move it."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A streaming wrapper around an OpenAI-compatible endpoint that measures TTFT, per-request TPOT, mean ITL and E2EL using the handbook formulas (one streamed chunk is treated as one token).",
+        "src": "import time\nfrom openai import OpenAI\n\nclient = OpenAI(base_url=\"http://localhost:8000/v1\", api_key=\"EMPTY\")\n\ndef measure(prompt, model, max_tokens=256):\n    t0 = time.perf_counter()\n    ttft, last, n_tokens, itls = None, None, 0, []\n    stream = client.chat.completions.create(\n        model=model, messages=[{\"role\": \"user\", \"content\": prompt}],\n        max_tokens=max_tokens, stream=True)\n    for chunk in stream:\n        if not chunk.choices or not chunk.choices[0].delta.content:\n            continue\n        now = time.perf_counter()\n        if ttft is None:\n            ttft = now - t0            # TTFT: request sent -> first token\n        else:\n            itls.append(now - last)    # ITL: gap between consecutive tokens\n        last, n_tokens = now, n_tokens + 1\n    e2el = last - t0\n    tpot = (e2el - ttft) / max(n_tokens - 1, 1)   # TPOT = (E2EL - TTFT) / (N - 1)\n    return {\"ttft_s\": ttft, \"tpot_s\": tpot, \"e2el_s\": e2el,\n            \"tokens\": n_tokens, \"mean_itl_s\": sum(itls) / max(len(itls), 1)}"
+      },
+      "exercise": {
+        "title": "Compute metrics from a real trace",
+        "steps": [
+          "Start any OpenAI-compatible server (vLLM, SGLang or a hosted endpoint) and run the measurement wrapper on 20 prompts of varying length.",
+          "Record TTFT, TPOT, mean ITL, E2EL and output token count per request in a CSV.",
+          "Compute mean, median and P99 for TTFT and TPOT, then compute request-weighted average TPOT and token-weighted average ITL and explain the gap.",
+          "Define an SLO (for example P90 TTFT under 500 ms and P90 TPOT under 50 ms) and compute goodput as the fraction of requests that met both.",
+          "Repeat with 8 prompts sent concurrently and note how TTFT, TPOT and goodput change."
+        ],
+        "deliverable": "A short table plus two paragraphs reporting percentiles, goodput against your SLO, and the TPOT-versus-ITL discrepancy.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why can a system with the highest tokens per second still deliver the worst user experience?",
+        "When would you report token-weighted ITL instead of request-weighted TPOT, and vice versa?",
+        "How would you set an SLO for an agent whose output feeds another model call rather than a human?"
+      ],
+      "resources": [
+        {
+          "title": "NVIDIA NIM LLM Benchmarking: Metrics",
+          "url": "https://docs.nvidia.com/nim/benchmarking/llm/latest/metrics.html",
+          "type": "docs"
+        },
+        {
+          "title": "Throughput is Not All You Need (DistServe blog)",
+          "url": "https://hao-ai-lab.github.io/blogs/distserve/",
+          "type": "article"
+        },
+        {
+          "title": "LLM-Inference-Bench: Inference Benchmarking of LLMs on AI Accelerators",
+          "url": "https://arxiv.org/pdf/2411.00136",
+          "type": "paper"
+        },
+        {
+          "title": "Mastering LLM Techniques: Inference Optimization",
+          "url": "https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m7-l03",
+      "title": "Hardware: CPU vs GPU vs TPU, Choosing a GPU and Sizing GPU Memory",
+      "minutes": 55,
+      "sourceRef": "Where is LLM inference run?; Choosing the right GPU; Calculating GPU memory for serving LLMs",
+      "sourceUrl": "https://handbook.modular.com/getting-started/calculating-gpu-memory-for-llms/",
+      "summary": "Three pages cover the hardware side of a deployment. The first compares CPUs, GPUs and TPUs across design purpose, parallelism, memory type and bandwidth, ecosystem and cost, then lists deployment patterns (cloud, multi-cloud, BYOC, on-prem, edge). The GPU page distinguishes GPUs, graphics cards and accelerators, separates consumer, workstation and data center cards, and explains why VRAM, memory bandwidth (decode is memory-bound), compute throughput (prefill is compute-bound), interconnect (NVLink versus PCIe, InfiniBand across nodes), cost and ecosystem drive the choice, including the GPU CAP theorem and the CUDA driver/toolkit compatibility rule. The memory page gives the sizing formula Memory (GB) = P * (Q / 8) * (1 + Overhead) and warns that the percentage overhead is a shortcut because KV cache depends on sequence length, batch and model shape.",
+      "concepts": [
+        {
+          "term": "Memory bandwidth bound decode",
+          "def": "Each decode step streams most or all weights plus the KV cache from HBM, so maximum single-stream decode tokens/sec is roughly memory bandwidth divided by bytes read per token."
+        },
+        {
+          "term": "Serving memory formula",
+          "def": "Memory (GB) = P * (Q / 8) * (1 + Overhead), where P is parameters in billions, Q is bits per weight and Overhead covers KV cache, activations, workspace and runtime reservations."
+        },
+        {
+          "term": "GPU CAP theorem",
+          "def": "A GPU infrastructure cannot guarantee Control, on-demand Availability and low Price at the same time; hyperscalers, NeoClouds and on-prem each give up one."
+        },
+        {
+          "term": "Interconnect",
+          "def": "Intra-node fabrics such as NVLink (about 900 GB/s bidirectional on H100, about 7x a PCIe 5.0 link) and inter-node networks such as InfiniBand with GPUDirect RDMA determine how fast GPUs exchange activations and KV cache."
+        },
+        {
+          "term": "Precision gate",
+          "def": "Native FP8 requires Hopper, Ada or newer; Ampere (A100) supports INT8 but not FP8, and FP4 needs Blackwell-class hardware and software."
+        },
+        {
+          "term": "Driver/toolkit rule",
+          "def": "The CUDA version reported by the driver must be greater than or equal to the CUDA toolkit version the framework was built with, or you hit kernel failures and missing features such as FP8 or FlashAttention."
+        }
+      ],
+      "keyPoints": [
+        "GPUs are the default for LLM inference because their architecture suits matrix multiplication and the whole framework ecosystem (vLLM, SGLang, MAX, TensorRT LLM, LMDeploy) targets them; TPUs excel at dense tensor ops inside Google's stack; CPUs suit small models and infrequent requests.",
+        "VRAM sets the ceiling: weights must fit first, then whatever is left holds KV cache, which grows linearly with sequence length and concurrent requests.",
+        "Worked example from the GPU page: a 70B model in FP16 is about 140 GB of weights; on an H100 SXM with about 3.35 TB/s of HBM bandwidth the single-stream decode ceiling is roughly 24 tokens/s before KV cache overhead.",
+        "Sizing formula: Memory (GB) = P * (Q / 8) * (1 + Overhead). Worked: 7B at FP16 with 20% overhead = 7 * 2 * 1.2 = 16.8 GB (fits one 24 GB L4 or one 80 GB H100); 70B at FP16 = 70 * 2 * 1.2 = 168 GB (three 80 GB H100s, or two with FP8 since 70 * 1 * 1.2 = 84 GB).",
+        "A 7B FP16 model loads on a 16 GB GPU but has almost no headroom, so longer prompts, bigger batches or more users will exhaust memory; treat the 10 to 30% overhead as a quick estimate, not a capacity model.",
+        "Vendors quote peak FLOPS with sparsity or lowest precision; compare cards at the same precision and remember FLOPS is not the user-facing metric, tokens per second and latency are.",
+        "Keep the most communication-heavy parallelism (tensor parallelism) inside one NVLink node; when you must cross nodes, evaluate cluster topology, not just GPU type."
+      ],
+      "walkthrough": [
+        "Read the CPU vs GPU vs TPU comparison table and the five deployment patterns.",
+        "Read the GPU page sections on VRAM, memory bandwidth, compute throughput and interconnect; redo the 24 tokens/s decode ceiling calculation for the 70B example.",
+        "Review the GPU CAP theorem table and decide which column matches your organization.",
+        "Read the memory calculation page, write down the formula and compute 7B and 70B at FP16, FP8 and INT4 with 20% overhead.",
+        "Check the precision support note (FP8 on Hopper or newer, INT8 on Ampere) against the GPU you plan to use.",
+        "Read the FAQ on CUDA and driver versions and run nvidia-smi on any GPU machine you have to confirm the driver's CUDA version."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Serving-memory estimator implementing the handbook formula Memory (GB) = P * (Q / 8) * (1 + Overhead), with a GPU-count helper and the 7B/70B worked examples.",
+        "src": "GPU_VRAM_GB = {\"L4\": 24, \"A100\": 80, \"H100\": 80, \"H200\": 141, \"B200\": 192}\n\ndef serving_memory_gb(params_b, bits=16, overhead=0.20):\n    \"\"\"Memory (GB) = P * (Q / 8) * (1 + Overhead)   (rough sizing shortcut).\"\"\"\n    return params_b * (bits / 8) * (1 + overhead)\n\ndef gpus_needed(params_b, bits, gpu, overhead=0.20, mem_util=0.90):\n    need = serving_memory_gb(params_b, bits, overhead)\n    usable = GPU_VRAM_GB[gpu] * mem_util      # e.g. --gpu-memory-utilization 0.90\n    return need, int(-(-need // usable))      # ceiling division\n\nif __name__ == \"__main__\":\n    for p, q in [(7, 16), (7, 8), (70, 16), (70, 8), (70, 4)]:\n        need, n = gpus_needed(p, q, \"H100\")\n        print(f\"{p:>3}B @ {q:>2}-bit: {need:6.1f} GB -> {n} x H100 (80 GB)\")\n# Output:\n#   7B @ 16-bit:   16.8 GB -> 1 x H100 (80 GB)\n#   7B @  8-bit:    8.4 GB -> 1 x H100 (80 GB)\n#  70B @ 16-bit:  168.0 GB -> 3 x H100 (80 GB)\n#  70B @  8-bit:   84.0 GB -> 2 x H100 (80 GB)\n#  70B @  4-bit:   42.0 GB -> 1 x H100 (80 GB)\n# Long-context workloads need far more than 20% headroom: size KV cache explicitly."
+      },
+      "exercise": {
+        "title": "Size a deployment",
+        "steps": [
+          "Choose a target model (for example Llama 3.3 70B Instruct) and a workload: expected concurrency, average prompt length, average output length and a TTFT/TPOT SLO.",
+          "Compute weight memory at FP16 and FP8 with the formula, then compute KV cache per token from the model's config.json (num_hidden_layers, num_key_value_heads, head_dim) and multiply by tokens in flight.",
+          "Pick candidate GPUs (L4, A100 80 GB, H100, H200, MI300X) and determine how many of each you need for weights plus KV cache, respecting FP8 support.",
+          "Estimate the single-stream decode ceiling for each candidate as HBM bandwidth divided by bytes per token.",
+          "Write a one-page recommendation that names GPU type, count, tensor-parallel degree, precision and the headroom you left for KV cache."
+        ],
+        "deliverable": "A sizing memo with the arithmetic shown for weights, KV cache, GPU count and decode ceiling.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Why does quantizing weights help decode speed and not just memory footprint?",
+        "A model fits on one GPU with 2 GB to spare; what will break first in production and why?",
+        "When is adding more GPUs via tensor parallelism likely to disappoint, according to the interconnect section?"
+      ],
+      "resources": [
+        {
+          "title": "Where is LLM inference run? (CPU vs GPU vs TPU)",
+          "url": "https://handbook.modular.com/llm-inference-basics/cpu-vs-gpu-vs-tpu/",
+          "type": "docs"
+        },
+        {
+          "title": "Choosing the right GPU",
+          "url": "https://handbook.modular.com/getting-started/choosing-the-right-gpu/",
+          "type": "docs"
+        },
+        {
+          "title": "GPU memory hierarchy (HBM capacity and bandwidth table)",
+          "url": "https://handbook.modular.com/kernel-optimization/gpu-architecture-fundamentals/gpu-memory/",
+          "type": "docs"
+        },
+        {
+          "title": "NVIDIA H100 Tensor Core GPU",
+          "url": "https://www.nvidia.com/en-us/data-center/h100/",
+          "type": "docs"
+        },
+        {
+          "title": "CUDA Driver API documentation",
+          "url": "https://docs.nvidia.com/cuda/cuda-driver-api/index.html",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m7-l04",
+      "title": "Choosing a Model and Framework; Serverless vs Self-hosted vs BYOC vs On-prem",
+      "minutes": 45,
+      "sourceRef": "Choosing the right model; Choosing the right inference framework; Serverless vs. self-hosted LLM inference; Bring Your Own Cloud (BYOC); On-prem LLM deployments",
+      "sourceUrl": "https://handbook.modular.com/getting-started/choosing-the-right-inference-framework/",
+      "summary": "The Planning your deployment chapter covers the decisions made before the first GPU is provisioned. The model page explains base versus instruct versus chat models, dense versus Mixture of Experts, how to read model names (for example Qwen3.5-35B-A3B), where to get weights (Hugging Face, ModelScope, OpenRouter), gated models and weight formats (PyTorch checkpoints, safetensors shards with an index file, GGUF). The framework page defines what an inference framework does beyond a forward pass, surveys vLLM, SGLang, MAX, LMDeploy, TensorRT LLM, TokenSpeed, TGI (maintenance mode), llama.cpp, MLC-LLM and Ollama, shows library mode versus server mode, and argues for runtime-agnostic infrastructure. The remaining pages compare serverless APIs, self-hosting, BYOC (vendor-managed control plane, customer-owned data plane) and on-prem on ease, privacy, customization, cost at scale and operational burden.",
+      "concepts": [
+        {
+          "term": "Inference framework",
+          "def": "The software layer that loads a model, manages token generation, KV cache, batching, streaming, memory limits and request handling, and exposes an API; also called an engine, runtime, backend or model server."
+        },
+        {
+          "term": "Library mode vs server mode",
+          "def": "Embedding the engine in-process (vLLM LLM class, SGLang Engine) for offline jobs versus running it as a separate OpenAI-compatible server that many clients and languages can share and scale independently."
+        },
+        {
+          "term": "Mixture of Experts",
+          "def": "A model with multiple expert sub-networks of which only a subset is activated per token, giving large total parameters with manageable per-token compute; names like 35B-A3B encode total and active sizes."
+        },
+        {
+          "term": "Safetensors",
+          "def": "Hugging Face's safe, memory-mappable weight format, usually sharded into several files with a model.safetensors.index.json mapping tensors to shards."
+        },
+        {
+          "term": "BYOC",
+          "def": "Bring Your Own Cloud: the vendor runs a control plane for deployment, scaling and updates while models, GPUs and data stay in the customer's own cloud account and VPC."
+        },
+        {
+          "term": "Serverless API",
+          "def": "A hosted pay-per-token endpoint (OpenAI, Anthropic, Together AI, Fireworks) that abstracts hardware and scaling but limits control, customization and data residency."
+        }
+      ],
+      "keyPoints": [
+        "Instruct models follow single-task prompts; chat models are further tuned for multi-turn dialogue; base models need fine-tuning before they are useful in products.",
+        "Read the model card and license before building: gated models require an HF token and manual approval and often carry stricter usage terms.",
+        "Raw PyTorch or Transformers is fine for experiments but not production: frameworks add continuous batching, KV cache management, streaming, memory control, OpenAI-compatible APIs and multi-GPU support; the vLLM team reported up to 24x higher throughput than Transformers in 2023 without model changes.",
+        "Ollama and llama.cpp are for single-user local use; optimizations such as paged attention, prefix caching and dynamic batching only pay off with concurrent requests, which is why production moves to vLLM, SGLang, MAX, LMDeploy or TensorRT LLM.",
+        "Serverless cost per token is fixed and spend scales linearly with usage; self-hosting has upfront cost but per-token cost falls with utilization and optimizations like KV cache offloading.",
+        "Self-hosting makes you responsible for DevOps time, LLM-specific monitoring (TTFT, TPS), data transfer and storage, redundancy, and slow cold starts (instance boot, image pull, weight loading).",
+        "BYOC sits between SaaS (vendor runs everything) and on-prem (you run everything): data, logs and outputs stay in your VPC, you keep cloud credits and discounts, and you avoid lock-in, while the vendor handles orchestration."
+      ],
+      "walkthrough": [
+        "Read Choosing the right model: list the differences among base, instruct and chat models and decode two real model names into size, tuning and release date.",
+        "Compare the three weight formats and open a Hugging Face repo to find config.json, the safetensors shards and the index file.",
+        "Read Choosing the right inference framework and run the three serve commands side by side (MAX, vLLM, SGLang) to see how similar the knobs are.",
+        "Try library mode with the vLLM LLM class or SGLang Engine, then start the same model in server mode and call it with the OpenAI client.",
+        "Read Serverless vs. self-hosted and the cost section; sketch where your own usage crosses the break-even line.",
+        "Read BYOC and On-prem, then fill in the SaaS vs BYOC vs On-prem table for your compliance and GPU availability constraints."
+      ],
+      "exercise": {
+        "title": "Write a build-vs-buy decision memo",
+        "steps": [
+          "Describe your application's data sensitivity, expected monthly token volume, latency SLO and team size.",
+          "Price the serverless option using a public per-token rate and your volume; price self-hosting using GPU hourly rates and the sizing from the previous lesson.",
+          "Score serverless, managed platform, BYOC and on-prem on ease of use, privacy, customization, cost at scale and operational burden using the handbook tables.",
+          "Pick a framework for the self-hosted path and justify it by workload (throughput versus edge versus local experimentation).",
+          "Recommend one option and state the trigger (volume, compliance, or control need) that would make you switch."
+        ],
+        "deliverable": "A two-page memo with a cost comparison table and a recommended deployment pattern and framework.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why does the handbook say inference quality is product quality, and what does that imply for teams relying only on third-party APIs?",
+        "What does a BYOC vendor see and not see, and why does that satisfy most compliance reviews?",
+        "Why should infrastructure be runtime-agnostic even if you pick vLLM today?"
+      ],
+      "resources": [
+        {
+          "title": "Choosing the right model",
+          "url": "https://handbook.modular.com/getting-started/choosing-the-right-model/",
+          "type": "docs"
+        },
+        {
+          "title": "Serverless vs. self-hosted LLM inference",
+          "url": "https://handbook.modular.com/getting-started/serverless-vs-self-hosted-llm-inference/",
+          "type": "docs"
+        },
+        {
+          "title": "Bring Your Own Cloud (BYOC)",
+          "url": "https://handbook.modular.com/getting-started/bring-your-own-cloud/",
+          "type": "docs"
+        },
+        {
+          "title": "On-prem LLM deployments",
+          "url": "https://handbook.modular.com/getting-started/on-prem-llms/",
+          "type": "docs"
+        },
+        {
+          "title": "vLLM: Easy, Fast, and Cheap LLM Serving with PagedAttention (2023 benchmark)",
+          "url": "https://vllm.ai/blog/2023-06-20-vllm",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m7-l05",
+      "title": "Model Preparation: Quantization, Distillation and Fine-tuning for Serving",
+      "minutes": 45,
+      "sourceRef": "LLM quantization; LLM distillation; LLM fine-tuning",
+      "sourceUrl": "https://handbook.modular.com/model-preparation/llm-quantization/",
+      "summary": "The Model preparation chapter covers what you do to the model before serving it. Quantization converts weights (and optionally activations and KV cache) from FP32/FP16 to FP8, INT8, INT4 or lower to cut memory, data movement and compute; the page tabulates formats, explains what to quantize, contrasts quantization with pruning, lists when to use it, and describes AWQ, SmoothQuant and GPTQ before showing one-flag online quantization in MAX, vLLM and SGLang. Distillation trains a smaller student on a teacher's soft labels (response, feature or chain-of-thought distillation, as in the DeepSeek-R1 distilled models) and is compared with quantization. Fine-tuning continues training on task data; the page places it in the customization stack after prompts, tools and retrieval, surveys Axolotl, Unsloth, Torchtune and LLaMA Factory, and warns that hosted fine-tuning ties you to a provider lifecycle.",
+      "concepts": [
+        {
+          "term": "Quantization",
+          "def": "Representing weights and/or activations with fewer bits (FP8, INT8, INT4) to shrink memory, move fewer bytes per decode step and use faster low-precision tensor core paths, at some accuracy cost."
+        },
+        {
+          "term": "W8A8 / W4A16",
+          "def": "Shorthand for weight and activation precision: SmoothQuant enables INT8 weights and activations (W8A8); GPTQ and AWQ keep 16-bit activations with 4-bit weights (W4A16)."
+        },
+        {
+          "term": "KV cache quantization",
+          "def": "Quantizing the runtime key/value cache separately from weights; weight quantization alone does not shrink KV cache per token."
+        },
+        {
+          "term": "Pruning",
+          "def": "Removing weights, neurons, heads or layers that contribute little, producing a smaller sparse model; quantization reduces bits per weight while pruning reduces the number of weights."
+        },
+        {
+          "term": "Knowledge distillation",
+          "def": "Training a smaller student model to match a larger teacher's output distribution (soft labels), hidden features, or reasoning traces, producing a new cheaper model."
+        },
+        {
+          "term": "LoRA / QLoRA",
+          "def": "Parameter-efficient fine-tuning methods supported by Axolotl, Unsloth, Torchtune and LLaMA Factory that let you adapt large models on a single consumer GPU or Colab."
+        }
+      ],
+      "keyPoints": [
+        "Weight memory scales with bits: a 7B model is about 28 GB in FP32, 14 GB in FP16, 7 GB in INT8 and about 3.5 GB in INT4 (weights only; KV cache and runtime overhead come on top).",
+        "On an H100 SXM, BF16/FP16 tensor cores reach 1,979 TFLOPS while FP8 and INT8 double that to 3,958, so halving bit width can double compute throughput when kernels exist for the format.",
+        "GPTQ W4A16, AWQ and FP8 for weights and activations often preserve nearly the original accuracy; the page cites Red Hat's half-million evaluations of quantized LLMs.",
+        "AWQ protects the roughly 1% of salient weights using activation statistics; SmoothQuant migrates quantization difficulty from activation outliers to weights for W8A8; GPTQ quantizes 175B-class models to 3 to 4 bits in about 4 GPU hours with custom kernels around 3.25x faster than FP16.",
+        "Online quantization is one serving flag: vllm serve --quantization fp8_per_tensor (or mxfp8), sglang serve --quantization fp8, max serve --quantization-encoding float8_e4m3fn; or load a pre-quantized checkpoint from Hugging Face.",
+        "Distillation makes the model smaller, quantization makes it lighter, serving optimizations make it more efficient; the pipeline is large model, distill, quantize if needed, optimize serving, deploy.",
+        "Fine-tune only after prompts, examples, retrieval, tools and output validation plateau on a real evaluation set; a hosted fine-tuned model is a maintained artifact tied to its base model's deprecation schedule."
+      ],
+      "walkthrough": [
+        "Read the quantization format table and compute weight memory for your target model at FP16, FP8, INT8 and INT4.",
+        "Read What to quantize and note why KV cache quantization is a separate decision from weight quantization.",
+        "Compare AWQ, SmoothQuant and GPTQ and decide which fits an edge deployment versus a data center W8A8 deployment.",
+        "Run the one-flag quantized serve command for your framework and confirm the memory drop with nvidia-smi.",
+        "Read the distillation page, including the three distillation types and the DeepSeek-R1 example, and the distillation-versus-quantization table.",
+        "Read the fine-tuning page's customization stack and improvement loop, then skim the four frameworks and the hosted fine-tuning caveat."
+      ],
+      "exercise": {
+        "title": "Quantization A/B on your own workload",
+        "steps": [
+          "Serve the same open model twice: once in BF16/FP16 and once with FP8 (or a pre-quantized INT4 AWQ/GPTQ checkpoint if your GPU lacks FP8).",
+          "Record GPU memory used, maximum concurrent sequences the engine reports, and median TTFT and TPOT at concurrency 8 using the wrapper from lesson 2.",
+          "Run a 50-example quality evaluation (exact match or an LLM-as-judge rubric) on both deployments.",
+          "Tabulate memory, latency, throughput and quality deltas and state whether the quantized model meets your quality bar.",
+          "Note whether KV cache per token changed (it should not unless you also quantized the cache)."
+        ],
+        "deliverable": "A comparison table and a go/no-go recommendation for quantization on this workload.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Why does quantizing weights reduce per-token decode latency even when compute is not the bottleneck?",
+        "When would you choose distillation over quantization, and what license question must you answer first?",
+        "What goes wrong if you fine-tune without an evaluation set?"
+      ],
+      "resources": [
+        {
+          "title": "LLM distillation",
+          "url": "https://handbook.modular.com/model-preparation/llm-distillation/",
+          "type": "docs"
+        },
+        {
+          "title": "LLM fine-tuning",
+          "url": "https://handbook.modular.com/model-preparation/llm-fine-tuning/",
+          "type": "docs"
+        },
+        {
+          "title": "AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration",
+          "url": "https://arxiv.org/abs/2306.00978",
+          "type": "paper"
+        },
+        {
+          "title": "GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers",
+          "url": "https://arxiv.org/abs/2210.17323",
+          "type": "paper"
+        },
+        {
+          "title": "SmoothQuant: Accurate and Efficient Post-Training Quantization for LLMs",
+          "url": "https://arxiv.org/abs/2211.10438",
+          "type": "paper"
+        }
+      ]
+    },
+    {
+      "id": "m7-l06",
+      "title": "Model Interaction: Parameters, Structured Outputs, Tools, MCP, Harnesses and Compatible APIs",
+      "minutes": 55,
+      "sourceRef": "LLM inference parameters; Structured outputs; Function calling; Model Context Protocol; Agent harnesses; OpenAI-compatible API; Anthropic-compatible API; Prompt engineering",
+      "sourceUrl": "https://handbook.modular.com/model-interaction/inference-parameters/",
+      "summary": "The Model interaction chapter is about the request surface of a served model. Inference parameters (temperature, top_p, top_k, max_tokens, min_tokens, stop, penalties, seed, logprobs, n/best_of, logit_bias) shape decoding and have direct serving consequences for latency, KV cache occupancy and cost. Structured outputs can come from provider APIs, re-prompting libraries like Instructor, or constrained decoding that masks logits during generation (Outlines, llguidance, XGrammar, integrated into vLLM, SGLang and MAX). Function calling lets the model request an action; MCP standardizes how tools and data sources connect via hosts, clients and servers; an agent harness is the runtime loop that executes tools, manages context, enforces permissions and decides when to stop. The API pages show how OpenAI-compatible (chat/completions, Bearer auth) and Anthropic-compatible (/v1/messages, x-api-key plus anthropic-version) endpoints let self-hosted models slot into existing clients and harnesses, and the prompt engineering page ties prompt length and structure to prefill cost and KV cache.",
+      "concepts": [
+        {
+          "term": "Temperature / top_p / top_k",
+          "def": "Temperature rescales logits before softmax (lower is sharper); top_p keeps the smallest token set covering a cumulative probability; top_k keeps a fixed number of candidates regardless of distribution shape."
+        },
+        {
+          "term": "Constrained decoding",
+          "def": "Enforcing a schema or grammar during generation by masking logits so only valid continuations can be sampled; no retries, guaranteed well-formed output."
+        },
+        {
+          "term": "Function calling",
+          "def": "The model emits a structured request to invoke a tool with arguments; the application executes it and feeds the result back. Tools are the actions; function calling is how the model asks for them."
+        },
+        {
+          "term": "Model Context Protocol",
+          "def": "An open client-server standard: an MCP host (the assistant app) runs MCP clients that connect one-to-one to MCP servers exposing data sources and tools."
+        },
+        {
+          "term": "Agent harness",
+          "def": "The runtime around a model that maintains state, exposes tools, executes approved actions, returns observations and decides whether to continue or stop; Agent = Model + Harness."
+        },
+        {
+          "term": "OpenAI-compatible API",
+          "def": "Any endpoint that mirrors OpenAI's request/response schema (notably /v1/chat/completions and /v1/models) so existing SDKs and tools work against a self-hosted model by changing base_url."
+        }
+      ],
+      "keyPoints": [
+        "max_tokens is one of the most important production controls: too low truncates, too high lets bad prompts hold KV cache and GPU time and inflate tail latency; long generations also interfere with latency-sensitive traffic.",
+        "Starting points from the page: classification and extraction at temperature 0.0 to 0.2 with top_p 1.0; chat at 0.5 to 0.8; code at 0.0 to 0.3; creative writing at 0.8 to 1.3 with top_p 0.9 to 0.95; tune temperature first and avoid changing everything at once.",
+        "Three routes to structured output: provider-native schemas (lock-in, truncation risk), re-prompting with Instructor (extra calls), and constrained decoding for self-hosted models (fast and exact); stop sequences are not schema enforcement.",
+        "Function calling and structured outputs are different: structured outputs fix the format of the response, function calling decides when to take an action; both are often combined, and open models like Llama, Qwen and DeepSeek work well via vLLM, SGLang or MAX.",
+        "Without a harness a model fails predictably: unbounded loops, context overload, unsafe actions, false completion, brittle recovery, opaque failures; these are runtime problems a bigger model does not fix.",
+        "To run a harness on an open model: pick a tool-use-trained model, match the API protocol, configure chat template, tool-call parser, reasoning parser and context length on the server, point the harness at the endpoint, test the full loop, and keep stable instructions and tool definitions at the front of the prompt for prefix cache reuse.",
+        "Compatible endpoints usually ignore api_key (use EMPTY) and may not support every field; verify modalities, prompt caching controls, extended thinking and tool options end to end before porting an app."
+      ],
+      "walkthrough": [
+        "Read the inference parameters table and the recommended starting points; pick settings for one classification task and one chat task.",
+        "Read the structured outputs page and run a constrained-decoding example against vLLM or SGLang with a JSON schema.",
+        "Read function calling and MCP; draw the host, client, server and backend boxes for an assistant that reads a database.",
+        "Read agent harnesses, especially the six failure modes and the six steps for connecting a harness to an open model.",
+        "Read the OpenAI-compatible and Anthropic-compatible API pages and run the streaming examples against your server, noting the auth header differences.",
+        "Read prompt engineering with a focus on token cost, KV cache usage and assistant prefilling, and restructure one of your prompts to front-load static content."
+      ],
+      "exercise": {
+        "title": "Wire an agent harness to a self-hosted model",
+        "steps": [
+          "Serve a tool-use-capable open model with vLLM (enable the tool-call parser and chat template for the model) or SGLang and confirm /v1/models lists it.",
+          "Point an open-source coding harness (for example Codex CLI or OpenCode) at the endpoint using base_url, model name and a placeholder key.",
+          "Run three tasks that require tool calls and measure tool-call validity, task completion, recovery after a forced tool error, and context growth per turn.",
+          "Enforce a JSON schema for one tool's output via constrained decoding and compare error rates with plain prompting.",
+          "Inspect prefix cache hit rate on the server between turns and reorder the system prompt and tool definitions if hits are low."
+        ],
+        "deliverable": "A short report with the server flags used, the harness configuration, and a table of tool-call accuracy, completion rate and cache hit rate.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why is max_tokens an infrastructure setting and not just a quality setting?",
+        "Why can two API-compatible servers behave differently on the same request even with the same model?",
+        "What does a harness add that neither function calling nor MCP provides?"
+      ],
+      "resources": [
+        {
+          "title": "Structured outputs",
+          "url": "https://handbook.modular.com/model-interaction/structured-outputs/",
+          "type": "docs"
+        },
+        {
+          "title": "Agent harnesses",
+          "url": "https://handbook.modular.com/model-interaction/agent-harnesses/",
+          "type": "docs"
+        },
+        {
+          "title": "Model Context Protocol introduction",
+          "url": "https://modelcontextprotocol.io/introduction",
+          "type": "docs"
+        },
+        {
+          "title": "XGrammar: Flexible and Efficient Structured Generation Engine for LLMs",
+          "url": "https://arxiv.org/abs/2411.15100",
+          "type": "paper"
+        },
+        {
+          "title": "Unrolling the Codex agent loop",
+          "url": "https://openai.com/index/unrolling-the-codex-agent-loop/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m7-l07",
+      "title": "Batching: Static, Dynamic, Continuous and Chunked Prefill",
+      "minutes": 50,
+      "sourceRef": "Static, dynamic and continuous batching",
+      "sourceUrl": "https://handbook.modular.com/inference-optimization/static-dynamic-continuous-batching/",
+      "summary": "Batching is the first lever for GPU utilization because decode spends most of its memory bandwidth loading weights, and a batch reuses those loaded weights across requests. The page contrasts static batching (wait for a fixed batch size; everyone waits for the slowest), dynamic batching (time window or size limit, whichever first; still bound by the longest sequence) and continuous batching (iteration-level scheduling that replaces finished sequences immediately, supported by vLLM, SGLang, MAX, TensorRT LLM in-flight batching and LMDeploy persistent batching). It then explains chunked prefill: splitting a long prompt into token-budgeted chunks interleaved with decode steps (SARATHI's decode-maximal batching) to smooth ITL at some TTFT cost, with the vLLM, SGLang and MAX flags that set the per-iteration token budget. FAQs cover padding tokens and ragged tensors.",
+      "concepts": [
+        {
+          "term": "Static batching",
+          "def": "The server waits for a fixed number of requests and processes them together; the first request waits for the last, and all wait for the slowest generation."
+        },
+        {
+          "term": "Dynamic batching",
+          "def": "A batch launches when a time window expires or a size limit is reached, whichever first; it bounds waiting but still finishes when the longest request finishes."
+        },
+        {
+          "term": "Continuous batching",
+          "def": "Iteration-level scheduling: batch composition changes every decode step, so a finished sequence is replaced by a waiting request immediately; also called in-flight or persistent batching."
+        },
+        {
+          "term": "Chunked prefill",
+          "def": "Splitting a prompt's prefill into token-budgeted chunks scheduled across iterations so active decodes keep producing tokens; mathematically equivalent to one-pass prefill, first token emitted after the last chunk."
+        },
+        {
+          "term": "Decode-maximal batching",
+          "def": "SARATHI's scheme of pairing one prefill chunk (enough parallel work to saturate compute) with decode tokens from active requests in the same batch."
+        },
+        {
+          "term": "Ragged tensors",
+          "def": "Representing variable-length sequences with lengths, offsets or KV block locations instead of padding to a common length, avoiding wasted compute on pad tokens."
+        }
+      ],
+      "keyPoints": [
+        "Decode is bandwidth-bound on weight loads; a batch reuses one weight read across many sequences, which is why batching improves throughput so dramatically until compute saturates.",
+        "Static batching is a printer that waits for N documents; dynamic batching is a bus on a schedule that also leaves when full; continuous batching is an assembly line that refills each slot as soon as it empties.",
+        "Continuous batching introduces a scheduling conflict: a new request's full prefill minimizes its TTFT but stalls every active decode, which users see as a pause in streaming output.",
+        "Chunked prefill trades a little TTFT for lower and smoother ITL; smaller chunks give more decode opportunities but add attention overhead because later chunks reread KV written by earlier chunks.",
+        "Frameworks express chunk size as a token budget per iteration: vllm serve --enable-chunked-prefill --max-num-batched-tokens 8192; sglang serve --chunked-prefill-size 8192 (-1 disables); max serve --enable-chunked-prefill --max-batch-input-tokens 8192 --chunked-prefill-min-chunk-size 512.",
+        "There is no universal chunk size; it depends on model, GPU, prompt-length distribution, concurrency and latency targets, so treat it as a workload-specific scheduling parameter.",
+        "Padding to the longest sequence (for example lengths 1024, 1000, 50, 20 padded to 1024) wastes compute and memory; ragged layouts paired with paged KV cache avoid it."
+      ],
+      "walkthrough": [
+        "Read the introduction and restate why batching helps a memory-bound decode phase.",
+        "Study static, dynamic and continuous batching and the Anyscale figure showing seven sequences finishing independently.",
+        "Read the chunked prefill section and trace how one long prompt interleaves with two active decodes across iterations.",
+        "Compare the three framework flag sets and identify which value is the per-iteration token budget in each.",
+        "Read the guidance on smaller versus larger chunks and the padding and ragged tensor FAQs."
+      ],
+      "code": {
+        "lang": "bash",
+        "caption": "vLLM launch adapted from the handbook pages: continuous batching is always on; chunked prefill sets the per-iteration token budget and prefix caching is enabled with a 16-token block size. The second command gives a no-cache baseline for A/B tests.",
+        "src": "# Production-style launch: chunked prefill + prefix caching (vLLM)\nvllm serve --model meta-llama/Llama-3.1-8B-Instruct \\\n  --tensor-parallel-size 1 \\\n  --gpu-memory-utilization 0.90 \\\n  --enable-chunked-prefill \\\n  --max-num-batched-tokens 8192 \\\n  --enable-prefix-caching \\\n  --block-size 16\n\n# Baseline for comparison: prefix caching off (not a performance setting,\n# only useful to measure the gain)\nvllm serve --model meta-llama/Llama-3.1-8B-Instruct \\\n  --enable-chunked-prefill \\\n  --max-num-batched-tokens 8192 \\\n  --no-enable-prefix-caching\n\n# SGLang equivalents (RadixAttention prefix cache is on by default):\n#   sglang serve --model-path meta-llama/Llama-3.1-8B-Instruct --chunked-prefill-size 8192\n#   add --disable-radix-cache for the no-cache baseline"
+      },
+      "exercise": {
+        "title": "Measure the chunked prefill trade-off",
+        "steps": [
+          "Serve a model with chunked prefill disabled (or a very large token budget) and run a mixed load: 8 steady short-prompt chat streams plus a 6,000-token prompt injected every 10 seconds.",
+          "Record P50 and P99 ITL for the chat streams and TTFT for the long prompts.",
+          "Repeat with --max-num-batched-tokens (or --chunked-prefill-size) at 8192, 4096 and 2048.",
+          "Plot ITL P99 and long-prompt TTFT against chunk budget and find the knee for this workload.",
+          "Write down the budget you would ship and the SLO reasoning behind it."
+        ],
+        "deliverable": "A two-line chart (ITL P99 and long-prompt TTFT versus chunk budget) with a one-paragraph recommendation.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why does the longest request still dictate batch completion time under dynamic batching but not under continuous batching?",
+        "Why does chunked prefill never change the model's output?",
+        "What happens to GPU utilization if chunks become too small?"
+      ],
+      "resources": [
+        {
+          "title": "How continuous batching enables 23x throughput in LLM inference while reducing p50 latency",
+          "url": "https://www.anyscale.com/blog/continuous-batching-llm-inference",
+          "type": "article"
+        },
+        {
+          "title": "SARATHI: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills",
+          "url": "https://arxiv.org/abs/2308.16369",
+          "type": "paper"
+        },
+        {
+          "title": "Mastering LLM Techniques: Inference Optimization",
+          "url": "https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/",
+          "type": "article"
+        },
+        {
+          "title": "vLLM",
+          "url": "https://github.com/vllm-project/vllm",
+          "type": "repo"
+        },
+        {
+          "title": "SGLang",
+          "url": "https://github.com/sgl-project/sglang",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m7-l08",
+      "title": "KV Cache Management: PagedAttention, Prefix Caching and Offloading",
+      "minutes": 55,
+      "sourceRef": "PagedAttention; Prefix caching; KV cache offloading",
+      "sourceUrl": "https://handbook.modular.com/inference-optimization/kv-cache-offloading/",
+      "summary": "Three pages treat the KV cache as the central resource of a serving engine. PagedAttention replaces per-request contiguous allocations sized for max_seq_len (2 x num_layers x num_heads x head_dim x max_seq_len elements) with fixed-size blocks tracked by a lookup table, cutting the 20 to 38 percent utilization of naive allocation to near zero waste and enabling sharing across sequences; vLLM exposes --block-size and MAX --kv-cache-page-size. Prefix caching reuses KV state for an exactly matching token prefix across requests (static system prompts, growing chat histories), is on by default in vLLM, SGLang (RadixAttention, token granularity) and MAX, and depends on prompt structure, deterministic serialization and routing to the right worker. KV cache offloading demotes inactive blocks to CPU RAM, local disk or remote stores so GPU memory serves active work, with framework-native tiers (vLLM OffloadingConnector, SGLang HiCache, MAX KV connector) and dedicated systems (LMCache, Mooncake, Dynamo KVBM); the page includes the KV cache size calculator and quality caveats for selective offloading.",
+      "concepts": [
+        {
+          "term": "PagedAttention",
+          "def": "Storing KV cache in non-contiguous fixed-size blocks with a lookup table, like OS paging, so memory is allocated as sequences grow and blocks can be shared; a serving-layer memory allocator rather than a faster kernel."
+        },
+        {
+          "term": "KV cache size formula",
+          "def": "KV bytes per token = 2 x num_layers x num_kv_heads x head_dim x bytes_per_element; total = per-token x sequence length x concurrent sequences (replace num_kv_heads x head_dim with the KV dimension if known)."
+        },
+        {
+          "term": "Prefix caching",
+          "def": "Reusing the KV cache of the longest exactly matching token prefix across requests so prefill runs only on the new suffix; also called prompt or context caching."
+        },
+        {
+          "term": "RadixAttention",
+          "def": "SGLang's prefix cache implemented as a radix tree over KV cache with token-granularity matching (page size 1 by default)."
+        },
+        {
+          "term": "KV cache offloading",
+          "def": "Moving inactive or shared KV blocks from GPU HBM to CPU RAM, SSD or remote object storage and reloading them on demand, trading transfer time for avoided recomputation."
+        },
+        {
+          "term": "Cache hit rate per tier",
+          "def": "The fraction of requests whose prefix is found in GPU, host or disk tiers; a disk tier that rarely hits only pays transfer cost."
+        }
+      ],
+      "keyPoints": [
+        "Worked KV sizes: Llama 3 8B (32 layers, 8 KV heads, head_dim 128, FP16) = 2 x 32 x 8 x 128 x 2 bytes = 128 KB per token, about 1 GB per 8K-token sequence; Llama 3 70B (80 layers, 8 KV heads, 128, FP16) = 320 KB per token, about 40 GB at 128K context.",
+        "Naive contiguous allocation reserves max_seq_len for every request, so the PagedAttention paper found only 20.4 to 38.2 percent of allocated KV memory held real token states; paged blocks make continuous batching, prefix caching and offloading composable.",
+        "Prefix caching requires byte-identical prefixes: Summarize this incident report in one paragraph and Summarize this incident report in three bullet points share a prefix, but a rephrased prompt with the same meaning does not.",
+        "To maximize hits: front-load static content, batch similar requests, keep timestamps and request IDs out of the prefix, use deterministic JSON serialization, and monitor hit rate per workload.",
+        "Prefix caching is on by default; vllm serve --enable-prefix-caching --block-size 16 (disable with --no-enable-prefix-caching), SGLang --disable-radix-cache, MAX --no-enable-prefix-caching; disabling is for baselines, not performance.",
+        "Offload when contexts are long, sessions are intermittent, many users share the same documents, or GPUs are scarce; NVIDIA reports up to 14x faster TTFT for large inputs versus recomputation, but the storage tier must be faster than recompute.",
+        "Selective KV offloading can look fine on long-context benchmarks yet degrade on context-intensive tasks (multi-document QA, legal review, codebase reasoning), so compare answer quality against a full-attention baseline."
+      ],
+      "walkthrough": [
+        "Read PagedAttention: derive the contiguous allocation shape and explain why it wastes memory for variable-length traffic.",
+        "Read Prefix caching: work through the system-prompt and multi-turn chat examples and list the three conditions for a cache hit (retained entry, right worker, identical serialization).",
+        "Apply the prompt-structuring checklist to one of your production prompts.",
+        "Read the KV cache offloading page: compute per-token and per-request KV sizes for your model from config.json.",
+        "Compare the vLLM, SGLang and MAX offloading flags and the dedicated systems (LMCache, Mooncake, Dynamo KVBM).",
+        "Read the trade-offs section and decide which quality checks you would run before enabling selective offloading."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "KV cache size calculator: bytes per token = 2 (K and V) x layers x KV heads x head_dim x bytes per element, with the Llama 3 8B and 70B examples the handbook quotes and a concurrency bound for an 80 GB GPU.",
+        "src": "def kv_bytes_per_token(num_layers, num_kv_heads, head_dim, bytes_per_elem=2):\n    \"\"\"2 (K and V) x layers x kv_heads x head_dim x bytes. FP16/BF16 = 2 bytes, FP8 = 1.\"\"\"\n    return 2 * num_layers * num_kv_heads * head_dim * bytes_per_elem\n\ndef kv_cache_gib(cfg, seq_len, batch=1, bytes_per_elem=2):\n    per_tok = kv_bytes_per_token(cfg[\"num_layers\"], cfg[\"num_kv_heads\"], cfg[\"head_dim\"], bytes_per_elem)\n    return per_tok * seq_len * batch / 1024**3\n\n# From config.json: num_hidden_layers, num_key_value_heads, hidden_size / num_attention_heads\nLLAMA3_8B  = {\"num_layers\": 32, \"num_kv_heads\": 8, \"head_dim\": 128}   # GQA\nLLAMA3_70B = {\"num_layers\": 80, \"num_kv_heads\": 8, \"head_dim\": 128}\n\nprint(kv_bytes_per_token(32, 8, 128) // 1024, \"KB/token (Llama 3 8B, FP16)\")  # 128 KB\nprint(kv_cache_gib(LLAMA3_8B, seq_len=8192), \"GiB per 8K request\")          # 1.0\nprint(kv_bytes_per_token(80, 8, 128) // 1024, \"KB/token (Llama 3 70B)\")      # 320 KB\nprint(kv_cache_gib(LLAMA3_70B, seq_len=131072), \"GiB at 128K context\")       # 40.0\n\nfree_gib = 80 - 16   # H100 80 GB minus ~16 GB of Llama 3 8B FP16 weights\nmax_seqs = free_gib // kv_cache_gib(LLAMA3_8B, seq_len=8192)\nprint(int(max_seqs), \"concurrent 8K sequences before other overhead\")       # ~64"
+      },
+      "exercise": {
+        "title": "Reorder prompts for prefix cache hits",
+        "steps": [
+          "Take a real prompt template that currently embeds a timestamp, user ID or retrieved documents before the instructions.",
+          "Serve a model with prefix caching enabled and scrape the engine's Prometheus metrics for prefix cache queries and hits (vLLM and SGLang expose them on /metrics).",
+          "Send 200 requests with the original template and record hit rate, median TTFT and prompt tokens processed.",
+          "Restructure the template: system instructions and tool definitions first, stable context next, per-request fields last, with deterministic JSON key ordering.",
+          "Re-run the 200 requests and compare hit rate, TTFT and total prompt tokens actually prefilled; then repeat with --no-enable-prefix-caching as a baseline."
+        ],
+        "deliverable": "Before/after metrics for hit rate, median TTFT and prefilled tokens, plus the rewritten template.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Why is PagedAttention described as a memory allocator rather than a faster attention kernel?",
+        "Why can two semantically identical prompts have completely different prefix cache behavior?",
+        "How would you tell that a disk offload tier is costing more than it saves?"
+      ],
+      "resources": [
+        {
+          "title": "PagedAttention",
+          "url": "https://handbook.modular.com/inference-optimization/pagedattention/",
+          "type": "docs"
+        },
+        {
+          "title": "Prefix caching",
+          "url": "https://handbook.modular.com/inference-optimization/prefix-caching/",
+          "type": "docs"
+        },
+        {
+          "title": "Efficient Memory Management for LLM Serving with PagedAttention",
+          "url": "https://arxiv.org/abs/2309.06180",
+          "type": "paper"
+        },
+        {
+          "title": "LMCache",
+          "url": "https://github.com/LMCache/LMCache",
+          "type": "repo"
+        },
+        {
+          "title": "vLLM KV offloading usage",
+          "url": "https://docs.vllm.ai/en/stable/features/kv_offloading_usage/",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m7-l09",
+      "title": "Speculative Decoding and Prefill-Decode Disaggregation",
+      "minutes": 55,
+      "sourceRef": "Speculative decoding; Prefill-decode disaggregation",
+      "sourceUrl": "https://handbook.modular.com/inference-optimization/speculative-decoding/",
+      "summary": "Two optimizations attack the structure of decode itself. Speculative decoding has a cheap drafter propose gamma tokens that the target model verifies in one parallel pass, accepting the longest agreeing prefix plus one corrected token, so output is identical to the target alone; the page defines acceptance rate alpha, speculative length gamma and expected acceptance length tau = (1 - alpha^(gamma+1)) / (1 - alpha), reports simulated and real benchmarks (about 2x TPOT improvement on Llama 3.3 70B with vLLM on H100s, throughput plateaus at TP=1), and surveys drafting methods: standalone draft models, Medusa heads, Multi-Token Prediction (DeepSeek-V3), n-gram lookup, EAGLE 1 to 3, DFlash block-diffusion drafting, DSpark, plus adaptive schemes (SGLang EMA tiers, AdaSpec, AdaSD). Prefill-decode disaggregation runs the compute-bound prefill and bandwidth-bound decode on separate workers so neither phase stalls the other, improving TTFT and ITL together and tail latency (DistServe), at the cost of KV cache transfer (NIXL, CXL, NVMe-oF) and cache-layout compatibility; the page covers when local prefill wins, the design questions for cache movement, and cross-cluster Prefill-as-a-Service.",
+      "concepts": [
+        {
+          "term": "Draft-then-verify",
+          "def": "A small draft model proposes K tokens; the target verifies them in parallel and keeps the longest matching prefix plus one token it generates itself, guaranteeing the target's exact output distribution."
+        },
+        {
+          "term": "Acceptance rate (alpha)",
+          "def": "The probability that the target accepts a drafted token; it depends on draft-target alignment, sampling strategy and domain, and drives all speedup."
+        },
+        {
+          "term": "Acceptance length (tau)",
+          "def": "Expected tokens accepted per round: tau = (1 - alpha^(gamma+1)) / (1 - alpha), where gamma is the number of drafted tokens per step."
+        },
+        {
+          "term": "EAGLE",
+          "def": "A target-specific drafter that autoregresses on second-to-top-layer features plus the sampled token, reusing the target's LM head; EAGLE-3 predicts tokens directly from fused features."
+        },
+        {
+          "term": "Prefill-decode disaggregation",
+          "def": "Running prefill and decode on separate GPU pools so compute-heavy prefill does not stall bandwidth-bound decode, with the KV cache transferred between them."
+        },
+        {
+          "term": "Prefill-as-a-Service",
+          "def": "Cross-cluster PD where only long, uncached prefills are sent to a remote compute cluster while short or cached requests stay local; a routing problem based on uncached tokens, cache locality, queue pressure and bandwidth."
+        }
+      ],
+      "keyPoints": [
+        "Speculative decoding exploits two facts: decode is memory-bound with idle compute, and many next tokens are easy; verifying K drafts costs about one target forward pass, so accepted tokens come almost free.",
+        "Formula check: with alpha = 0.8 and gamma = 4, tau = (1 - 0.8^5) / (1 - 0.8) = (1 - 0.32768) / 0.2 = 3.36 tokens accepted per round on average.",
+        "Real runs on Llama 3.3 70B with vLLM on H100: TP=1 improved TPOT about 2x but throughput plateaued around 20 to 30 concurrent requests; TP=2 gained throughput but gamma=5 showed latency spikes above 40 concurrent requests, so tune gamma per load.",
+        "Both models share GPU memory; rejected drafts are wasted compute; fine-tuning the drafter on your domain is the main lever on alpha.",
+        "Method map: standalone drafter (no training, matching is tricky), Medusa heads (train heads, 2.2 to 3.6x reported), MTP (built in at pretraining, DeepSeek-V3), n-gram (zero setup, input-grounded tasks), EAGLE-3 (3.0 to 6.5x reported, broad support), DFlash (block-diffusion drafting in one pass, 4.9x average reported), DSpark (semi-autoregressive correction plus confidence-scheduled verification); vLLM, SGLang and MAX implement several.",
+        "Collocated prefill and decode interfere because only one phase runs at a time; disaggregation lets each pool scale and tune independently (different TP or PP per phase) and removes long-prefill stalls that inflate P95/P99 ITL.",
+        "Disaggregation is not free: small workloads can lose 20 to 30 percent, local prefill wins for short prompts or high prefix-cache hits, KV transfer needs fast fabrics, and prefill and decode workers must agree on KV layout, page size, dtype and attention variant; PrfaaS reports 54 percent higher throughput and 64 percent lower P90 TTFT by sending only long uncached prefills remotely."
+      ],
+      "walkthrough": [
+        "Read the speculative decoding loop and draw one iteration: draft K tokens, verify in parallel, accept h, generate h+1.",
+        "Compute tau for alpha in 0.5, 0.7, 0.9 at gamma = 3 and gamma = 7 to see when a longer gamma pays off.",
+        "Study the two BentoML charts (TP=1 and TP=2) and note where throughput plateaus and where latency spikes.",
+        "Read the methods section and fill in the choose-a-method table for your model (does it ship MTP heads? is there an EAGLE or DFlash drafter?).",
+        "Read adaptive speculative decoding and decide whether your traffic is variable enough to need it.",
+        "Read the PD disaggregation page: list the three benefits, the four caveats, the three KV movement design questions, and when cross-cluster PD makes sense."
+      ],
+      "exercise": {
+        "title": "Measure speculative acceptance rate on your workload",
+        "steps": [
+          "Serve a target model in vLLM or SGLang with a supported speculative method (an EAGLE-3 drafter if available, otherwise n-gram speculation) and a baseline without speculation.",
+          "Run 200 requests from your real prompt distribution at concurrency 1, 8 and 32 against both.",
+          "Collect the engine's speculative metrics (draft tokens, accepted tokens, acceptance rate or mean acceptance length) and compute tau from the observed alpha using the formula.",
+          "Compare median TPOT, output tokens per second and GPU memory against the baseline at each concurrency.",
+          "Change gamma (number of speculative tokens) by one step up and down and record how acceptance length and tail latency move; recommend a setting."
+        ],
+        "deliverable": "A table of alpha, observed and predicted tau, TPOT and throughput per concurrency level, with a recommended gamma or a decision not to enable speculation.",
+        "minutes": 55
+      },
+      "checkYourself": [
+        "Why does speculative decoding not change output quality, and which adaptive variant breaks that guarantee?",
+        "Why can a high acceptance rate still fail to speed up a heavily loaded TP=1 server?",
+        "Under what prompt distribution would you keep prefill local even with a disaggregated cluster available?"
+      ],
+      "resources": [
+        {
+          "title": "Prefill-decode disaggregation",
+          "url": "https://handbook.modular.com/inference-optimization/prefill-decode-disaggregation/",
+          "type": "docs"
+        },
+        {
+          "title": "Fast Inference from Transformers via Speculative Decoding",
+          "url": "https://arxiv.org/abs/2211.17192",
+          "type": "paper"
+        },
+        {
+          "title": "Accelerating Large Language Model Decoding with Speculative Sampling",
+          "url": "https://arxiv.org/abs/2302.01318",
+          "type": "paper"
+        },
+        {
+          "title": "EAGLE-3: Scaling up Inference Acceleration of LLMs via Training-Time Test",
+          "url": "https://arxiv.org/abs/2503.01840",
+          "type": "paper"
+        },
+        {
+          "title": "NVIDIA Inference Xfer Library (NIXL)",
+          "url": "https://github.com/ai-dynamo/nixl",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m7-l10",
+      "title": "Parallelism, Inference Routing, Offline Batch Inference and Benchmarks",
+      "minutes": 50,
+      "sourceRef": "Data, tensor, pipeline, expert and hybrid parallelisms; Inference routing; Offline batch inference; LLM performance benchmarks",
+      "sourceUrl": "https://handbook.modular.com/inference-optimization/llm-performance-benchmarks/",
+      "summary": "This lesson scales a single engine out. The parallelism page explains data parallelism (replicas, throughput and a failure boundary, memory duplicated), tensor parallelism (shard each layer, needs NVLink-class interconnect, head count must divide evenly, rarely linear), pipeline parallelism (stages of layers, lower communication, pipeline bubbles mitigated by microbatches), expert parallelism for MoE, and hybrid layouts such as TP=4 x DP=2 versus TP=2 x DP=4, with the MAX, vLLM and SGLang flags. The routing page explains why round-robin is cache-blind (a 1/N chance of hitting the worker with your KV cache) and surveys least-loaded, direct, KV-utilization-aware, prefix-aware (affinity, consistent hashing, approximate router cache, precise cache events in llm-d) and prefill/decode-aware routing plus hybrid scoring in the SGLang router, Dynamo and llm-d on the Gateway API Inference Extension. Offline batch inference covers bulk, non-interactive jobs. The benchmarks page separates quality from performance benchmarks, lists when custom benchmarks help, compares Locust, K6, GenAI-Perf, LLMPerf and framework tools (vllm bench serve, sglang.bench_serving, max benchmark), and gives a reporting template.",
+      "concepts": [
+        {
+          "term": "Data parallelism",
+          "def": "Multiple full replicas each with their own weights and KV cache; a router spreads requests, raising throughput and availability but not per-request latency."
+        },
+        {
+          "term": "Tensor parallelism",
+          "def": "Each GPU holds a shard of every layer and exchanges partial results with all-reduce or all-gather every layer; best inside one NVLink node, GPU count must divide attention heads."
+        },
+        {
+          "term": "Pipeline parallelism",
+          "def": "Consecutive layers assigned to stages on different devices; activations cross only at stage boundaries, so it tolerates slower links but suffers pipeline bubbles."
+        },
+        {
+          "term": "Expert parallelism",
+          "def": "For MoE models, placing whole experts on different GPUs so each GPU processes only tokens routed to its experts, instead of slicing every expert with TP."
+        },
+        {
+          "term": "Prefix-aware routing",
+          "def": "Sending a request to the worker that already holds its prefix KV cache, via session affinity, consistent hashing, an approximate router-side cache, or precise KV cache events."
+        },
+        {
+          "term": "Performance benchmark",
+          "def": "A controlled test of throughput, latency percentiles, cost and utilization under a specified model, framework version, hardware, server config and client load, as opposed to a quality benchmark like MMLU."
+        }
+      ],
+      "keyPoints": [
+        "FP8 weights need roughly 1 GB per billion parameters, so Llama 3.1 405B needs about 405 GB for weights alone and must be tensor- or pipeline-sharded across devices.",
+        "Lower TP and higher DP (TP=2 x DP=4) cuts communication but leaves less memory per replica for KV cache and prefix caching; higher TP (TP=4 x DP=2) does the opposite; benchmark the layout rather than assuming the highest degree wins.",
+        "Flags: vllm serve --tensor-parallel-size 4 --data-parallel-size 2, --enable-expert-parallel toggles EP over the TP x DP group; sglang serve --tp-size 4 --dp-size 2 --ep-size 8; max serve --devices gpu:0,1,2,3 or --data-parallel-degree 8 or --ep-size 8.",
+        "LLM routing differs from web load balancing because requests are unequal (100 versus 100k tokens), workers hold KV state, prefill and decode stress different resources, and latency goals differ by workload; cache-blind routing recomputes prefixes and raises TTFT.",
+        "A cache hit on a saturated worker can be slower than a smaller hit on a worker with headroom, so good routers score prefix overlap together with KV utilization, queue length, active decode tokens, LoRA adapter residency, prefill/decode role and priority.",
+        "Run custom benchmarks when comparing models or frameworks, changing hardware, validating an optimization (speculation, prefix caching, disaggregation, offloading) or before launch; published leaderboards rarely match your prompt lengths, concurrency or hardware.",
+        "Report at minimum: model, framework version, quantization, GPU type and count, TP/DP, max batch size, request rate, concurrency, input and output lengths, throughput, median TTFT, P99 latency, GPU utilization and cost per million tokens; perceived tokens/s matters more than raw output rate for streaming."
+      ],
+      "walkthrough": [
+        "Read the parallelism page and draw TP=4 x DP=2 and TP=2 x DP=4 on eight GPUs, labeling where communication happens and how much memory each replica has for KV cache.",
+        "Map each strategy to its MAX, vLLM and SGLang flags and note the constraints (MAX DP must be 1 or the GPU count; vLLM EP is a toggle).",
+        "Read Inference routing: list the signals a hybrid scorer uses and which open-source routers implement them.",
+        "Read Offline batch inference and identify one workload in your organization that should move offline.",
+        "Read LLM performance benchmarks: compare the three framework benchmark commands and copy the reporting template.",
+        "Decide which tool you will use for load testing (Locust/K6) versus LLM-specific measurement (GenAI-Perf, LLMPerf, framework scripts)."
+      ],
+      "code": {
+        "lang": "bash",
+        "caption": "Benchmark configuration adapted from the handbook's vllm bench serve example: a concurrency sweep with fixed input/output lengths so results are comparable, saving one JSON per level for TTFT, TPOT, throughput and goodput analysis.",
+        "src": "# 1. Start the server first (prefix caching on by default)\nvllm serve --model meta-llama/Llama-3.1-8B-Instruct \\\n  --tensor-parallel-size 1 --gpu-memory-utilization 0.90\n\n# 2. Sweep concurrency 1..32 with a fixed workload shape\nfor c in 1 2 4 8 16 32; do\n  vllm bench serve \\\n    --backend vllm \\\n    --model meta-llama/Llama-3.1-8B-Instruct \\\n    --endpoint /v1/completions \\\n    --dataset-name random \\\n    --random-input-len 256 \\\n    --random-output-len 512 \\\n    --max-concurrency \"$c\" \\\n    --num-prompts 500 \\\n    --save-result --result-filename \"bench_c${c}.json\"\ndone\n\n# 3. Report per level: median + P99 TTFT, median TPOT/ITL, output tokens/s,\n#    and goodput against your SLO (e.g. P90 TTFT < 500 ms, P90 TPOT < 50 ms).\n#    SGLang equivalent: python3 -m sglang.bench_serving --backend sglang \\\n#      --dataset-name random --random-input-len 256 --random-output-len 512 \\\n#      --max-concurrency 16 --num-prompts 500"
+      },
+      "exercise": {
+        "title": "Run a load test and publish a benchmark card",
+        "steps": [
+          "Serve an 8B model and run the concurrency sweep (1, 2, 4, 8, 16, 32) with fixed input 256 and output 512 tokens.",
+          "Extract median and P99 TTFT, median TPOT, output tokens per second and compute goodput against an SLO you define.",
+          "Find the saturation point where aggregate tokens per second stops growing while TTFT and TPOT keep rising.",
+          "Repeat once with TP=2 if you have two GPUs (or with FP8 quantization if you have one) and compare the curves.",
+          "Fill in the handbook's benchmark template, including framework version, hardware, server and client config, and cost per million tokens from your GPU hourly price."
+        ],
+        "deliverable": "A completed benchmark card plus a throughput-versus-concurrency chart annotated with the saturation point and SLO boundary.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why does data parallelism not reduce the latency of an individual request?",
+        "Why is round-robin routing especially bad for agent workloads?",
+        "What is missing from a claim like 200 tokens per second on an H100 before you can act on it?"
+      ],
+      "resources": [
+        {
+          "title": "Data, tensor, pipeline, expert and hybrid parallelisms",
+          "url": "https://handbook.modular.com/inference-optimization/data-tensor-pipeline-expert-hybrid-parallelism/",
+          "type": "docs"
+        },
+        {
+          "title": "Inference routing",
+          "url": "https://handbook.modular.com/inference-optimization/inference-routing/",
+          "type": "docs"
+        },
+        {
+          "title": "Kubernetes Gateway API Inference Extension",
+          "url": "https://github.com/kubernetes-sigs/gateway-api-inference-extension",
+          "type": "repo"
+        },
+        {
+          "title": "llm-d inference scheduler and router",
+          "url": "https://llm-d.ai/docs/architecture/core/router",
+          "type": "docs"
+        },
+        {
+          "title": "LLMPerf",
+          "url": "https://github.com/ray-project/llmperf",
+          "type": "tool"
+        }
+      ]
+    },
+    {
+      "id": "m7-l11",
+      "title": "Kernels: GPU Architecture Fundamentals, FlashAttention and Kernel Tools",
+      "minutes": 50,
+      "sourceRef": "GPU architecture fundamentals (threads, warps, blocks and grids; GPU memory hierarchy; streaming multiprocessors; Tensor Cores); FlashAttention; Kernel optimization for LLM inference; Choosing the right kernel optimization tool",
+      "sourceUrl": "https://handbook.modular.com/kernel-optimization/flashattention/",
+      "summary": "The Kernel optimization chapter goes one level below the serving runtime. The GPU architecture subpages build the execution model (threads in warps of 32, thread blocks resident on one SM, grids and indexing, warp divergence) and the hardware (registers at 256 KB per SM, programmer-managed shared memory and hardware L1 sharing one SRAM pool, a 50 MB L2 on H100, HBM at 80 GB and 3.35 TB/s, 32-byte sectors and memory coalescing, warp scheduling that hides latency, occupancy, and Tensor Cores with their precision, tile and layout constraints). FlashAttention applies this: standard attention materializes an N x N score matrix in HBM and is memory-bound, so FlashAttention tiles Q, K and V through SRAM and fuses matmul-softmax-matmul into one kernel, giving 2 to 4x faster exact attention with far less memory; versions 1 to 4 are compared, with FA3 targeting Hopper and FA4 Blackwell. The remaining pages define kernel optimization and kernel fusion, explain why it sets the ceiling for everything above it, and rank the tool ladder: vendor libraries (cuBLAS, cuDNN), AI compilers (TVM, XLA), Triton and Python DSLs, hand-written CUDA, and the Mojo and MAX full-stack approach.",
+      "concepts": [
+        {
+          "term": "Warp",
+          "def": "A group of 32 threads (64 for AMD wavefronts) scheduled together on an SM; divergent branches inside a warp execute serially with idle lanes."
+        },
+        {
+          "term": "Memory hierarchy",
+          "def": "Registers (per thread, fastest), shared memory and L1 (per block / per SM, about 20 TB/s effective), L2 (all SMs, about 50 MB on H100), HBM (global, 80 GB at 3.35 TB/s, hundreds of cycles latency)."
+        },
+        {
+          "term": "Occupancy",
+          "def": "Active warps per SM divided by the maximum supported; more warps help hide latency, but a kernel may accept lower occupancy to keep tiles in shared memory, as FlashAttention does."
+        },
+        {
+          "term": "Memory coalescing",
+          "def": "How well a warp's loads pack into 32-byte sectors; adjacent threads reading adjacent addresses fetch 128 useful bytes in four sectors, while a large stride can touch 32 sectors for the same 128 bytes."
+        },
+        {
+          "term": "FlashAttention",
+          "def": "An IO-aware exact attention kernel that tiles Q, K, V through on-chip SRAM, keeps a running softmax, and fuses the three attention operations so the N x N matrix never hits HBM."
+        },
+        {
+          "term": "Kernel fusion",
+          "def": "Combining several operations (for example matmul, bias, activation) into one kernel so intermediates stay in registers or shared memory instead of round-tripping through HBM."
+        }
+      ],
+      "keyPoints": [
+        "Kernel optimization is not batching, caching, routing or offloading; those are system-level, while kernels decide how fast a single operation runs, and the system layer cannot exceed the kernel ceiling.",
+        "A naive attention writes the N x N score matrix to HBM and reads it back; at 4096 tokens that is about 16 million elements, and 16K tokens needs 256x the memory of 1K, so runtime is dominated by memory traffic.",
+        "FlashAttention-1 (2022) gave 2 to 4x faster attention and up to 10x lower memory; FA2 (2023) about 2x over FA1 via better warp partitioning; FA3 (2024) up to 2x over FA2 and 740 TFLOPS on H100 using FP8 and asynchrony; FA4 (2026) targets Blackwell with asynchronous MMA, software-emulated exponentials and 2-CTA MMA, up to 1613 TFLOPS on B200.",
+        "Install with pip install flash-attn --no-build-isolation (FA4 via pip install flash-attn-4 and flash_attn.cute); PyTorch's scaled_dot_product_attention dispatches to FlashAttention automatically when supported, and vLLM, SGLang, MAX and TensorRT LLM integrate it.",
+        "Using FP16 or FP8 does not automatically activate Tensor Cores: shape, alignment, layout and accumulation mode must match a supported path, and FP8 needs Hopper or newer, FP4 and FP6 need Blackwell.",
+        "Tool ladder: vendor libraries (fast for known operators, NVIDIA-only), AI compilers (TVM auto-tuning, XLA graph fusion, limited control for novel ops), Triton (tile-level Python kernels, no manual threadIdx), custom CUDA (maximum control, high cost and lock-in), Mojo/MAX (one kernel source targeting NVIDIA, AMD and Apple via MLIR).",
+        "Most teams should not start at the bottom: use frameworks and libraries first, reach for a compiler when fusion removes round-trips, Triton for a custom kernel with a friendlier model, and hand-written CUDA only for a critical bottleneck on one target."
+      ],
+      "walkthrough": [
+        "Read the GPU architecture overview and the threads, warps, blocks and grids page; trace the vecAdd kernel's index arithmetic and launch geometry.",
+        "Read GPU memory hierarchy: memorize the H100 pyramid (registers, SMEM/L1, L2, HBM) and work the coalescing example (4 sectors versus 32).",
+        "Read streaming multiprocessors (132 SMs on H100, warp scheduling, residency limits, occupancy) and Tensor Cores (precision by generation, tile and layout constraints).",
+        "Read FlashAttention: explain why standard attention is memory-bound, how tiling and fusion fix it, and compare the four versions.",
+        "Read Kernel optimization for LLM inference, including the sandwich analogy for fusion and the three reasons the layer still matters (new architectures, ceilings, portability).",
+        "Read the kernel tools page and place your team on the ladder of control."
+      ],
+      "exercise": {
+        "title": "Compare attention backends under load",
+        "steps": [
+          "Serve the same model with the engine's default FlashAttention backend and with a non-flash backend if your framework allows selecting one (check the attention backend option in vLLM or SGLang).",
+          "Run the lesson 10 sweep at input lengths 512, 4096 and 16384 tokens with output 128 tokens and compare TTFT and peak GPU memory.",
+          "Use nvidia-smi dmon or DCGM to log SM activity and memory bandwidth activity during each run and relate them to the prefill (compute-bound) and decode (bandwidth-bound) phases.",
+          "Write a Triton add kernel following the page's example and run it once to see the tile-based programming model.",
+          "Summarize where attention stopped being the bottleneck and which tool-ladder rung you would reach for if it had not."
+        ],
+        "deliverable": "A table of TTFT and memory by input length and backend, plus a paragraph connecting the GPU counters to prefill versus decode behavior.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Why does FlashAttention accept lower occupancy, and why is that still a win?",
+        "Why can a GPU report 100 percent utilization while its Tensor Cores are mostly idle?",
+        "What breaks when you move a hand-tuned CUDA attention kernel to a new GPU generation or to AMD?"
+      ],
+      "resources": [
+        {
+          "title": "GPU architecture fundamentals",
+          "url": "https://handbook.modular.com/kernel-optimization/gpu-architecture-fundamentals/",
+          "type": "docs"
+        },
+        {
+          "title": "Official FlashAttention repository",
+          "url": "https://github.com/Dao-AILab/flash-attention",
+          "type": "repo"
+        },
+        {
+          "title": "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness",
+          "url": "https://arxiv.org/abs/2205.14135",
+          "type": "paper"
+        },
+        {
+          "title": "FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision",
+          "url": "https://arxiv.org/abs/2407.08608",
+          "type": "paper"
+        },
+        {
+          "title": "Choosing the right kernel optimization tool",
+          "url": "https://handbook.modular.com/kernel-optimization/kernel-optimization-tools/",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m7-l12",
+      "title": "Infrastructure and Operations: Observability, Fast Scaling, Distributed and Multi-region Inference, Pipelines and Cost",
+      "minutes": 50,
+      "sourceRef": "What is LLM inference infrastructure?; InferenceOps and management; LLM observability; Fast scaling; What is distributed inference?; Multi-cloud and cross-region inference; Multi-model inference pipelines; Build and maintenance cost",
+      "sourceUrl": "https://handbook.modular.com/infrastructure-and-operations/comprehensive-observability/",
+      "summary": "The final chapter zooms out to the platform. The infrastructure page explains why stateless CPU-era stacks fail for LLMs (GPUs cannot be sliced, replicas are stateful, requests are non-uniform, startup is slow) and lays out the stack: compute, serving runtime, packaging, orchestration and scaling, gateway and routing, observability, inference operations, security, and the build, buy or both decision. Observability covers four signals (metrics, logs, traces, events) across five layers (cluster, GPU, engine, request, application), warns that nvidia-smi utilization only means a kernel was running, and provides a symptom-to-metric-to-fix table. Fast scaling dissects the cold start (cloud provisioning, image pull, model loading) and argues concurrency is the right scaling signal rather than CPU, GPU utilization or QPS. Distributed inference separates macro (regions, clouds, heterogeneous clusters) from micro (PD disaggregation, offloading, routing, parallelism) and lists the challenges. Multi-cloud and cross-region inference covers GPU availability, data residency, pricing, outages (the 14.5-hour us-east-1 disruption) and routing strategies. Multi-model pipelines cover sequential, fan-out, conditional and multimodal graphs such as RAG, and the cost page covers complexity, rigid stacks, system integration and the talent premium.",
+      "concepts": [
+        {
+          "term": "Four signals",
+          "def": "Metrics (what is happening), logs (what happened in one request or process), traces (where time went across gateway, router, engine and tools) and events (cluster changes such as scaling or rollouts); value comes from correlating them."
+        },
+        {
+          "term": "Engine metrics",
+          "def": "Running and waiting requests, KV cache usage, prefix cache hit rate, preemptions, and prompt and generation tokens, usually exposed on a Prometheus /metrics endpoint."
+        },
+        {
+          "term": "Cold start",
+          "def": "The time for a new replica to serve traffic: cloud provisioning (30 seconds to hours for scarce GPUs), container image pull (3 to 5 minutes for large LLM images) and model loading through disk, memory and GPU."
+        },
+        {
+          "term": "Concurrency as scaling signal",
+          "def": "Active requests queued or in flight; it tracks real load and maps to batch size, unlike CPU utilization (GIL-bound), GPU utilization (any kernel counts) or QPS (ignores request size)."
+        },
+        {
+          "term": "InferenceOps",
+          "def": "Operational practices for models in production: CI/CD for model releases, canary and blue-green rollouts, rolling updates, automatic rollback, model registry, unified control plane, idle GPU cleanup, access control and audit logs."
+        },
+        {
+          "term": "Multi-model pipeline",
+          "def": "Several models cooperating in one request path (sequential, fan-out/fan-in, conditional routing, multimodal), such as embed, retrieve, rerank, generate, verify in RAG; distinct from pipeline parallelism."
+        }
+      ],
+      "keyPoints": [
+        "Llama 3.1 70B in BF16 needs about 140 GB of weights, so it spans at least two 80 GB H100s before serving a single request, and its KV cache costs about 320 KB per token, about 40 GB for one 128K request.",
+        "GPU utilization from nvidia-smi is the fraction of time any kernel ran, not SM occupancy or bandwidth use; track SM activity, tensor core activity and memory bandwidth activity via the DCGM exporter instead.",
+        "Diagnosis table highlights: TTFT rising under load means queueing (scale out, cap concurrency, offload KV); ITL spikes with fine TTFT means long prefills interrupting decode (tune chunked prefill or disaggregate); rising preemptions means KV cache exhaustion; low prefix hit rate despite repeated prefixes means dynamic prompt heads or cache-unaware routing; latency spikes in bursts mean cold starts.",
+        "Set TTFT targets as SLOs measured at P90 or P99 (chat under about 500 ms, code completion under about 100 ms) and track P50, P90, P99 alongside averages.",
+        "Observability stack: Prometheus plus Grafana, DCGM exporter, OpenTelemetry with the draft GenAI semantic conventions, Loki or Elasticsearch for logs, and application tracing with Langfuse, Arize Phoenix, OpenLLMetry, MLflow Tracing or W&B Weave; application tracers cannot see KV pressure or GPU health on their own.",
+        "Go multi-region or multi-cloud for GPU supply, data residency (GDPR rules apply before latency or cost routing), price differences, outage resilience and leverage against lock-in; combine geo, latency, capacity, cost and KV-cache-aware routing, and keep retrieval data in the same region as the model to avoid egress.",
+        "Multi-model pipelines add latency per stage and more services, contracts, observability and failure modes; start with one model and add stages only when specialization, hardware fit, independent scaling or cost clearly justify them (RouteLLM reports over 2x cost cuts from learned routing in some cases)."
+      ],
+      "walkthrough": [
+        "Read What is LLM inference infrastructure? and map each layer of the stack to the tools you already run or would need to add.",
+        "Read InferenceOps and management and list which of canary, blue-green, rolling updates, automatic rollback, model registry and idle GPU cleanup you have today.",
+        "Read LLM observability: build a metric list per layer and copy the symptom-to-fix table into your runbook template.",
+        "Read Fast scaling: time the three cold-start stages for your own deployment and pick a scaling signal.",
+        "Read Distributed inference and Multi-cloud and cross-region inference; decide whether your constraints (GPU supply, residency, outages) justify a second region.",
+        "Read Multi-model inference pipelines and Build and maintenance cost; sketch your application as an inference graph and estimate the staffing needed to run it."
+      ],
+      "exercise": {
+        "title": "Write a latency runbook",
+        "steps": [
+          "Stand up Prometheus scraping your engine's /metrics endpoint and the DCGM exporter, and build a Grafana dashboard with TTFT, TPOT/ITL, E2EL percentiles, running and waiting requests, KV cache usage, prefix hit rate, preemptions, SM activity and memory bandwidth activity.",
+          "Define SLOs for TTFT and TPOT at P90 and alert rules for SLO burn, rising queue depth, KV cache above 90 percent, sustained preemptions and cold-start duration.",
+          "For each of the eight symptoms in the handbook diagnosis table, write the dashboard panels to check, the likely cause, the first mitigation and the escalation path.",
+          "Add a cold-start section: measured provisioning, image pull and weight loading times, and the pre-warming or scale-to-zero policy you use.",
+          "Run a game day: inject a burst of long prompts and a replica restart, follow the runbook, and record what was missing."
+        ],
+        "deliverable": "A runbook document with SLOs, alert rules, a symptom-to-action table and game-day findings.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why is concurrency a better autoscaling signal than GPU utilization for LLM serving?",
+        "Which observability signal would you need to distinguish a cold start from a cache-unaware routing problem?",
+        "When does a multi-model pipeline cost more than the monolithic model it replaced?"
+      ],
+      "resources": [
+        {
+          "title": "What is LLM inference infrastructure?",
+          "url": "https://handbook.modular.com/infrastructure-and-operations/what-is-llm-inference-infrastructure/",
+          "type": "docs"
+        },
+        {
+          "title": "Fast scaling",
+          "url": "https://handbook.modular.com/infrastructure-and-operations/fast-scaling/",
+          "type": "docs"
+        },
+        {
+          "title": "NVIDIA DCGM exporter",
+          "url": "https://github.com/NVIDIA/dcgm-exporter",
+          "type": "tool"
+        },
+        {
+          "title": "OpenTelemetry GenAI semantic conventions",
+          "url": "https://github.com/open-telemetry/semantic-conventions-genai",
+          "type": "docs"
+        },
+        {
+          "title": "SkyWalker: A Locality-Aware Cross-Region Load Balancer for LLM Inference",
+          "url": "https://arxiv.org/abs/2505.24095",
+          "type": "paper"
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "LLM Inference Handbook (canonical site)",
+      "url": "https://handbook.modular.com",
+      "type": "docs",
+      "note": "The full handbook; every lesson links to its live pages, and the interactive calculators (GPU memory, KV cache, latency metrics, batching simulator) live here."
+    },
+    {
+      "title": "llm-inference-handbook source repository",
+      "url": "https://github.com/modular/llm-inference-handbook",
+      "type": "repo",
+      "note": "Markdown sources under docs/ (CC BY 4.0); useful for diffing pages as flags and frameworks change."
+    },
+    {
+      "title": "vLLM",
+      "url": "https://github.com/vllm-project/vllm",
+      "type": "repo",
+      "note": "Reference engine for PagedAttention, continuous batching, prefix caching, speculative decoding, PD disaggregation and the vllm bench serve tool used in the project."
+    },
+    {
+      "title": "SGLang",
+      "url": "https://github.com/sgl-project/sglang",
+      "type": "repo",
+      "note": "Engine with RadixAttention prefix caching, HiCache offloading, adaptive speculative decoding and a cache-aware router."
+    },
+    {
+      "title": "TensorRT-LLM",
+      "url": "https://github.com/NVIDIA/TensorRT-LLM",
+      "type": "repo",
+      "note": "NVIDIA's engine with in-flight batching and KV cache early reuse; the comparison point for NVIDIA-only deployments."
+    },
+    {
+      "title": "llm-d",
+      "url": "https://llm-d.ai/docs/architecture/core/router",
+      "type": "docs",
+      "note": "Kubernetes-native distributed inference built on the Gateway API Inference Extension, with precise prefix-cache-aware scheduling and disaggregation guides."
+    },
+    {
+      "title": "NVIDIA Dynamo router guide",
+      "url": "https://docs.nvidia.com/dynamo/components/router/router-guide",
+      "type": "docs",
+      "note": "How Dynamo scores prefill and decode cost per worker and supports direct routing hints."
+    },
+    {
+      "title": "Efficient Memory Management for LLM Serving with PagedAttention",
+      "url": "https://arxiv.org/abs/2309.06180",
+      "type": "paper",
+      "note": "The vLLM paper; source of the 20.4 to 38.2 percent KV utilization figure for contiguous allocation."
+    },
+    {
+      "title": "DistServe: Disaggregating Prefill and Decoding for Goodput-optimized LLM Serving",
+      "url": "https://arxiv.org/abs/2401.09670",
+      "type": "paper",
+      "note": "Introduces goodput-driven PD disaggregation and the interference measurements the handbook reproduces."
+    },
+    {
+      "title": "SARATHI: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills",
+      "url": "https://arxiv.org/abs/2308.16369",
+      "type": "paper",
+      "note": "Origin of chunked prefill and decode-maximal batching."
+    },
+    {
+      "title": "Fast Inference from Transformers via Speculative Decoding",
+      "url": "https://arxiv.org/abs/2211.17192",
+      "type": "paper",
+      "note": "Defines acceptance rate and the expected acceptance length formula tau = (1 - alpha^(gamma+1)) / (1 - alpha)."
+    },
+    {
+      "title": "Accelerating Large Language Model Decoding with Speculative Sampling",
+      "url": "https://arxiv.org/abs/2302.01318",
+      "type": "paper",
+      "note": "DeepMind's statistically grounded speculative sampling, the basis for lossless verification."
+    },
+    {
+      "title": "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty",
+      "url": "https://arxiv.org/pdf/2401.15077",
+      "type": "paper",
+      "note": "Feature-level drafting that most engines ship as the default trained drafter."
+    },
+    {
+      "title": "DFlash: Block Diffusion for Flash Speculative Decoding",
+      "url": "https://arxiv.org/abs/2602.06036",
+      "type": "paper",
+      "note": "Parallel block drafting in one forward pass; reported 4.9x average lossless speedup."
+    },
+    {
+      "title": "FlashAttention repository",
+      "url": "https://github.com/Dao-AILab/flash-attention",
+      "type": "repo",
+      "note": "Official FA1 to FA4 implementations and install instructions."
+    },
+    {
+      "title": "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning",
+      "url": "https://arxiv.org/abs/2307.08691",
+      "type": "paper",
+      "note": "The version most frameworks integrated first."
+    },
+    {
+      "title": "Prompt Cache: Modular Attention Reuse for Low-Latency Inference",
+      "url": "https://arxiv.org/abs/2311.04934",
+      "type": "paper",
+      "note": "Academic treatment of reusing attention states across prompts."
+    },
+    {
+      "title": "Prefill-as-a-Service: KVCache of Next-Generation Models Could Go Cross-Datacenter",
+      "url": "https://arxiv.org/abs/2604.15039",
+      "type": "paper",
+      "note": "Selective cross-cluster prefill; 54 percent higher throughput and 64 percent lower P90 TTFT reported."
+    },
+    {
+      "title": "The Shift from Models to Compound AI Systems",
+      "url": "https://bair.berkeley.edu/blog/2024/02/18/compound-ai-systems/",
+      "type": "article",
+      "note": "Framing for multi-model pipelines and agents as compound systems."
+    },
+    {
+      "title": "NVIDIA GenAI-Perf",
+      "url": "https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/perf_analyzer/genai-perf/README.html",
+      "type": "tool",
+      "note": "Purpose-built LLM benchmarking tool; compare its TTFT/ITL definitions with your framework's before mixing results."
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "Inference vs. serving",
+      "back": "Inference is the forward pass (prefill plus decode loop); serving is the API, scheduling, batching, load balancing, autoscaling, health checks and observability that make it a production service."
+    },
+    {
+      "front": "Prefill vs. decode: which resource bounds each?",
+      "back": "Prefill processes all prompt tokens in parallel and is compute-bound (drives TTFT); decode generates one token per pass and is memory-bandwidth-bound (drives ITL)."
+    },
+    {
+      "front": "TPOT formula",
+      "back": "TPOT = (E2EL - TTFT) / (Total Output Tokens - 1)."
+    },
+    {
+      "front": "Average TPOT vs. average ITL across requests",
+      "back": "Average TPOT is request-weighted (mean of per-request TPOTs); average ITL is token-weighted (sum of ITLs / total output tokens), so long responses dominate ITL."
+    },
+    {
+      "front": "Goodput",
+      "back": "Requests per second completed while meeting the SLOs; throughput that violates latency targets does not count."
+    },
+    {
+      "front": "Serving memory sizing formula",
+      "back": "Memory (GB) = P * (Q / 8) * (1 + Overhead); e.g. 7B at FP16 with 20% overhead = 16.8 GB, 70B at FP16 = 168 GB."
+    },
+    {
+      "front": "Single-stream decode ceiling",
+      "back": "max decode tokens/sec ~ memory bandwidth / bytes read per token; 140 GB of FP16 70B weights on a 3.35 TB/s H100 gives about 24 tokens/s."
+    },
+    {
+      "front": "KV cache bytes per token",
+      "back": "2 x num_layers x num_kv_heads x head_dim x bytes_per_element; Llama 3 8B FP16 = 128 KB per token (about 1 GB per 8K tokens), Llama 3 70B = 320 KB per token."
+    },
+    {
+      "front": "GPU CAP theorem",
+      "back": "A GPU infrastructure cannot guarantee Control, on-demand Availability and low Price at once; hyperscaler, NeoCloud serverless, NeoCloud commitment and on-prem each trade one away."
+    },
+    {
+      "front": "BYOC",
+      "back": "Vendor-managed control plane (deployment, scaling, updates) with a customer-managed data plane (models, GPUs, data, logs) inside the customer's own cloud account."
+    },
+    {
+      "front": "AWQ vs. SmoothQuant vs. GPTQ",
+      "back": "AWQ protects about 1% salient weights using activation statistics (W4A16, edge); SmoothQuant smooths activation outliers for W8A8 without retraining; GPTQ quantizes huge models to 3 to 4 bits in a few GPU hours."
+    },
+    {
+      "front": "Distillation vs. quantization",
+      "back": "Distillation trains a new smaller student from a teacher's soft labels (fewer parameters); quantization lowers precision of the same model (fewer bits per parameter); they compose."
+    },
+    {
+      "front": "Three ways to get structured outputs",
+      "back": "Provider-native schema APIs, re-prompting with validation (Instructor), and constrained decoding that masks logits during generation (Outlines, llguidance, XGrammar in vLLM, SGLang, MAX)."
+    },
+    {
+      "front": "Agent harness",
+      "back": "The runtime loop around a model: holds state, exposes tools, executes approved actions, returns observations and decides whether to continue or stop. Agent = Model + Harness."
+    },
+    {
+      "front": "Static vs. dynamic vs. continuous batching",
+      "back": "Static waits for a fixed batch size; dynamic launches on a time window or size limit; continuous reschedules every iteration, replacing finished sequences immediately."
+    },
+    {
+      "front": "Chunked prefill trade-off",
+      "back": "Splitting a long prompt into token-budgeted chunks interleaved with decode lowers and smooths ITL for active requests but can raise the long prompt's TTFT; output is unchanged."
+    },
+    {
+      "front": "PagedAttention",
+      "back": "KV cache stored in fixed-size non-contiguous blocks tracked by a lookup table, cutting fragmentation waste (naive allocation used only 20.4 to 38.2% of reserved memory) and enabling block sharing."
+    },
+    {
+      "front": "Prefix cache hit requirements",
+      "back": "An exactly identical token prefix, the cache entry still retained, and the request routed to the worker that holds it; front-load static content and serialize deterministically."
+    },
+    {
+      "front": "Expected acceptance length in speculative decoding",
+      "back": "tau = (1 - alpha^(gamma+1)) / (1 - alpha); with alpha 0.8 and gamma 4, tau = 3.36 tokens per verification round."
+    },
+    {
+      "front": "Why PD disaggregation can hurt",
+      "back": "Small workloads can lose 20 to 30%, short or cache-hot prompts prefill faster locally, KV transfer needs fast fabrics (NIXL, CXL, NVMe-oF), and both workers must share KV layout, page size and dtype."
+    },
+    {
+      "front": "Best autoscaling signal for LLM serving",
+      "back": "Concurrency (queued plus in-flight requests); CPU utilization is GIL-bound, GPU utilization counts any running kernel, and QPS ignores request size."
+    },
+    {
+      "front": "Why nvidia-smi GPU utilization misleads",
+      "back": "It reports the fraction of the sample period during which at least one kernel ran, not SM occupancy or memory bandwidth use; a GPU can read 100% while mostly idle inside."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Using the handbook sizing formula Memory (GB) = P * (Q / 8) * (1 + Overhead), how much GPU memory does a 7B model in FP16 need with 20 percent overhead?",
+      "o": [
+        "14.0 GB",
+        "16.8 GB",
+        "21.0 GB",
+        "28.0 GB"
+      ],
+      "a": 1,
+      "e": "7 * (16 / 8) * 1.2 = 7 * 2 * 1.2 = 16.8 GB. The 14 GB figure is weights only.",
+      "lesson": "m7-l03"
+    },
+    {
+      "q": "A streamed response has E2EL 4.2 s, TTFT 0.2 s and 101 output tokens. What is its TPOT?",
+      "o": [
+        "20 ms",
+        "40 ms",
+        "42 ms",
+        "400 ms"
+      ],
+      "a": 1,
+      "e": "TPOT = (E2EL - TTFT) / (output tokens - 1) = (4.2 - 0.2) / 100 = 0.040 s = 40 ms.",
+      "lesson": "m7-l02"
+    },
+    {
+      "q": "Llama 3 8B has 32 layers, 8 KV heads and head_dim 128. In FP16, how much KV cache does one token consume?",
+      "o": [
+        "32 KB",
+        "64 KB",
+        "128 KB",
+        "512 KB"
+      ],
+      "a": 2,
+      "e": "2 (K and V) x 32 x 8 x 128 x 2 bytes = 131,072 bytes = 128 KB per token, about 1 GB for an 8K-token sequence.",
+      "lesson": "m7-l08"
+    },
+    {
+      "q": "With speculative decoding acceptance rate alpha = 0.8 and gamma = 4 draft tokens, what is the expected acceptance length tau = (1 - alpha^(gamma+1)) / (1 - alpha)?",
+      "o": [
+        "About 2.0",
+        "About 3.36",
+        "About 4.0",
+        "About 5.0"
+      ],
+      "a": 1,
+      "e": "(1 - 0.8^5) / 0.2 = (1 - 0.32768) / 0.2 = 3.36 tokens accepted per round.",
+      "lesson": "m7-l09"
+    },
+    {
+      "q": "A 70B FP16 model has about 140 GB of weights. On an H100 SXM with about 3.35 TB/s HBM bandwidth, the handbook's single-stream decode ceiling is roughly:",
+      "o": [
+        "2.4 tokens/s",
+        "24 tokens/s",
+        "240 tokens/s",
+        "2,400 tokens/s"
+      ],
+      "a": 1,
+      "e": "max decode tokens/s ~ bandwidth / bytes per token = 3,350 GB/s / 140 GB ~ 24 tokens/s before KV cache overhead.",
+      "lesson": "m7-l03"
+    },
+    {
+      "q": "Which statement about prefill and decode is correct?",
+      "o": [
+        "Prefill is memory-bound and decode is compute-bound",
+        "Both phases are compute-bound",
+        "Prefill is compute-bound and decode is memory-bandwidth-bound",
+        "Both phases are bound by interconnect bandwidth"
+      ],
+      "a": 2,
+      "e": "Prefill processes the whole prompt in parallel with large matmuls; decode streams weights and KV cache from HBM for every single token.",
+      "lesson": "m7-l01"
+    },
+    {
+      "q": "For a self-hosted open model, which approach guarantees well-formed JSON without retries by masking invalid tokens during generation?",
+      "o": [
+        "Stop sequences",
+        "Re-prompting with a validation library",
+        "Constrained decoding (Outlines, llguidance, XGrammar)",
+        "Setting temperature to 0"
+      ],
+      "a": 2,
+      "e": "Constrained decoding modifies the logits at each step so only schema-valid continuations can be sampled; stop sequences and temperature do not enforce structure, and re-prompting costs extra calls.",
+      "lesson": "m7-l06"
+    },
+    {
+      "q": "Why does naive attention become memory-bound as sequence length grows, which FlashAttention fixes?",
+      "o": [
+        "Softmax requires double precision",
+        "The full N x N score matrix is written to and read back from HBM",
+        "Tensor Cores cannot multiply Q and K",
+        "The KV cache must be recomputed each layer"
+      ],
+      "a": 1,
+      "e": "Standard attention materializes the N x N matrix in slow HBM; FlashAttention tiles Q, K, V through fast SRAM and fuses the operations so the matrix never leaves the chip.",
+      "lesson": "m7-l11"
+    },
+    {
+      "q": "What is the primary benefit of chunked prefill?",
+      "o": [
+        "It reduces the TTFT of long prompts",
+        "It lets active decode requests keep generating between prefill chunks, smoothing ITL",
+        "It changes the model output to be shorter",
+        "It eliminates the need for continuous batching"
+      ],
+      "a": 1,
+      "e": "Chunked prefill prevents a long prompt from monopolizing an iteration; TTFT may actually increase slightly, and the output is mathematically unchanged.",
+      "lesson": "m7-l07"
+    },
+    {
+      "q": "Which parallelism strategy should stay inside a single NVLink-connected node whenever possible?",
+      "o": [
+        "Data parallelism",
+        "Pipeline parallelism",
+        "Tensor parallelism",
+        "Offline batch parallelism"
+      ],
+      "a": 2,
+      "e": "Tensor parallelism exchanges partial results every layer with all-reduce or all-gather, so it is the most interconnect-sensitive; pipeline parallelism tolerates slower links.",
+      "lesson": "m7-l10"
+    },
+    {
+      "q": "After quantizing a model's weights from FP16 to INT8, what happens to the KV cache memory per token?",
+      "o": [
+        "It halves automatically",
+        "It is unchanged unless the KV cache is quantized separately",
+        "It doubles because activations grow",
+        "It becomes zero because weights are smaller"
+      ],
+      "a": 1,
+      "e": "The handbook stresses that weight quantization does not reduce KV cache size per token; the cache is produced at runtime and must be quantized on its own.",
+      "lesson": "m7-l05"
+    },
+    {
+      "q": "Why does the handbook recommend concurrency rather than GPU utilization as the autoscaling signal for LLM inference?",
+      "o": [
+        "GPU utilization is not exposed by NVIDIA tools",
+        "GPU utilization reports a GPU as busy if any kernel ran in the sample window, so it does not reflect batching headroom",
+        "Concurrency is always zero for batch jobs",
+        "GPU utilization only works on AMD hardware"
+      ],
+      "a": 1,
+      "e": "nvidia-smi style utilization is time-with-any-kernel-running; concurrency (queued plus in-flight requests) correlates directly with load and batch size.",
+      "lesson": "m7-l12"
+    }
+  ],
+  "project": {
+    "title": "Serve, measure, optimize",
+    "brief": "Deploy an open model with vLLM or SGLang, define an SLO, and measure TTFT, TPOT, throughput and goodput across concurrency levels. Then enable prefix caching and speculative decoding, re-measure, and write up the results against the SLO using the handbook's benchmark template. The point is to connect the formulas and techniques from this module to numbers you produced yourself on real hardware.",
+    "hours": 8,
+    "steps": [
+      "Pick an open instruct model that fits your GPU (for example Llama 3.1 8B Instruct or Qwen3 8B) and size it with the memory formula and the KV cache calculator; record expected weight memory, KV per token and a concurrency bound.",
+      "Define an SLO in handbook form, for example P90 TTFT under 500 ms and P90 TPOT under 50 ms, and decide input and output lengths that represent your workload.",
+      "Serve the model with vLLM or SGLang with prefix caching disabled (--no-enable-prefix-caching or --disable-radix-cache) as the baseline and run the concurrency sweep 1, 2, 4, 8, 16, 32 with vllm bench serve or sglang.bench_serving, saving results per level.",
+      "Enable prefix caching (default) with a workload whose prompts share a long system prefix; scrape prefix cache hit rate from /metrics, re-run the sweep and compare TTFT and prefilled tokens.",
+      "Enable speculative decoding (EAGLE-3, MTP or n-gram depending on the model) and re-run the sweep; record acceptance rate, compute tau from the formula, and compare TPOT and throughput; tune gamma one step each way.",
+      "Optionally add chunked prefill tuning or FP8 quantization as a third optimization and measure its effect.",
+      "Compute goodput against your SLO for every configuration and concurrency level and identify the maximum concurrency each configuration sustains within the SLO.",
+      "Write the results up in the handbook benchmark template (model, framework version, quantization, hardware, server and client config, results, cost per million tokens) with charts and a recommendation."
+    ],
+    "rubric": [
+      {
+        "criterion": "Sizing and SLO",
+        "meets": "Weight memory, KV cache per token and a concurrency bound are computed with the formulas and the SLO is stated as percentile, metric and threshold."
+      },
+      {
+        "criterion": "Baseline measurement",
+        "meets": "A no-cache baseline sweep from concurrency 1 to 32 reports median and P99 TTFT, median TPOT, output tokens per second and goodput with fixed input and output lengths."
+      },
+      {
+        "criterion": "Prefix caching experiment",
+        "meets": "Hit rate is measured from engine metrics, prompts are structured to front-load static content, and TTFT and prefilled-token deltas are reported."
+      },
+      {
+        "criterion": "Speculative decoding experiment",
+        "meets": "Acceptance rate and acceptance length are measured, tau is predicted from the formula and compared, and TPOT and throughput deltas are reported at each concurrency level with a gamma recommendation."
+      },
+      {
+        "criterion": "Analysis against SLO",
+        "meets": "For each configuration the maximum concurrency that stays within the SLO is identified and the trade-offs (TTFT versus throughput, memory overhead of the drafter) are explained."
+      },
+      {
+        "criterion": "Reproducible write-up",
+        "meets": "The report follows the benchmark template with framework version, hardware, all server and client flags, cost per million tokens, charts and a clear recommendation."
+      }
+    ],
+    "stretch": [
+      "Add a second replica and a prefix-aware router (SGLang router, llm-d or the Gateway API Inference Extension) and measure cache hit rate and TTFT versus round-robin.",
+      "Run the same model with prefill-decode disaggregation on two GPUs and compare P99 ITL under mixed long-prompt and chat traffic.",
+      "Enable KV cache offloading to host memory and measure TTFT for returning sessions after an idle gap versus recomputation.",
+      "Repeat the benchmark on a different GPU or with TP=2 and explain the differences using memory bandwidth and interconnect arguments."
+    ]
+  },
+  "glossary": [
+    {
+      "term": "TTFT",
+      "def": "Time to First Token: latency from request submission to the first generated token; reflects queueing and prefill."
+    },
+    {
+      "term": "TPOT",
+      "def": "Time per Output Token: average gap between output tokens after the first; (E2EL - TTFT) / (output tokens - 1)."
+    },
+    {
+      "term": "ITL",
+      "def": "Inter-Token Latency: the pause between two consecutive tokens; token-weighted when averaged across requests."
+    },
+    {
+      "term": "E2EL",
+      "def": "End-to-end latency: time from request submission to the final token on the user side."
+    },
+    {
+      "term": "Goodput",
+      "def": "Requests per second that complete within the service-level objectives."
+    },
+    {
+      "term": "SLO",
+      "def": "Service-Level Objective: a measurable target such as P95 TTFT under 200 ms, usually part of an SLA."
+    },
+    {
+      "term": "Prefill",
+      "def": "Parallel processing of the full prompt that builds the KV cache; compute-bound."
+    },
+    {
+      "term": "Decode",
+      "def": "Autoregressive one-token-per-step generation that reads weights and KV cache from memory; bandwidth-bound."
+    },
+    {
+      "term": "KV cache",
+      "def": "Stored key and value vectors per token per layer so decode computes K and V only for the new token."
+    },
+    {
+      "term": "PagedAttention",
+      "def": "Block-based KV cache allocation with a lookup table that removes fragmentation and allows block sharing."
+    },
+    {
+      "term": "Prefix caching",
+      "def": "Reuse of KV cache for an exactly matching token prefix across requests; also prompt or context caching."
+    },
+    {
+      "term": "KV cache offloading",
+      "def": "Moving inactive KV blocks from GPU HBM to CPU RAM, disk or remote storage and reloading on demand."
+    },
+    {
+      "term": "Continuous batching",
+      "def": "Iteration-level scheduling that replaces finished sequences in a batch immediately; also in-flight or persistent batching."
+    },
+    {
+      "term": "Chunked prefill",
+      "def": "Splitting a prompt's prefill into token-budgeted chunks interleaved with decode steps to smooth ITL."
+    },
+    {
+      "term": "Speculative decoding",
+      "def": "A cheap drafter proposes several tokens that the target model verifies in one parallel pass; lossless under the standard acceptance rule."
+    },
+    {
+      "term": "Prefill-decode disaggregation",
+      "def": "Serving architecture that runs prefill and decode on separate workers and transfers the KV cache between them."
+    },
+    {
+      "term": "Prefix-aware routing",
+      "def": "Routing a request to the worker that already holds its prefix KV cache, balanced against load and memory headroom."
+    },
+    {
+      "term": "FlashAttention",
+      "def": "IO-aware exact attention kernel that tiles Q, K, V through SRAM and fuses the attention operations to avoid materializing the N x N matrix."
+    },
+    {
+      "term": "Expert parallelism",
+      "def": "Placing different MoE experts on different GPUs so each GPU processes only the tokens routed to its experts."
+    },
+    {
+      "term": "Tensor parallelism",
+      "def": "Sharding every layer's weights across GPUs with per-layer collective communication; best inside one NVLink-connected node."
+    }
+  ]
+}

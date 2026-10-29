@@ -1,0 +1,717 @@
+{
+  "id": "m2",
+  "num": 2,
+  "title": "AI Engineering, End to End",
+  "short": "Systems view",
+  "stage": "Engineering the application",
+  "weeks": "Weeks 4–5",
+  "hours": 10,
+  "level": "Intermediate",
+  "source": {
+    "name": "AI Engineering: Building Applications with Foundation Models",
+    "authors": "Chip Huyen",
+    "url": "https://github.com/chiphuyen/aie-book",
+    "kind": "book + companion repo",
+    "license": "Book is copyrighted (O'Reilly Media, 2025); the companion repo's summaries, resources and prompt examples are free to read (verify in repo)",
+    "format": "10 chapters, about 500 pages, no notebooks; the repo holds the table of contents, the book's own chapter summaries, a curated resource list and real-world prompt examples",
+    "setup": "Nothing to install. You need a copy of the book (O'Reilly, print or Kindle), a text editor for the memos and a Python interpreter for the small memory and latency calculations."
+  },
+  "blurb": "A systems-level tour of building, evaluating, adapting and operating applications on top of foundation models, one chapter per lesson.",
+  "why": "Module 1 showed you what is inside a language model and how to call one. Before you build anything serious you need the judgment calls that sit around the model: whether to build at all, how to evaluate open-ended output, when to prompt, retrieve or finetune, how to budget memory and latency, and how to design feedback loops. This module supplies that framework and vocabulary; Modules 3 and 4 then drill into evals, RAG and finetuning in practice.",
+  "outcomes": [
+    "Decide whether an AI application is worth building and write a use case evaluation that sets expectations and milestones.",
+    "Design an evaluation pipeline that combines exact metrics, AI judges and human review, and explain the biases of each.",
+    "Choose between prompt engineering, RAG and finetuning for a given failure mode and justify the choice with cost, data and memory arguments.",
+    "Estimate memory for full finetuning, LoRA and quantized training, and read TTFT, TPOT and throughput numbers to pick inference optimizations.",
+    "Sketch a production AI architecture with guardrails, router, gateway, caches and observability, and design how user feedback flows back into it."
+  ],
+  "prerequisites": [
+    "Module 1 or equivalent: tokens, embeddings, attention and the fine-tuning basics",
+    "Comfort calling a chat model API from Python",
+    "Basic probability (entropy, expected value) and familiarity with reading engineering papers"
+  ],
+  "lessons": [
+    {
+      "id": "m2-l01",
+      "title": "Introduction to Building AI Applications with Foundation Models",
+      "minutes": 50,
+      "sourceRef": "Chapter 1",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-1-introduction-to-building-ai-applications-with-foundation-models",
+      "summary": "The opening chapter explains how AI engineering emerged as a discipline: self-supervision turned language models into large language models, other modalities turned LLMs into foundation models, and ready-made foundation models turned model adaptation into an engineering job. It surveys the most successful application patterns across consumer and enterprise use (coding, image and video, writing, education, conversational bots, information aggregation, data organization, workflow automation). It then asks the often skipped question of whether you should build an application at all, covering use case evaluation, expectation setting, milestone planning and maintenance, and closes with the three-layer AI engineering stack and how AI engineering differs from ML engineering and full-stack engineering.",
+      "concepts": [
+        {"term": "Self-supervision", "def": "Training a model to predict parts of its own input (the next token) so that it can learn from unlabeled text at scale, the step that made large language models possible."},
+        {"term": "Foundation model", "def": "A large model trained on broad data, often across modalities, that is adapted to many downstream tasks instead of being built for one."},
+        {"term": "AI engineering", "def": "The discipline of building applications on top of foundation models, which shifts effort from training models toward prompting, context construction, evaluation and product."},
+        {"term": "Three layers of the AI stack", "def": "Application development, model development and infrastructure; AI engineering concentrates most new work in the application layer."},
+        {"term": "Use case evaluation", "def": "Assessing why you would build an application, what the risk of not building it is, and what the role of AI in the product will be before writing code."},
+        {"term": "Milestone planning", "def": "Breaking an application into checkpoints while expecting that the last mile from a convincing demo to a reliable product takes most of the effort."}
+      ],
+      "keyPoints": [
+        "The chapter traces three transitions: language models to LLMs via self-supervision, LLMs to foundation models via more modalities, and foundation models to AI engineering via cheap adaptation.",
+        "Table 1-3 groups generative AI use cases into eight categories with consumer and enterprise examples, from coding and copywriting to document processing and lead generation.",
+        "Before building, decide whether you should: use case evaluation, expectation setting, milestone planning and maintenance are explicit planning steps.",
+        "AI engineering evolved from ML engineering and inherits many principles, but less training and more prompt engineering, context construction and parameter-efficient finetuning change the stack.",
+        "Compared with traditional ML engineering, AI engineering is moving closer to product and full-stack work because the interface and feedback loop are competitive advantages.",
+        "The space moves faster than anyone can track; the book's goal is a framework for navigating it rather than a catalog of tools."
+      ],
+      "walkthrough": [
+        "Read The Rise of AI Engineering (pp. 2-16): follow the path from language models to LLMs to foundation models and note what changed at each step.",
+        "Read Foundation Model Use Cases (pp. 16-28) and map one product you know onto each of the eight categories in Table 1-3.",
+        "Read Planning AI Applications (pp. 28-35): use case evaluation, setting expectations, milestone planning and maintenance.",
+        "Read The AI Engineering Stack (pp. 35-47): the three layers, AI engineering versus ML engineering, and versus full-stack engineering.",
+        "Read the chapter summary in chapter-summaries.md and write down the three questions you expect the rest of the book to answer for your own project."
+      ],
+      "exercise": {
+        "title": "Use case evaluation memo",
+        "steps": [
+          "Pick one AI application idea you could plausibly build in the next month.",
+          "Write one paragraph each on: why build it, the risk of not building it, and the role AI plays (core or complementary, reactive or proactive, human-in-the-loop or autonomous).",
+          "List three expectations in measurable terms (for example a target quality threshold, a latency ceiling and a cost per request).",
+          "Lay out milestones from demo to production and name the last-mile risks you foresee.",
+          "Describe the maintenance burden: model deprecations, prompt drift and who owns the evals."
+        ],
+        "deliverable": "A one-page memo in your repo that you will refine in later lessons and reuse in the module project.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Which of the eight use case categories does your idea fall into, and what does that imply about how it will be evaluated?",
+        "What would convince you not to build the application?",
+        "Where in the three-layer stack will most of your engineering time go, and why?"
+      ],
+      "resources": [
+        {"title": "GPTs are GPTs: An Early Look at the Labor Market Impact Potential of Large Language Models", "url": "https://arxiv.org/abs/2303.10130", "type": "paper"},
+        {"title": "Applied LLMs: What We've Learned From A Year of Building with LLMs", "url": "https://applied-llms.org/", "type": "article"},
+        {"title": "Musings on Building a Generative AI Product (LinkedIn)", "url": "https://www.linkedin.com/blog/engineering/generative-ai/musings-on-building-a-generative-ai-product", "type": "article"},
+        {"title": "16 Changes to the Way Enterprises Are Building and Buying Generative AI (a16z)", "url": "https://a16z.com/generative-ai-enterprise-2024/", "type": "article"},
+        {"title": "State of AI Report", "url": "https://www.stateof.ai/", "type": "article"}
+      ]
+    },
+    {
+      "id": "m2-l02",
+      "title": "Understanding Foundation Models",
+      "minutes": 55,
+      "sourceRef": "Chapter 2",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-2-understanding-foundation-models",
+      "summary": "This chapter covers the design decisions behind a foundation model that matter to someone choosing and using one rather than training one. It starts with training data and why multilingual and domain-specific models need curated data, then looks at modeling choices: the transformer architecture, the problems it was designed to solve, and model size measured in parameters, training tokens and FLOPs, with scaling laws tying them together. Post-training (supervised finetuning followed by preference finetuning) aligns the raw model with what users want. The final part is sampling: how a model picks output tokens, temperature and top-p, test-time compute, structured outputs, and why the probabilistic nature of sampling produces both creativity and inconsistency and hallucination.",
+      "concepts": [
+        {"term": "Transformer", "def": "The dominant architecture for language foundation models, built around attention, whose memory and compute cost grow with context length."},
+        {"term": "Scaling law", "def": "An empirical relationship (Chinchilla is the best known) for the compute-optimal balance of parameters and training tokens given a compute budget."},
+        {"term": "Supervised finetuning (SFT)", "def": "The first post-training step, in which the model is trained on demonstration data of high-quality prompt and response pairs."},
+        {"term": "Preference finetuning", "def": "The second post-training step (RLHF, DPO and relatives) that uses comparison data to steer the model toward responses humans prefer."},
+        {"term": "Temperature and top-p", "def": "Sampling controls that reshape the next-token probability distribution; lower values make outputs more deterministic, higher values more diverse."},
+        {"term": "Structured outputs", "def": "Techniques such as constrained decoding or finetuning that force generations into a schema like JSON so downstream code can consume them."}
+      ],
+      "keyPoints": [
+        "Training data determines what a model is good at; providers use whatever is available, so your language or domain may be underrepresented.",
+        "Model scale is measured by three numbers: parameters, training tokens and training FLOPs; the scaling law estimates the optimal parameter and token counts for a compute budget.",
+        "Post-training has two steps, supervised finetuning and preference finetuning; human preference is diverse, so alignment is never foolproof.",
+        "Sampling is what makes AI models probabilistic: the same prompt can produce different outputs, which gives creativity but also inconsistency and hallucination.",
+        "Test-time compute (sampling several candidates and picking the best) and structured outputs are sampling-level levers you control as an application developer.",
+        "Working with foundation models means designing workflows around probabilistic outputs, which is why evaluation gets two chapters next."
+      ],
+      "walkthrough": [
+        "Read Training Data (pp. 50-58): multilingual and domain-specific models and why data curation matters.",
+        "Read Modeling (pp. 58-78): model architecture, then model size, parameters, tokens, FLOPs and scaling laws.",
+        "Read Post-Training (pp. 78-88): supervised finetuning and preference finetuning; study the pre-training, SFT, RLHF workflow figure in the chapter summary.",
+        "Read Sampling (pp. 88-111): fundamentals, strategies, test time compute, structured outputs and the probabilistic nature of AI.",
+        "Run the sampling experiment in the exercise and relate what you see to the temperature and top-p discussion."
+      ],
+      "exercise": {
+        "title": "Sampling and scale worksheet",
+        "steps": [
+          "Send the same factual question and the same creative prompt to one model ten times each at temperature 0, 0.7 and 1.2 (or the nearest settings your provider exposes).",
+          "Record how many distinct answers you get per setting and whether any factual answers are wrong.",
+          "Ask the model for a JSON object with a fixed schema at each temperature and count how often it parses.",
+          "Using the Chinchilla rule of thumb of roughly 20 training tokens per parameter, estimate the compute-optimal token count for a 7B and a 70B model and compare with the token counts reported in the Llama 3 paper.",
+          "Write five sentences on which sampling settings you would ship for your Lesson 1 use case and why."
+        ],
+        "deliverable": "A short notebook or script with the consistency counts plus the written recommendation.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Why can a model with more parameters perform worse than a smaller one trained on more tokens?",
+        "What does preference finetuning change about a model that supervised finetuning cannot?",
+        "Where in your own application would inconsistency from sampling be acceptable, and where would it be a bug?"
+      ],
+      "resources": [
+        {"title": "Training Compute-Optimal Large Language Models (Chinchilla)", "url": "https://arxiv.org/abs/2203.15556", "type": "paper"},
+        {"title": "Training language models to follow instructions with human feedback (InstructGPT)", "url": "https://arxiv.org/abs/2203.02155", "type": "paper"},
+        {"title": "The Llama 3 Herd of Models", "url": "https://arxiv.org/abs/2407.21783", "type": "paper"},
+        {"title": "Generation configurations and sampling strategies for text generation (Chip Huyen)", "url": "https://huyenchip.com/2024/01/16/sampling.html", "type": "article"},
+        {"title": "A Guide to Structured Generation Using Constrained Decoding", "url": "https://www.aidancooper.co.uk/constrained-decoding/", "type": "article"}
+      ]
+    },
+    {
+      "id": "m2-l03",
+      "title": "Evaluation Methodology",
+      "minutes": 65,
+      "sourceRef": "Chapter 3",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-3-evaluation-methodology",
+      "summary": "The first of two evaluation chapters explains why foundation models are harder to evaluate than traditional ML models and then works through the available automatic methods. It unpacks language modeling metrics (entropy, cross entropy, bits-per-character and bits-per-byte, perplexity) and how to interpret and use them. It separates exact evaluation (functional correctness and similarity measurements against reference data, including embedding-based similarity) from subjective evaluation with AI as a judge, covering why judges work, how to prompt them, their limitations such as position and verbosity bias, and which models can act as judges. It ends with comparative evaluation, ranking models from pairwise preferences, its challenges, and preference models as specialized judges.",
+      "concepts": [
+        {"term": "Perplexity", "def": "The exponential of cross entropy; a measure of how surprised a model is by a text, lower meaning the text is more predictable to the model."},
+        {"term": "Cross entropy", "def": "The average number of bits a model needs to encode the next token; the training loss of language models and the base of perplexity."},
+        {"term": "Functional correctness", "def": "Exact evaluation by checking whether the output does the job, such as code passing unit tests or a generated SQL query returning the right rows."},
+        {"term": "AI as a judge", "def": "Using a model, given a prompt with criteria and optionally a reference, to score or compare outputs; fast and cheap but subjective and judge-dependent."},
+        {"term": "Position bias", "def": "A judge's tendency to prefer the first (or last) response in a pairwise comparison regardless of quality; mitigated by swapping order and keeping agreeing verdicts."},
+        {"term": "Comparative evaluation", "def": "Ranking models from which-is-better signals rather than independent scores, as in Chatbot Arena, usually with an Elo-style rating."}
+      ],
+      "keyPoints": [
+        "Foundation models are harder to evaluate because outputs are open-ended, tasks are many, and references rarely exist; investment in evaluation still lags model investment.",
+        "Perplexity and cross entropy are useful beyond training: they help detect contaminated benchmarks, spot low-quality data and estimate how unfamiliar a text is to a model.",
+        "Functional correctness and similarity against reference data are exact methods; AI-as-a-judge is subjective and its scores depend on the judge, the prompt and the day.",
+        "Because judges are iterated upon, their judgments drift, which makes them unreliable as a fixed benchmark over time; supplement them with exact and human evaluation.",
+        "Judges have known biases: position bias, verbosity bias and self-bias toward their own outputs; design the judging protocol to detect them.",
+        "Comparative evaluation and preference finetuning both need preference signals, which are expensive, motivating preference models that predict which response users prefer."
+      ],
+      "walkthrough": [
+        "Read Challenges of Evaluating Foundation Models (pp. 114-118) and list the three challenges most relevant to your Lesson 1 use case.",
+        "Read Understanding Language Modeling Metrics (pp. 118-125): entropy, cross entropy, BPC and BPB, perplexity, and perplexity interpretation and use cases.",
+        "Read Exact Evaluation (pp. 125-136): functional correctness, similarity measurements against reference data, and the introduction to embedding.",
+        "Read AI as a Judge (pp. 136-148): why, how, limitations and what models can act as judges; study Figure 3-8 in the chapter summary.",
+        "Read Ranking Models with Comparative Evaluation (pp. 148-156) and the challenges and future of comparative evaluation.",
+        "Adapt the judge template below and run the calibration exercise."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A minimal AI-as-a-judge prompt template with a rubric and a position-bias check for pairwise use",
+        "src": "JUDGE_TEMPLATE = \"\"\"You are grading an answer to a question.\nQuestion: {question}\nAnswer: {answer}\n\nScore the answer from 1 to 5 using this rubric:\n5 = fully correct, complete and concise\n3 = partially correct or missing key details\n1 = incorrect or off-topic\n\nReply with JSON only: {{\"score\": <int>, \"reason\": \"<one sentence>\"}}\"\"\"\n\n\ndef judge_prompt(question: str, answer: str) -> str:\n    return JUDGE_TEMPLATE.format(question=question, answer=answer)\n\n\ndef pairwise_verdict(ask_judge, prompt, a, b):\n    # Run both orders; keep the verdict only when they agree.\n    first = ask_judge(prompt, a, b)    # returns \"A\" or \"B\"\n    second = ask_judge(prompt, b, a)   # swapped order\n    if first == \"A\" and second == \"B\":\n        return \"a\"\n    if first == \"B\" and second == \"A\":\n        return \"b\"\n    return \"tie_or_position_bias\""
+      },
+      "exercise": {
+        "title": "Calibrate a judge against human labels",
+        "steps": [
+          "Collect 20 question and answer pairs for your use case (write them or reuse Module 1 outputs) and score each yourself on the 1-5 rubric.",
+          "Run the judge template over the same pairs with one model and compute agreement with your scores (exact match and within-one).",
+          "Rewrite the rubric once to fix the biggest disagreement pattern and rerun; record the change in agreement.",
+          "For 10 pairs, create a second answer and run the pairwise judge in both orders; count how often the verdict flips, which is your position-bias rate.",
+          "Note the judge model, prompt version and date next to every score so results stay interpretable."
+        ],
+        "deliverable": "A small CSV of human versus judge scores with an agreement number, a position-bias rate and the final rubric.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why can two AI judges aimed at the same quality produce scores that are not comparable?",
+        "When is perplexity a misleading quality signal for a finetuned chat model?",
+        "What would you need in place before trusting a judge to gate a deployment?"
+      ],
+      "resources": [
+        {"title": "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena", "url": "https://arxiv.org/abs/2306.05685", "type": "paper"},
+        {"title": "Challenges in evaluating AI systems (Anthropic)", "url": "https://www.anthropic.com/news/evaluating-ai-systems", "type": "article"},
+        {"title": "Holistic Evaluation of Language Models (HELM)", "url": "https://arxiv.org/abs/2211.09110", "type": "paper"},
+        {"title": "LLM Task-Specific Evals that Do and Don't Work (Eugene Yan)", "url": "https://eugeneyan.com/writing/evals/", "type": "article"},
+        {"title": "Siren's Song in the AI Ocean: A Survey on Hallucination in Large Language Models", "url": "https://arxiv.org/abs/2309.01219", "type": "paper"}
+      ]
+    },
+    {
+      "id": "m2-l04",
+      "title": "Evaluate AI Systems",
+      "minutes": 65,
+      "sourceRef": "Chapter 4",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-4-evaluate-ai-systems",
+      "summary": "The second evaluation chapter turns methods into a pipeline for your own application. It lists the criteria used to evaluate models for applications (domain-specific capability, generation capability including factual consistency and safety, instruction-following capability, and cost and latency) and how each is measured. It then covers model selection: a workflow for narrowing candidates, the build-versus-buy decision between hosting a model and using an API along seven axes, and how to navigate thousands of public benchmarks and leaderboards that are useful for weeding out bad models but likely contaminated and never a substitute for a private leaderboard. It closes with a three-step recipe for designing an evaluation pipeline: evaluate all components in the system, create an evaluation guideline, and define evaluation methods and data.",
+      "concepts": [
+        {"term": "Factual consistency", "def": "Whether an output is supported by a given context (local) or by world knowledge (global); checked with judges, entailment models or search."},
+        {"term": "Instruction-following capability", "def": "How reliably a model respects format, length, language and content constraints in the prompt; measured with checkable constraints like IFEval-style tests."},
+        {"term": "Build versus buy", "def": "The choice between hosting an open model and calling a commercial API, weighed along data privacy, data lineage, performance, functionality, control, cost and more."},
+        {"term": "Benchmark contamination", "def": "Benchmark data leaking into a model's training set, which inflates scores and makes public leaderboards unreliable for ranking."},
+        {"term": "Private leaderboard", "def": "Your own ranking of candidate models on your own criteria and data; model selection is essentially building one."},
+        {"term": "Evaluation guideline", "def": "A written definition of what a good response is for your application, with scoring rubrics and examples, tied to business metrics."}
+      ],
+      "keyPoints": [
+        "Not having a reliable evaluation pipeline is one of the biggest blockers to AI adoption; the time it takes is repaid in reduced risk and faster iteration.",
+        "For most teams the challenge is no longer developing models but selecting among many; criteria include domain capability, generation quality, factual consistency, safety, instruction following, cost and latency.",
+        "Hosting versus API is compared along seven axes including data privacy, data lineage, performance, functionality, control and cost, and the answer depends on what the team needs and wants.",
+        "Public benchmarks weed out bad models but will not find the best model for you; they are likely contaminated, and leaderboard aggregation choices are opaque.",
+        "Designing an evaluation pipeline has three steps: evaluate every component (not only the final output), write an evaluation guideline, and define methods and data.",
+        "No single score captures a high-dimensional system; combining methods mitigates the biases of each."
+      ],
+      "walkthrough": [
+        "Read Evaluation Criteria (pp. 160-179): domain-specific capability, generation capability, instruction-following capability, and cost and latency.",
+        "Read Model Selection (pp. 179-200): the model selection workflow, model build versus buy, and navigating public benchmarks; study Figure 4-5 in the chapter summary.",
+        "Read Design Your Evaluation Pipeline (pp. 200-208): Step 1 evaluate all components, Step 2 create an evaluation guideline, Step 3 define evaluation methods and data.",
+        "Draft the evaluation guideline for your Lesson 1 use case using the exercise.",
+        "Return to your Lesson 3 judge rubric and align it with the new guideline."
+      ],
+      "exercise": {
+        "title": "Write an evaluation guideline",
+        "steps": [
+          "List every component of your planned application (retriever, generator, classifier, formatter) and name at least one metric per component.",
+          "Define what a good final response is in plain language, then turn it into a rubric with 3 to 5 criteria and a 1-5 scale with anchors.",
+          "Write two example responses per score band, including one that looks fluent but is wrong.",
+          "Tie at least one criterion to a business metric (for example resolution rate, time saved, escalation rate).",
+          "Decide which criteria use exact checks, which use a judge and which need human review, and how many examples each needs per release."
+        ],
+        "deliverable": "An evaluation guideline document plus a one-table evaluation plan (component, criterion, method, data size).",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Which of the seven build-versus-buy axes would dominate for your organization, and why?",
+        "Why is evaluating only the final output of a multi-component system risky?",
+        "How would you detect that a public benchmark is contaminated for a model you are considering?"
+      ],
+      "resources": [
+        {"title": "Your AI Product Needs Evals (Hamel Husain)", "url": "https://hamel.dev/blog/posts/evals/", "type": "article"},
+        {"title": "Open-LLM performances are plateauing, let's make the leaderboard steep again (Hugging Face)", "url": "https://huggingface.co/spaces/open-llm-leaderboard/blog", "type": "article"},
+        {"title": "Stop Uploading Test Data in Plain Text: Mitigating Data Contamination by Evaluation Benchmarks", "url": "https://arxiv.org/abs/2305.10160", "type": "paper"},
+        {"title": "alopatenko/LLMEvaluation: a large collection of evaluation resources", "url": "https://github.com/alopatenko/LLMEvaluation", "type": "repo"},
+        {"title": "OpenRouter LLM Rankings by token usage", "url": "https://openrouter.ai/rankings", "type": "tool"}
+      ]
+    },
+    {
+      "id": "m2-l05",
+      "title": "Prompt Engineering",
+      "minutes": 60,
+      "sourceRef": "Chapter 5",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-5-prompt-engineering",
+      "summary": "This chapter treats prompt engineering as human to AI communication that is easy to start and hard to do well. It begins with the anatomy of a prompt, in-context learning in zero-shot and few-shot forms, the split between system and user prompts, and context length and context efficiency. The best-practices section covers writing clear and explicit instructions, providing sufficient context, breaking complex tasks into subtasks, giving the model time to think, iterating on prompts, evaluating prompt engineering tools, and organizing and versioning prompts. The last third is defensive prompt engineering: proprietary prompts and reverse prompt engineering, jailbreaking and prompt injection, information extraction attacks, and defenses, framed as an ongoing cat-and-mouse game with no foolproof measure.",
+      "concepts": [
+        {"term": "In-context learning", "def": "A model's ability to learn a task from instructions and examples in the prompt alone, in zero-shot (no examples) or few-shot (some examples) form."},
+        {"term": "System prompt", "def": "The part of the prompt reserved for the developer's instructions and persona, given higher priority than the user prompt in instruction hierarchies."},
+        {"term": "Context efficiency", "def": "How well a model uses information at different positions in a long context; models often attend better to the beginning and end than the middle."},
+        {"term": "Prompt decomposition", "def": "Splitting a complex task into simpler subtasks each handled by its own prompt, which improves debuggability, monitoring and the ability to use cheaper models per step."},
+        {"term": "Prompt versioning", "def": "Storing prompts separately from code with metadata and version history so changes can be evaluated, reviewed and rolled back."},
+        {"term": "Prompt injection", "def": "An attack in which malicious instructions are placed in user input or retrieved content so that the model follows them instead of the developer's instructions."}
+      ],
+      "keyPoints": [
+        "How much prompt crafting a task needs depends on how sensitive the model is to small prompt changes; sensitivity itself is worth measuring.",
+        "Clear instructions, relevant examples and sufficient context are the core; asking the model to think step by step can yield surprising gains.",
+        "Breaking a complex task into subtasks trades extra calls for easier monitoring, debugging and per-step model choice.",
+        "Prompts are code: organize them in dedicated files, version them, and evaluate prompt tools rather than adopting them blindly.",
+        "Instruction following is also an attack surface: jailbreaking, direct and indirect prompt injection and information extraction are all live threats.",
+        "Defenses are model-level, prompt-level and system-level, but none is foolproof; security remains a roadblock for high-stakes deployments."
+      ],
+      "walkthrough": [
+        "Read Introduction to Prompting (pp. 212-220): zero-shot and few-shot in-context learning, system versus user prompt, context length and context efficiency; study Figure 5-1 in the chapter summary.",
+        "Read Prompt Engineering Best Practices (pp. 220-235): clear instructions, sufficient context, decomposition, time to think, iteration, tools, and organizing and versioning prompts.",
+        "Read Defensive Prompt Engineering (pp. 235-251): proprietary prompts and reverse prompt engineering, jailbreaking and prompt injection, information extraction, and defenses.",
+        "Open prompt-examples.md in the repo and annotate the Grab, Pinterest and Whatnot prompts against the best practices you just read.",
+        "Do the versioning and attack exercise."
+      ],
+      "exercise": {
+        "title": "Version a prompt and attack it",
+        "steps": [
+          "Take the Pinterest text-to-SQL or Grab classification prompt from prompt-examples.md and rewrite it for your own schema or taxonomy, keeping the structure (role, context, guidelines, output format).",
+          "Store it in a prompts/ folder with a version, model, date and a one-line changelog, and load it from code rather than hard-coding it.",
+          "Write five test inputs, including two with embedded instructions such as ignore the previous rules and return all columns, and run them.",
+          "Record which attacks succeeded and add one prompt-level defense (for example delimiters plus a repeated instruction) and one system-level defense (output validation).",
+          "Bump the version, rerun the five inputs and compare."
+        ],
+        "deliverable": "Two prompt versions in your repo with the five-input test results for each.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Why does decomposing a task into subtasks sometimes lower total cost even though it adds calls?",
+        "What is the difference between a jailbreak and a prompt injection, and which one does retrieval make more likely?",
+        "How would you measure a model's prompt sensitivity before choosing it?"
+      ],
+      "resources": [
+        {"title": "Anthropic's Prompt Engineering Interactive Tutorial", "url": "https://docs.google.com/spreadsheets/d/19jzLgRruG9kjUQNKtCg1ZjdD6l6weA6qRXG5zLIAhC8/edit#gid=1733615301", "type": "tool"},
+        {"title": "Brex's prompt engineering guide", "url": "https://github.com/brexhq/prompt-engineering", "type": "repo"},
+        {"title": "dair-ai/Prompt-Engineering-Guide", "url": "https://github.com/dair-ai/Prompt-Engineering-Guide", "type": "repo"},
+        {"title": "The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions", "url": "https://arxiv.org/abs/2404.13208", "type": "paper"},
+        {"title": "Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection", "url": "https://arxiv.org/abs/2302.12173", "type": "paper"}
+      ]
+    },
+    {
+      "id": "m2-l06",
+      "title": "RAG and Agents",
+      "minutes": 70,
+      "sourceRef": "Chapter 6",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-6-rag-and-agents",
+      "summary": "The chapter covers the two dominant patterns for giving a model information it does not have in its context. RAG retrieves relevant information from external memory and then generates with it; the chapter walks through RAG architecture, retrieval algorithms (term-based such as BM25 and Elasticsearch versus embedding-based with vector search), retrieval optimization (chunking, reranking, query rewriting, contextual retrieval) and RAG beyond text. Agents generalize the pattern: an agent is defined by its environment and tools, the model acts as planner, and planning can be augmented with reflection; the chapter covers tools, planning, agent failure modes and evaluation. It ends with memory systems for managing information that exceeds the context window, and notes that both patterns are prompt-based because they change inputs rather than the model.",
+      "concepts": [
+        {"term": "BM25", "def": "A term-based retrieval scoring function built on TF-IDF ideas; light to run and a strong baseline that embedding retrieval must beat."},
+        {"term": "Embedding-based retrieval", "def": "Encoding queries and documents into vectors and retrieving by similarity with a vector search index; more expensive but able to match meaning rather than terms."},
+        {"term": "Hybrid search", "def": "Combining term-based and embedding-based retrievers, for example by fusing their rankings, to get the strengths of both."},
+        {"term": "Reranking", "def": "A second, more expensive scoring pass over the top retrieved candidates to improve precision before they enter the context."},
+        {"term": "Agent", "def": "A system that perceives an environment and acts on it through tools, with a model as the planner choosing actions toward a goal."},
+        {"term": "Reflection", "def": "Having the model evaluate its own plan or outcome and revise, which improves planning at the cost of more calls."}
+      ],
+      "keyPoints": [
+        "RAG was developed to work around context limits but also makes information use more efficient, improving quality while reducing cost.",
+        "The success of a RAG system depends on the retriever; term-based retrievers are cheap strong baselines, embedding-based ones can outperform them at higher compute cost.",
+        "Vector search is the backbone of search and recommender systems, so decades of approximate nearest neighbor algorithms apply directly to RAG.",
+        "RAG is a special case of an agent where the retriever is a tool; an agent is defined by its environment and the tools it can access.",
+        "More tools mean more capability but more catastrophic failures; tool use inherits the security risks of Chapter 5 and needs rigorous defenses.",
+        "Agent evaluation should look at planning validity, tool-call correctness and efficiency, not only final answers.",
+        "Memory systems manage information beyond the context window for both RAG and agents."
+      ],
+      "walkthrough": [
+        "Read RAG (pp. 253-275): RAG architecture, retrieval algorithms, retrieval optimization and RAG beyond texts; study Figure 6-3 in the chapter summary.",
+        "Read Agents (pp. 275-300): agent overview, tools, planning, and agent failure modes and evaluation.",
+        "Read Memory (pp. 300-305) and relate it to the context efficiency discussion from Lesson 5.",
+        "Run the reciprocal rank fusion snippet below on toy rankings and reason about when fusion helps.",
+        "Complete the RAG decision exercise for your use case.",
+        "Skim Alex Strick van Linschoten's Chapter 6 notes and compare his takeaways with yours."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Hybrid retrieval: fuse a term-based ranking and an embedding ranking with reciprocal rank fusion",
+        "src": "def reciprocal_rank_fusion(rankings, k=60):\n    \"\"\"rankings: list of ranked doc-id lists, e.g. [bm25_ids, embedding_ids].\"\"\"\n    scores = {}\n    for ranked in rankings:\n        for rank, doc_id in enumerate(ranked, start=1):\n            scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (k + rank)\n    return sorted(scores.items(), key=lambda kv: kv[1], reverse=True)\n\n\nbm25_hits = [\"d3\", \"d1\", \"d7\", \"d2\"]      # exact-term matches\nembed_hits = [\"d1\", \"d9\", \"d3\", \"d4\"]     # semantic matches\n\nfor doc_id, score in reciprocal_rank_fusion([bm25_hits, embed_hits])[:3]:\n    print(doc_id, round(score, 4))\n# d1 and d3 rise to the top because both retrievers agree on them."
+      },
+      "exercise": {
+        "title": "RAG decision and retrieval evaluation",
+        "steps": [
+          "Pick a corpus of 50 to 200 documents relevant to your use case (docs pages, support articles, your own notes).",
+          "Write 10 realistic queries and mark which documents should be retrieved for each.",
+          "Index the corpus two ways: a BM25 library and an embedding model with a simple vector store, using one chunking strategy.",
+          "Compute recall at 5 for BM25, embeddings and the fused ranking from the snippet.",
+          "Write a half-page decision: which retriever you would ship first, what chunking you used, and what you would try next (reranking, query rewriting, contextual retrieval)."
+        ],
+        "deliverable": "A table of recall at 5 for three retrieval setups and the written decision.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Why does the book recommend starting with term-based retrieval before embeddings?",
+        "In what sense is RAG a special case of an agent, and what does that imply for evaluation?",
+        "What new failure modes appear when an agent gains write access to a tool?"
+      ],
+      "resources": [
+        {"title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks", "url": "https://arxiv.org/abs/2005.11401", "type": "paper"},
+        {"title": "Introducing Contextual Retrieval (Anthropic)", "url": "https://www.anthropic.com/news/contextual-retrieval", "type": "article"},
+        {"title": "Everything You Need to Know about Vector Index Basics (Zilliz)", "url": "https://zilliz.com/learn/vector-index", "type": "article"},
+        {"title": "ReAct: Synergizing Reasoning and Acting in Language Models", "url": "https://arxiv.org/abs/2210.03629", "type": "paper"},
+        {"title": "Chameleon: Plug-and-Play Compositional Reasoning with Large Language Models", "url": "https://arxiv.org/abs/2304.09842", "type": "paper"}
+      ]
+    },
+    {
+      "id": "m2-l07",
+      "title": "Finetuning",
+      "minutes": 65,
+      "sourceRef": "Chapter 7",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-7-finetuning",
+      "summary": "The finetuning chapter is less about running a trainer and more about the context around it. It opens with when to finetune: reasons for, reasons against, and the recurring question of finetuning versus RAG, which the book answers by looking at the application's failure modes (retrieval first for missing information, finetuning for form, style and behavior). The memory bottleneck section explains backpropagation and trainable parameters, works through memory math for weights, gradients, optimizer states and activations, covers numerical representations and quantization. The techniques section surveys parameter-efficient finetuning with a deep dive on LoRA (why it works, how it works, why it is modular and easy to serve), then model merging and multi-task finetuning, and finishes with finetuning tactics such as hyperparameter choices.",
+      "concepts": [
+        {"term": "PEFT", "def": "Parameter-efficient finetuning: methods that update a small number of parameters (adapters, LoRA, prompt tuning) to cut memory and data needs."},
+        {"term": "LoRA", "def": "Low-rank adaptation: freezing the base weights and learning a low-rank update factorized into two small matrices, which is parameter-efficient, data-efficient and modular to serve."},
+        {"term": "Memory math", "def": "Estimating training memory as weights plus gradients plus optimizer states plus activations, each scaled by the bytes per value of its numeric format."},
+        {"term": "Quantization", "def": "Representing weights or activations with fewer bits (for example 8-bit or 4-bit) to shrink memory, used both for inference and, as in QLoRA, for training."},
+        {"term": "Numerical representations", "def": "Formats such as FP32, FP16, BF16 and INT8 that trade range and precision for memory and speed."},
+        {"term": "Model merging", "def": "Combining multiple finetuned models into one, for multi-task ability, on-device deployment or upscaling, without further training in many cases."}
+      ],
+      "keyPoints": [
+        "Finetuning itself is easy with modern frameworks; the hard part is deciding whether to finetune and getting the data.",
+        "Finetune versus RAG depends on failure modes: if the model lacks information, retrieve; if it has the information but the form, style or behavior is wrong, finetune.",
+        "Full finetuning updates all weights and needs memory for weights, gradients and optimizer states; most practitioners lack the hardware, time and data.",
+        "PEFT reduces trainable parameters while quantized training reduces bits per value; both attack the same memory bottleneck.",
+        "LoRA is popular because it is parameter-efficient, data-efficient and modular, so multiple adapters can be served and combined on one base model.",
+        "Model merging combines finetuned models into one that can outperform them separately, with uses from on-device deployment to model upscaling."
+      ],
+      "walkthrough": [
+        "Read Finetuning Overview and When to Finetune (pp. 308-319): reasons to finetune, reasons not to, and finetuning and RAG; study Figure 7-3 in the chapter summary.",
+        "Read Memory Bottlenecks (pp. 319-332): backpropagation and trainable parameters, memory math, numerical representations, quantization.",
+        "Reproduce the memory math for a 7B model with the snippet below, then change the assumptions.",
+        "Read Finetuning Techniques (pp. 332-361): parameter-efficient finetuning and LoRA, model merging and multi-task finetuning, finetuning tactics.",
+        "Complete the memory exercise and the finetune-or-RAG recommendation for your use case."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Back-of-envelope training memory for a 7B model under full finetuning, LoRA and a quantized base (activations excluded)",
+        "src": "def finetune_memory_gb(params_b, weight_bytes=2, trainable_fraction=1.0,\n                       grad_bytes=2, optimizer_states=2, opt_bytes=4):\n    \"\"\"params_b: parameters in billions. Returns approximate GB.\"\"\"\n    weights = params_b * weight_bytes\n    trainable = params_b * trainable_fraction\n    grads = trainable * grad_bytes\n    optimizer = trainable * optimizer_states * opt_bytes   # Adam: 2 states, fp32\n    return round(weights + grads + optimizer, 1)\n\n\nprint(\"7B full finetune, fp16 weights + Adam:\",\n      finetune_memory_gb(7), \"GB\")                       # ~84 GB\nprint(\"7B LoRA, ~1% trainable:\",\n      finetune_memory_gb(7, trainable_fraction=0.01), \"GB\")  # ~14.7 GB\nprint(\"7B QLoRA, 4-bit base + 1% trainable:\",\n      finetune_memory_gb(7, weight_bytes=0.5, trainable_fraction=0.01), \"GB\")  # ~4.2 GB\n# Add activations (grows with batch size and sequence length) before sizing a GPU."
+      },
+      "exercise": {
+        "title": "Compute memory for a 7B model and decide finetune or RAG",
+        "steps": [
+          "Using the snippet, compute training memory for a 7B model in three settings: full finetuning in FP16 with Adam, LoRA with 1 percent trainable parameters, and QLoRA with a 4-bit base.",
+          "Add a rough activation estimate for batch size 8 and sequence length 2048 using the Transformer Math 101 formulas, and state which consumer or cloud GPU each setting fits.",
+          "Repeat the three numbers for a 70B model.",
+          "List three failure modes from your Lesson 3 or Lesson 6 results and classify each as missing information (retrieve) or wrong form or behavior (finetune).",
+          "Write a half-page recommendation: finetune, RAG, both, or neither, with the memory and data cost of your choice."
+        ],
+        "deliverable": "A memory table (3 settings by 2 model sizes) and the written recommendation.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Why do optimizer states usually dominate memory in full finetuning?",
+        "What properties of LoRA make it easier to serve many customers from one base model?",
+        "Give a case where finetuning and RAG are both needed."
+      ],
+      "resources": [
+        {"title": "LoRA: Low-Rank Adaptation of Large Language Models", "url": "https://arxiv.org/abs/2106.09685", "type": "paper"},
+        {"title": "QLoRA: Efficient Finetuning of Quantized LLMs", "url": "https://arxiv.org/abs/2305.14314", "type": "paper"},
+        {"title": "Transformer Math 101 (EleutherAI)", "url": "https://blog.eleuther.ai/transformer-math/", "type": "article"},
+        {"title": "Easily Train a Specialized LLM: PEFT, LoRA, QLoRA, LLaMA-Adapter, and More", "url": "https://cameronrwolfe.substack.com/p/easily-train-a-specialized-llm-peft", "type": "article"},
+        {"title": "Fine-Tuning or Retrieval? Comparing Knowledge Injection in LLMs", "url": "https://arxiv.org/abs/2312.05934", "type": "paper"}
+      ]
+    },
+    {
+      "id": "m2-l08",
+      "title": "Dataset Engineering",
+      "minutes": 55,
+      "sourceRef": "Chapter 8",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-8-dataset-engineering",
+      "summary": "This chapter argues that dataset principles are simple even though execution is intricate: decide which behaviors you want the model to learn, then design data that shows them. Data curation is organized around three criteria (quality, coverage and quantity) plus acquisition and annotation, with the observation that a small amount of high-quality, diverse data can beat a large noisy set. The augmentation and synthesis section explains why teams turn to synthetic data, traditional techniques, AI-powered synthesis with a deep dive on instruction data, and model distillation, stressing that synthetic data must be evaluated like any AI output. Data processing covers inspecting, deduplicating, cleaning and filtering, and formatting data for the target training phase.",
+      "concepts": [
+        {"term": "Data quality", "def": "Whether examples are relevant, aligned with the desired behavior, consistent, correctly formatted and sufficiently unique; the first of the three dataset criteria."},
+        {"term": "Data coverage", "def": "Whether the dataset spans the range of inputs, styles and edge cases the model will face; diversity often matters more than raw volume."},
+        {"term": "Data synthesis", "def": "Generating training data programmatically or with AI to increase quantity, coverage or privacy, with verification as the hard part."},
+        {"term": "Model distillation", "def": "Training a smaller student model on outputs generated by a larger teacher model, a common use of synthetic data."},
+        {"term": "Deduplication", "def": "Removing exact and near-duplicate examples, which improves model quality and reduces memorization and evaluation leakage."},
+        {"term": "Annotation guideline", "def": "The written instructions annotators follow; often harder to write than the annotation itself and a top source of label noise when vague."}
+      ],
+      "keyPoints": [
+        "Start from the behaviors you want and design data to show them; teams are creating dedicated data roles for acquisition, privacy and compliance.",
+        "Pre-training, instruction finetuning and preference finetuning need different data, but all share the criteria of quality, coverage and quantity.",
+        "A small high-quality dataset can outperform a large noisy one; increasing diversity is a key lever many teams report.",
+        "Synthetic data became practical once AI could generate realistic, complex examples; the chapter dives into synthesizing instruction data.",
+        "Synthetic data must be evaluated before training on it; people adopt generated data they can reliably verify.",
+        "The parts that cannot be automated are thinking through what data you want, writing annotation guidelines and paying attention to detail.",
+        "Processing steps are inspect, deduplicate, clean and filter, and format for the target model's chat template."
+      ],
+      "walkthrough": [
+        "Read Data Curation (pp. 365-380): data quality, data coverage, data quantity, and data acquisition and annotation; study Figure 8-3 in the chapter summary.",
+        "Read Data Augmentation and Synthesis (pp. 380-396): why synthesis, traditional techniques, AI-powered synthesis, model distillation.",
+        "Read Data Processing (pp. 396-403): inspect, deduplicate, clean and filter, format.",
+        "Read the synthetic data generation and verification section of the Llama 3 paper and note the verification steps.",
+        "Design a dataset specification for your use case in the exercise."
+      ],
+      "exercise": {
+        "title": "Specify a synthetic instruction dataset",
+        "steps": [
+          "Write down 5 behaviors you want a finetuned model for your use case to exhibit, each with a positive and a negative example.",
+          "Define coverage: list input types, lengths, languages or domains and tricky edge cases, and set target proportions.",
+          "Draft a generation prompt that produces instruction and response pairs for one behavior, and generate 20 examples.",
+          "Write a verification plan: at least one exact check, one judge rubric reusing Lesson 3, and a human spot-check rate; apply it to your 20 examples and report the rejection rate.",
+          "Deduplicate the surviving examples with a simple near-duplicate check and format them in your target model's chat template."
+        ],
+        "deliverable": "A dataset spec document plus the 20 generated examples with verification results in JSONL.",
+        "minutes": 55
+      },
+      "checkYourself": [
+        "Why is writing an annotation guideline harder than annotating?",
+        "What risks does training on model-generated data introduce, and how would you detect them?",
+        "How would you estimate whether more data would still help, using the performance gain curve idea from Figure 8-3?"
+      ],
+      "resources": [
+        {"title": "Annotation Best Practices for Building High-Quality Datasets (Grammarly)", "url": "https://www.grammarly.com/blog/engineering/annotation-best-practices/", "type": "article"},
+        {"title": "Best Practices and Lessons Learned on Synthetic Data for Language Models", "url": "https://arxiv.org/abs/2404.07503", "type": "paper"},
+        {"title": "LIMA: Less Is More for Alignment", "url": "https://arxiv.org/abs/2305.11206", "type": "paper"},
+        {"title": "The Curse of Recursion: Training on Generated Data Makes Models Forget", "url": "https://arxiv.org/abs/2305.17493", "type": "paper"},
+        {"title": "Deduplicating Training Data Makes Language Models Better", "url": "https://arxiv.org/abs/2107.06499", "type": "paper"}
+      ]
+    },
+    {
+      "id": "m2-l09",
+      "title": "Inference Optimization",
+      "minutes": 60,
+      "sourceRef": "Chapter 9",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-9-inference-optimization",
+      "summary": "Because a model's usability depends on inference cost and latency, this chapter first defines how efficiency is measured: latency split into time to first token (driven by prefill) and time per output token (driven by decode), throughput tied to cost, utilization, and the latency-throughput tradeoff. It gives a quick overview of AI accelerators and what optimizing for different hardware involves. Optimization techniques are organized into model-level methods that change the model (quantization, distillation, attention and KV cache optimization, faster decoding such as speculative decoding) and inference service-level methods that keep the model intact (batching, parallelism strategies, prefill and decode decoupling, prompt caching). Which to use depends on workload and on whether latency or cost matters more.",
+      "concepts": [
+        {"term": "TTFT", "def": "Time to first token: latency until the first output token appears, dominated by the prefill phase that processes the whole prompt."},
+        {"term": "TPOT", "def": "Time per output token: the per-step latency of autoregressive decoding, which determines how fast a response streams."},
+        {"term": "KV cache", "def": "Stored keys and values of previous tokens so attention does not recompute them; memory-heavy for long contexts and a major optimization target."},
+        {"term": "Speculative decoding", "def": "Using a small draft model to propose several tokens that the large model verifies in one pass, cutting decode latency without changing outputs."},
+        {"term": "Prompt caching", "def": "Reusing the computed state of overlapping prompt segments across requests, crucial for long shared system prompts and multi-turn conversations."},
+        {"term": "Prefill and decode decoupling", "def": "Running the compute-bound prefill phase and the memory-bound decode phase on separate resources so neither starves the other."}
+      ],
+      "keyPoints": [
+        "Latency splits into TTFT (prefill) and TPOT (decode); throughput relates to cost, and you can usually trade one for the other.",
+        "Hardware matters: understanding accelerators helps you read provider benchmarks even if you never write a kernel.",
+        "Model-level optimization (quantization, distillation, attention and KV cache work, decoding tricks) can change model behavior; service-level optimization (batching, parallelism, decoupling, prompt caching) keeps the model intact.",
+        "Workload drives the choice: KV caching matters most for long contexts, prompt caching for long overlapping prompts and multi-turn chat.",
+        "If latency matters more than cost, scale replica parallelism so each machine handles fewer requests.",
+        "Across use cases the most impactful techniques are quantization, tensor parallelism, replica parallelism and attention optimization.",
+        "Most application developers consume these techniques through model APIs, but knowing them lets you evaluate an API's efficiency."
+      ],
+      "walkthrough": [
+        "Read Understanding Inference Optimization (pp. 406-426): inference overview, inference performance metrics, AI accelerators; study Figure 9-1 in the chapter summary.",
+        "Run the latency snippet below and vary output length to see when prefill versus decode dominates.",
+        "Read Model Optimization (pp. 426-440): quantization, distillation, attention and KV cache, decoding optimizations.",
+        "Read Inference Service Optimization (pp. 440-447): batching, parallelism, prefill and decode decoupling, prompt caching.",
+        "Do the latency budget exercise for your use case and skim the Chapter 9 study notes."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Turning TTFT and TPOT into an end-to-end latency budget and seeing which phase dominates",
+        "src": "def latency_budget(ttft_ms: float, tpot_ms: float, output_tokens: int) -> dict:\n    decode_ms = tpot_ms * output_tokens\n    total_ms = ttft_ms + decode_ms\n    return {\n        \"ttft_ms\": ttft_ms,\n        \"decode_ms\": decode_ms,\n        \"total_ms\": total_ms,\n        \"prefill_share\": round(ttft_ms / total_ms, 2),\n        \"tokens_per_s\": round(1000 / tpot_ms, 1),\n    }\n\n\nfor n in (20, 100, 500):\n    print(n, \"output tokens ->\", latency_budget(ttft_ms=400, tpot_ms=30, output_tokens=n))\n# Short answers are prefill-bound (prompt caching helps); long answers are\n# decode-bound (speculative decoding and KV-cache work help)."
+      },
+      "exercise": {
+        "title": "Build a latency and cost budget",
+        "steps": [
+          "Measure TTFT and TPOT for one model API or a locally served model with three prompt lengths (short, 2k tokens, 8k tokens) and a fixed 200-token output; stream the response and time the first token.",
+          "Fill in the latency budget function with your numbers and compute end-to-end latency for your use case's typical output length.",
+          "Estimate monthly cost at your expected request volume from the provider's per-token prices or your GPU hourly rate and measured throughput.",
+          "For each of three bottlenecks you observe (slow prefill, slow decode, high cost), pick the one optimization from the chapter you would try first and say whether it changes model behavior.",
+          "Decide whether your use case should optimize for latency or throughput and state the consequence for replicas and batching."
+        ],
+        "deliverable": "A one-page latency and cost budget with measured numbers and three optimization choices.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Why does prompt caching help a multi-turn chat application more than a batch summarization job?",
+        "Which optimizations could change what the model outputs, and how would your evaluation pipeline catch that?",
+        "When would you choose more replicas over larger batches?"
+      ],
+      "resources": [
+        {"title": "Mastering LLM Techniques: Inference Optimization (NVIDIA)", "url": "https://developer.nvidia.com/blog/mastering-llm-techniques-inference-optimization/", "type": "article"},
+        {"title": "Efficiently Scaling Transformer Inference", "url": "https://arxiv.org/pdf/2211.05102", "type": "paper"},
+        {"title": "Techniques for KV Cache Optimization in Large Language Models", "url": "https://www.omrimallis.com/posts/techniques-for-kv-cache-optimization/", "type": "article"},
+        {"title": "Accelerating Large Language Model Decoding with Speculative Sampling", "url": "https://arxiv.org/abs/2302.01318", "type": "paper"},
+        {"title": "DistServe: Disaggregating Prefill and Decoding for Goodput-optimized LLM Serving", "url": "https://arxiv.org/abs/2401.09670", "type": "paper"}
+      ]
+    },
+    {
+      "id": "m2-l10",
+      "title": "AI Engineering Architecture and User Feedback",
+      "minutes": 65,
+      "sourceRef": "Chapter 10",
+      "sourceUrl": "https://github.com/chiphuyen/aie-book/blob/main/chapter-summaries.md#chapter-10-ai-engineering-architecture-and-user-feedback",
+      "summary": "The closing chapter assembles the previous ones into a whole system. It builds a common generative AI application architecture step by step: enhance context with retrieval and tools, put in input and output guardrails, add a model router and gateway, reduce latency with exact and semantic caches, add agent patterns, then wrap everything in monitoring and observability and an orchestration layer. Each component adds capability, safety or speed at the price of complexity and new failure modes, and components can overlap (guardrails can live in the inference service, the gateway or standalone). The second half covers user feedback: extracting explicit and implicit signals from conversations, designing when and how to ask for feedback, and the limitations and biases of feedback, arguing that feedback design is now an engineering concern because it feeds the data flywheel.",
+      "concepts": [
+        {"term": "Guardrails", "def": "Input guardrails protect against leaking private information and bad prompts; output guardrails catch failures such as unsafe, off-policy or malformed responses before users see them."},
+        {"term": "Model router", "def": "A component, often a small classifier, that sends each query to the most suitable model or pipeline to save cost and improve quality."},
+        {"term": "Model gateway", "def": "A single interface to many models that handles authentication, rate limits, retries, cost tracking and can host guardrails and caches."},
+        {"term": "Semantic cache", "def": "Reusing a previous response when a new query is similar enough in embedding space; faster and cheaper but risks serving wrong answers to subtly different queries."},
+        {"term": "Observability", "def": "Designing metrics, logs, traces and alerts so that the new failure modes of foundation models are detectable and traceable."},
+        {"term": "Implicit feedback", "def": "Signals inferred from behavior such as regeneration, early termination, complaints, edits or copying, as opposed to explicit thumbs up or down, which feed the data flywheel."}
+      ],
+      "keyPoints": [
+        "The reference architecture grows in five steps: enhance context, add guardrails, add router and gateway, add caches, add agent patterns, with monitoring and orchestration around them.",
+        "Component boundaries are fluid; guardrails can be implemented in the inference service, the gateway or as a standalone piece.",
+        "Every added component can make the system more capable, safer or faster, but also more complex and exposed to new failure modes.",
+        "Observability for foundation models borrows from software and ML monitoring but needs extra metrics for new failure modes such as hallucination, refusal and format errors.",
+        "Conversational interfaces generate new kinds of feedback (natural language complaints, corrections, regeneration) usable for analytics, product improvement and the data flywheel.",
+        "Feedback design used to be a product job; AI engineers now take part because feedback is training and evaluation data.",
+        "Many AI challenges are system problems; solving them means stepping back and considering how components interact."
+      ],
+      "walkthrough": [
+        "Read AI Engineering Architecture (pp. 449-465): Step 1 enhance context, Step 2 guardrails, Step 3 model router and gateway, Step 4 caches, Step 5 agent patterns; study Figure 10-10 in the chapter summary.",
+        "Read Monitoring and Observability and AI Pipeline Orchestration (pp. 465-474).",
+        "Read User Feedback (pp. 474-492): extracting conversational feedback, feedback design, feedback limitations.",
+        "Draft your architecture at launch and at month six in the exercise.",
+        "Read the Chapter 10 study notes and the Microsoft human-AI interaction guidelines, then revise your feedback design."
+      ],
+      "exercise": {
+        "title": "Draft an architecture and a feedback mechanism",
+        "steps": [
+          "Draw the launch architecture for your use case with only the components you can justify today (model, context enhancement, one input and one output guardrail, basic logging).",
+          "Draw the month-six architecture: add router, gateway, caches, agent patterns or orchestration only where you can name the failure or cost they address.",
+          "For each component, write one metric you would monitor and one alert threshold.",
+          "Design feedback: list the explicit signals you will ask for, when in the conversation you will ask, and the implicit signals you will log.",
+          "Describe how one week of feedback would flow into your Lesson 4 evaluation set and note two biases in that feedback."
+        ],
+        "deliverable": "Two architecture diagrams (any tool) with a component-metric table and a one-page feedback design.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Where would you place guardrails in your system, and what does the choice cost in latency?",
+        "Which implicit feedback signal is the most reliable for your use case, and what could confound it?",
+        "What is one failure mode that only appears once you add a semantic cache?"
+      ],
+      "resources": [
+        {"title": "Chapter 4: Monitoring, from the Google SRE Workbook", "url": "https://sre.google/workbook/monitoring/", "type": "docs"},
+        {"title": "Guidelines for Human-AI Interaction (Microsoft Research)", "url": "https://www.microsoft.com/en-us/research/publication/guidelines-for-human-ai-interaction/", "type": "paper"},
+        {"title": "Peering Through Preferences: Unraveling Feedback Acquisition for Aligning Large Language Models", "url": "https://arxiv.org/abs/2308.15812v3", "type": "paper"},
+        {"title": "Feedback-Based Self-Learning in Large-Scale Conversational AI Agents (Amazon)", "url": "https://arxiv.org/abs/1911.02557", "type": "paper"},
+        {"title": "Notes on AI Engineering Chapter 10 (Alex Strick van Linschoten)", "url": "https://alexstrick.com/posts/2025-02-09-ai-eg-chapter-10.html", "type": "article"}
+      ]
+    }
+  ],
+  "resources": [
+    {"title": "AI Engineering on O'Reilly", "url": "https://oreillymedia.pxf.io/c/5719111/2146021/15173", "type": "docs", "note": "The book itself; the lessons assume you are reading each chapter alongside them."},
+    {"title": "chiphuyen/aie-book companion repo", "url": "https://github.com/chiphuyen/aie-book", "type": "repo", "note": "Table of contents, chapter summaries, resources, prompt examples and study notes in one place."},
+    {"title": "Curated AI engineering resources, organized by chapter", "url": "https://github.com/chiphuyen/aie-book/blob/main/resources.md", "type": "docs", "note": "The author's own shortlist from 1200+ references; every lesson's links come from here."},
+    {"title": "Prompt examples from real-world use cases", "url": "https://github.com/chiphuyen/aie-book/blob/main/prompt-examples.md", "type": "docs", "note": "Production prompts from Brex, Cursor, Grab, Pinterest, Thoughtworks and Whatnot; used in the Lesson 5 exercise."},
+    {"title": "Case studies page in the companion repo", "url": "https://github.com/chiphuyen/aie-book/blob/main/case-studies.md", "type": "docs", "note": "Marked coming soon at the time of writing; check back, and use the case studies below in the meantime."},
+    {"title": "Case study: Musings on Building a Generative AI Product (LinkedIn)", "url": "https://www.linkedin.com/blog/engineering/generative-ai/musings-on-building-a-generative-ai-product", "type": "article", "note": "Structured outputs, latency versus throughput, annotation guidelines and the last-mile problem in one honest report."},
+    {"title": "Case study: A deep dive into the world's smartest email AI (Shortwave)", "url": "https://www.shortwave.com/blog/deep-dive-into-worlds-smartest-email-ai/", "type": "article", "note": "A detailed account of building an email assistant with the RAG pattern."},
+    {"title": "Case study: Optimizing AI Inference at Character.AI", "url": "https://research.character.ai/optimizing-inference/", "type": "article", "note": "Attention design, cache optimization and int8 training at very large chat volume."},
+    {"title": "Case study: LLM-powered data classification for data entities at scale (Grab)", "url": "https://engineering.grab.com/llm-powered-data-classification", "type": "article", "note": "A production classification prompt with a strict tag taxonomy and JSON output; the prompt is reproduced in prompt-examples.md."},
+    {"title": "Case study: How Whatnot Utilizes Generative AI to Enhance Trust and Safety", "url": "https://medium.com/whatnot-engineering/how-whatnot-utilizes-generative-ai-to-enhance-trust-and-safety-c7968eb6315e", "type": "article", "note": "Scam detection over conversations with likelihood scores and explanations; a good guardrail example."},
+    {"title": "Case study: Pinterest text-to-SQL prompt template (Querybook)", "url": "https://github.com/pinterest/querybook/blob/master/querybook/server/lib/ai_assistant/prompts/text_to_sql_prompt.py", "type": "repo", "note": "An open-source production prompt with explicit response guidelines and a JSON contract."},
+    {"title": "Study notes: Chapter 6 RAG and Agents (Alex Strick van Linschoten)", "url": "https://alexstrick.com/posts/2025-01-24-notes-on-ai-engineering-chip-huyen-chapter-6.html", "type": "article", "note": "Reader notes linked from the repo's study-notes page; useful for comparing takeaways."},
+    {"title": "Study notes: Chapter 7 Finetuning (Alex Strick van Linschoten)", "url": "https://alexstrick.com/posts/2025-01-26-notes-on-ai-engineering-chip-huyen-chapter-7-finetuning.html", "type": "article", "note": "Chapter-by-chapter notes with the memory math worked through."},
+    {"title": "Study notes: Chapter 9 Inference optimization (Alex Strick van Linschoten)", "url": "https://alexstrick.com/posts/2025-02-07-ai-engineering-chapter-9.html", "type": "article", "note": "Condensed notes on metrics and optimization techniques."},
+    {"title": "Study notes: Chapter 10 Architecture and user feedback (Alex Strick van Linschoten)", "url": "https://alexstrick.com/posts/2025-02-09-ai-eg-chapter-10.html", "type": "article", "note": "Notes on the reference architecture and feedback design."},
+    {"title": "LinkedIn Engineering Blog", "url": "https://www.linkedin.com/blog/engineering", "type": "article", "note": "One of the author's go-to engineering blogs; frequent generative AI deployment write-ups."},
+    {"title": "Netflix TechBlog", "url": "https://netflixtechblog.com/", "type": "article", "note": "Deep posts on ML platforms, experimentation and observability at scale."},
+    {"title": "LMSYS Org Blog", "url": "https://lmsys.org/blog/", "type": "article", "note": "Chatbot Arena, vLLM and structured generation posts relevant to Lessons 3 and 9."},
+    {"title": "Pinterest Engineering Blog", "url": "https://medium.com/pinterest-engineering", "type": "article", "note": "Applied ML and generative AI posts from a large consumer product."},
+    {"title": "Misalignment AI: generative AI use cases that go wrong", "url": "https://github.com/chiphuyen/aie-book/blob/main/misalignment.md", "type": "docs", "note": "A planned curated list of failures; marked coming soon at the time of writing."}
+  ],
+  "flashcards": [
+    {"front": "What training approach turned language models into large language models?", "back": "Self-supervision: predicting the next token from unlabeled text, which removes the labeling bottleneck and lets models learn from web-scale data."},
+    {"front": "Name the three layers of the AI engineering stack.", "back": "Application development, model development and infrastructure."},
+    {"front": "Which three numbers measure a model's scale?", "back": "Number of parameters, number of training tokens and FLOPs needed for training."},
+    {"front": "What are the two post-training steps?", "back": "Supervised finetuning on demonstration data, then preference finetuning (RLHF, DPO) on comparison data."},
+    {"front": "Why are AI models probabilistic?", "back": "Because outputs are produced by sampling from a next-token distribution; the same prompt can yield different outputs."},
+    {"front": "Define perplexity in one sentence.", "back": "The exponential of cross entropy; it measures how surprised a model is by a text, lower meaning more predictable."},
+    {"front": "Give two uses of perplexity besides tracking training loss.", "back": "Detecting benchmark contamination and screening for low-quality or unfamiliar text in data processing."},
+    {"front": "What is position bias in AI-as-a-judge?", "back": "A judge's tendency to favor a response by its position in a pairwise prompt; mitigated by swapping the order and keeping only agreeing verdicts."},
+    {"front": "Why are AI judge scores unreliable as a long-term benchmark?", "back": "Judges are iterated upon, so their judgments change over time, and scores from different judges are not comparable."},
+    {"front": "What are the three steps for designing an evaluation pipeline?", "back": "Evaluate all components in the system, create an evaluation guideline, and define evaluation methods and data."},
+    {"front": "What can public benchmarks do and not do for model selection?", "back": "They can weed out bad models but cannot find the best model for your application; they are also likely contaminated."},
+    {"front": "What is the difference between a jailbreak and a prompt injection?", "back": "A jailbreak tries to make the model break its own safety rules; prompt injection smuggles attacker instructions into input or retrieved content so the model follows them instead of the developer's."},
+    {"front": "Why decompose a complex prompt into subtasks?", "back": "Easier monitoring and debugging, the ability to use cheaper models per step and often better quality, at the cost of more calls."},
+    {"front": "What does the success of a RAG system depend on most?", "back": "The quality of its retriever."},
+    {"front": "Why start with term-based retrieval such as BM25?", "back": "It is much lighter to implement and provides a strong baseline that embedding-based retrieval must beat to justify its cost."},
+    {"front": "How does the book frame the finetune-versus-RAG decision?", "back": "By failure mode: missing information calls for retrieval; wrong form, style or behavior calls for finetuning."},
+    {"front": "Roughly how much memory does full finetuning of a 7B model need in FP16 with Adam, before activations?", "back": "About 84 GB: 14 GB weights plus 14 GB gradients plus 56 GB optimizer states."},
+    {"front": "What are the three core dataset criteria across all training phases?", "back": "Quality, coverage and quantity."},
+    {"front": "Which phase drives TTFT and which drives TPOT?", "back": "Prefill drives time to first token; decode drives time per output token."},
+    {"front": "What are the five steps of the reference AI application architecture?", "back": "Enhance context, put in guardrails, add model router and gateway, reduce latency with caches, add agent patterns."}
+  ],
+  "quiz": [
+    {"q": "According to Chapter 1, what shift gave rise to large language models?", "o": ["Reinforcement learning from human feedback", "Larger labeled datasets for classification", "Multimodal pre-training on images", "Self-supervision on unlabeled text"], "a": 3, "e": "Self-supervision let models learn from vast unlabeled text, which removed the labeling bottleneck and enabled the jump in scale.", "lesson": "m2-l01"},
+    {"q": "Which three numbers does Chapter 2 use to describe a model's scale?", "o": ["Parameters, training tokens and training FLOPs", "Layers, heads and vocabulary size", "Context length, batch size and learning rate", "Pre-training, SFT and RLHF steps"], "a": 0, "e": "Scale is measured by parameter count, number of training tokens and FLOPs, and scaling laws relate them to a compute budget.", "lesson": "m2-l02"},
+    {"q": "Why does the book say AI judges are unreliable as benchmarks for tracking an application over time?", "o": ["They are too slow to run on every release", "Their scores are deterministic and cannot detect change", "Judges are iterated upon, so their judgments change and scores from different judges are not comparable", "They can only grade code, not prose"], "a": 2, "e": "Subjective metrics depend on the judge; since judges are themselves AI applications that get updated, their scores drift.", "lesson": "m2-l03"},
+    {"q": "What is the recommended way to detect position bias in a pairwise AI judge?", "o": ["Increase the temperature of the judge", "Run each comparison in both orders and check whether the verdict flips", "Only compare responses of equal length", "Ask the judge to rate its own confidence"], "a": 1, "e": "Swapping the order of the two responses and keeping only verdicts that agree exposes and mitigates position bias.", "lesson": "m2-l03"},
+    {"q": "What is the role of public benchmarks in model selection, according to Chapter 4?", "o": ["They identify the best model for your application", "They are free of contamination and can be trusted as a final ranking", "They help weed out bad models but will not find the best model for your needs", "They replace the need for a private evaluation set"], "a": 2, "e": "Public benchmarks are useful for elimination, but they are likely contaminated and do not reflect your criteria; model selection is like building a private leaderboard.", "lesson": "m2-l04"},
+    {"q": "Which attack places malicious instructions inside retrieved documents so the model follows them?", "o": ["Reverse prompt engineering", "Information extraction", "Indirect prompt injection", "Model distillation"], "a": 2, "e": "Indirect prompt injection hides instructions in content the model reads, such as web pages or retrieved files, rather than in the user's own message.", "lesson": "m2-l05"},
+    {"q": "Why does Chapter 6 recommend term-based retrieval such as BM25 as a starting point?", "o": ["It always outperforms embedding-based retrieval", "It is lighter to implement and gives a strong baseline", "It requires a vector database", "It handles images better than text"], "a": 1, "e": "Term-based retrievers are cheap and strong baselines; embedding-based retrieval costs more and must prove it beats them.", "lesson": "m2-l06"},
+    {"q": "How does the book relate RAG to agents?", "o": ["RAG is a special case of an agent where the retriever is a tool", "Agents are a special case of RAG", "They are unrelated patterns", "RAG modifies model weights while agents do not"], "a": 0, "e": "Both patterns let a model work around context limits; in an agent the retriever is simply one tool among others.", "lesson": "m2-l06"},
+    {"q": "For a 7B model finetuned fully in FP16 with Adam, roughly how much memory do weights, gradients and optimizer states need before activations?", "o": ["About 14 GB", "About 28 GB", "About 84 GB", "About 280 GB"], "a": 2, "e": "14 GB weights plus 14 GB gradients plus 56 GB for two FP32 Adam states per parameter gives about 84 GB, which is why PEFT and quantization matter.", "lesson": "m2-l07"},
+    {"q": "Which statement about synthetic data matches Chapter 8?", "o": ["Synthetic data never needs evaluation because it is generated consistently", "Synthetic data can only be used for pre-training", "Deduplication is unnecessary for generated data", "Synthetic data must be evaluated for quality before training, and verifying it is as hard as evaluating other AI outputs"], "a": 3, "e": "The chapter stresses that generated data must be verified and that people adopt synthetic data they can reliably evaluate.", "lesson": "m2-l08"},
+    {"q": "An application serves long shared system prompts in multi-turn chats and users complain about slow first tokens. Which optimization does Chapter 9 point to first?", "o": ["Prompt caching", "Increasing output length", "Replacing BF16 with FP32", "Removing the KV cache"], "a": 0, "e": "Prompt caching reuses computation for long overlapping prompt segments and multi-turn conversations, directly cutting prefill time and TTFT.", "lesson": "m2-l09"},
+    {"q": "In the Chapter 10 reference architecture, what does the model gateway provide?", "o": ["Vector search over documents", "A single interface to many models with authentication, rate limits, cost tracking and a place for guardrails and caches", "Training of LoRA adapters", "Human annotation of feedback"], "a": 1, "e": "The gateway unifies access to models and is one of several places where guardrails and caches can be implemented.", "lesson": "m2-l10"}
+  ],
+  "project": {
+    "title": "Design and evaluate a small AI application end to end",
+    "brief": "Take the use case you chose in Lesson 1 and carry it through the whole chapter sequence as a design package: justify building it, define how it will be evaluated, build a first prompted version with versioned prompts and a calibrated judge, decide whether retrieval or finetuning is needed, and sketch the production architecture and feedback loop. The point is not a polished product but a set of documents and small experiments that show you can make the judgment calls the book teaches.",
+    "hours": 8,
+    "steps": [
+      "Finalize the use case evaluation memo from Lesson 1 with measurable expectations, milestones and maintenance plan.",
+      "Write the evaluation guideline and evaluation plan from Lesson 4, and build an evaluation set of at least 40 examples with human scores for a subset.",
+      "Implement the first prompted version with prompts stored and versioned as in Lesson 5, including at least one input and one output check.",
+      "Calibrate a judge on the human-scored subset as in Lesson 3 and report agreement and position-bias rate; use it to compare at least two prompt versions.",
+      "Make the RAG decision from Lesson 6: either implement a small retriever with recall at 5 numbers or document why retrieval is not needed, and record the finetune-or-RAG analysis from Lesson 7 with memory estimates.",
+      "Produce the launch and month-six architecture diagrams from Lesson 10 with a monitoring table and a latency and cost budget from Lesson 9.",
+      "Design the feedback mechanism and describe how a week of feedback would flow back into the evaluation set and the prompt versions."
+    ],
+    "rubric": [
+      {"criterion": "Use case evaluation", "meets": "States why to build, the risk of not building, the role of AI, measurable expectations and realistic milestones including last-mile risks."},
+      {"criterion": "Evaluation pipeline", "meets": "Covers every component, has a written guideline with anchored rubric and examples, mixes exact checks, a judge and human review, and reports judge agreement and position-bias rate."},
+      {"criterion": "Prompt engineering and versioning", "meets": "Prompts live in versioned files with metadata, follow the best practices, and at least two versions are compared on the evaluation set with injection tests recorded."},
+      {"criterion": "RAG and finetuning decision", "meets": "The decision is tied to observed failure modes, retrieval is measured with recall at 5 if used, and the finetuning analysis includes a memory table for at least two settings."},
+      {"criterion": "Architecture and feedback", "meets": "Launch and month-six diagrams justify each component, every component has a metric and alert, the latency and cost budget uses measured numbers, and the feedback design names explicit and implicit signals and their biases."}
+    ],
+    "stretch": [
+      "Run a comparative evaluation: collect pairwise preferences between two prompt versions from three people and compute a simple Elo or win-rate ranking, then compare with the judge's ranking.",
+      "Generate a 100-example synthetic evaluation set with the Lesson 8 verification plan and measure how much it agrees with your hand-written set.",
+      "Add a semantic cache in front of your prompted version and measure hit rate and the rate of wrong cached answers on near-duplicate queries."
+    ]
+  },
+  "glossary": [
+    {"term": "Foundation model", "def": "A large model trained on broad, often multimodal data that is adapted to many downstream tasks rather than built for one."},
+    {"term": "AI engineering", "def": "Building applications on top of foundation models, with emphasis on prompting, context construction, evaluation, parameter-efficient finetuning and product feedback."},
+    {"term": "Scaling law", "def": "An empirical rule relating model performance to parameters, training tokens and compute; Chinchilla gives the compute-optimal balance."},
+    {"term": "Post-training", "def": "Supervised finetuning followed by preference finetuning, applied after pre-training to align a model with user expectations."},
+    {"term": "Sampling", "def": "The process by which a model picks each output token from its probability distribution, controlled by temperature, top-k and top-p."},
+    {"term": "Perplexity", "def": "Exponential of cross entropy; how surprised a model is by a text. Lower means more predictable; useful for contamination and data quality checks."},
+    {"term": "AI as a judge", "def": "Using a model to score or compare outputs against criteria; cheap and flexible but subjective, biased and judge-dependent."},
+    {"term": "Comparative evaluation", "def": "Ranking models from pairwise preferences rather than absolute scores, typically with Elo-style ratings as in Chatbot Arena."},
+    {"term": "Evaluation guideline", "def": "A written definition of good responses for an application, with rubric anchors and examples, tied to business metrics."},
+    {"term": "Benchmark contamination", "def": "Leakage of benchmark data into training data, inflating public scores and undermining leaderboards."},
+    {"term": "In-context learning", "def": "Learning a task from instructions and examples in the prompt without weight updates; zero-shot or few-shot."},
+    {"term": "Prompt injection", "def": "An attack that inserts instructions into user input or retrieved content so the model follows the attacker instead of the developer."},
+    {"term": "RAG", "def": "Retrieval-augmented generation: retrieve relevant information from external memory, then generate with it in context."},
+    {"term": "Hybrid search", "def": "Combining term-based (BM25) and embedding-based retrieval, for example with reciprocal rank fusion, then optionally reranking."},
+    {"term": "Agent", "def": "A system defined by its environment and tools in which a model plans and acts toward a goal, with reflection and memory to augment planning."},
+    {"term": "LoRA", "def": "Low-rank adaptation: a PEFT method that learns small low-rank update matrices on frozen weights, making finetunes cheap to train and modular to serve."},
+    {"term": "Quantization", "def": "Using fewer bits per value for weights or activations to reduce memory and speed up inference or training, with some risk of quality loss."},
+    {"term": "Data synthesis", "def": "Generating training or evaluation data programmatically or with AI, always followed by verification."},
+    {"term": "TTFT and TPOT", "def": "Time to first token (prefill-bound) and time per output token (decode-bound), the two halves of language model latency."},
+    {"term": "Model gateway", "def": "A unified interface to multiple models handling auth, rate limits, retries and cost tracking, and a common home for guardrails and caches."}
+  ]
+}

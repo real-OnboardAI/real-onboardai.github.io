@@ -1,0 +1,1095 @@
+{
+  "id": "m4",
+  "num": 4,
+  "title": "Lessons from a Year of Shipping",
+  "short": "Applied LLMs",
+  "stage": "Engineering the application",
+  "weeks": "Week 8",
+  "hours": 5,
+  "level": "Intermediate",
+  "source": {
+    "name": "Applied LLMs: What We've Learned From A Year of Building with LLMs",
+    "authors": "Eugene Yan, Bryan Bischof, Charles Frye, Hamel Husain, Jason Liu, Shreya Shankar",
+    "url": "https://applied-llms.org",
+    "kind": "long-form essay (also an O'Reilly report and a conference keynote)",
+    "license": "Free to read online; O'Reilly report edition is commercial (verify on the site)",
+    "format": "One long web page in three parts (Tactical, Operational, Strategic) with roughly forty short sub-lessons; also published as three O'Reilly Radar articles and a 35-minute AI Engineer World's Fair 2024 keynote",
+    "setup": "No installation needed. Have one LLM feature you have built or are designing open beside the essay, because every exercise asks you to review it against a lesson. Python 3.10+ with pytest and pydantic is enough to run the snippets."
+  },
+  "blurb": "Six practitioners wrote down what they got wrong and right in their first year of building LLM products, organised into tactical, operational and strategic lessons you can apply as a design-review checklist.",
+  "why": "You now know how models work and how to prompt, retrieve and fine-tune. Before you build anything serious you should read the compressed mistakes of people who shipped a year ahead of you. This module turns the essay into a checklist you will run against your own project in the module project and again in the Agents and Production stages.",
+  "outcomes": [
+    "Review an LLM feature against the essay's tactical lessons on prompting, retrieval, workflows and evaluation and name the specific gaps",
+    "Write assertion-based unit tests from real input and output samples and decide when an LLM judge or a pairwise comparison is justified",
+    "Choose between RAG, fine-tuning, long context and caching for a given requirement and defend the choice in the essay's terms",
+    "Set up the operational habits the essay describes: daily sample review, pinned model versions, structured outputs and a human-in-the-loop UX",
+    "Argue the strategic case for an LLM product using 'no GPUs before PMF', 'the system is the product' and the trend of low-cost cognition"
+  ],
+  "prerequisites": [
+    "Module 1 to 3 material: tokens, embeddings, prompting, RAG and a first look at fine-tuning",
+    "Python with pytest and pydantic, enough to write a test and a dataclass-style schema",
+    "At least one LLM feature of your own (a prototype counts) to review in the exercises"
+  ],
+  "lessons": [
+    {
+      "id": "m4-l01",
+      "title": "Tactical: Prompting",
+      "minutes": 40,
+      "sourceRef": "Tactical: Prompting",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "The essay opens by saying prompting is still underrated: a few fundamental techniques go a long way, but teams keep over-investing in a single giant prompt. It covers getting the most from n-shot examples, chain-of-thought and relevant resources, structuring inputs and outputs, keeping prompts small and single-purpose, and deliberately crafting the tokens you put into the context window. The recurring theme is that a prompt is an engineering artifact to be measured and refactored, not a piece of prose to be polished.",
+      "concepts": [
+        {
+          "term": "n-shot prompting",
+          "def": "Providing several representative examples of the task in the prompt so the model learns the format and distribution in context."
+        },
+        {
+          "term": "Chain-of-thought",
+          "def": "Asking the model to write out intermediate reasoning before the answer; the essay advises specifying the steps rather than only saying 'think step by step'."
+        },
+        {
+          "term": "Structured input and output",
+          "def": "Using delimiters such as XML tags or Markdown sections for inputs and schemas such as JSON for outputs so both the model and downstream code parse them reliably."
+        },
+        {
+          "term": "God prompt",
+          "def": "A single prompt that tries to do everything; the essay recommends splitting it into small prompts that each do one thing well."
+        },
+        {
+          "term": "Context crafting",
+          "def": "Choosing, ordering and trimming what goes into the context window instead of pasting whole documents."
+        }
+      ],
+      "keyPoints": [
+        "Focus on getting the most out of fundamental prompting techniques: n-shot prompts with in-context learning, chain-of-thought, and providing relevant resources.",
+        "N-shot examples should be representative of the real input distribution; if n is too small the model may over-anchor on those exact examples. The essay suggests aiming for at least five and not being afraid of a few dozen.",
+        "Chain-of-thought works better when you be explicit about the steps the model should take, for example list the key decisions, then the follow-ups, then check attendees, rather than a bare 'think step by step'.",
+        "Structure your inputs and outputs: structured input helps the model understand the task, structured output eases integration with downstream systems. The authors note different models respond differently to XML versus Markdown or JSON.",
+        "Have small prompts that do one thing, and only one thing, well. Like functions in code, a prompt that mixes extraction, summarisation and checking is hard to test and debug.",
+        "Craft your context tokens: rethink how much context you actually send, remove redundant and self-contradictory material, and structure it so the important parts stand out; render the final prompt and read it as the model will."
+      ],
+      "walkthrough": [
+        "Read 'Focus on getting the most out of fundamental prompting techniques' and note the three techniques the authors say consistently helped: n-shot, chain-of-thought, and providing relevant resources.",
+        "Read the n-shot guidance and check your own prompts: how many examples, and are they representative of production inputs rather than idealised ones?",
+        "Read the chain-of-thought guidance and rewrite one of your prompts to enumerate the specific steps instead of a generic instruction.",
+        "Read 'Structure your inputs and outputs' and identify where delimiters or a schema would reduce parsing failures.",
+        "Read 'Have small prompts that do one thing, and only one thing, well' and find any god prompt in your project.",
+        "Read 'Craft your context tokens' and render one of your final prompts end to end, then cut what the model does not need."
+      ],
+      "exercise": {
+        "title": "Refactor a god prompt",
+        "steps": [
+          "Pick the longest prompt in your project and list every distinct job it performs.",
+          "Split it into single-purpose prompts, each with structured input delimiters and a declared output format.",
+          "Add three to five representative n-shot examples drawn from real inputs, not invented ones.",
+          "Render each final prompt with real data and read it top to bottom, removing redundant context.",
+          "Run both versions on 20 real inputs and note any difference in failures."
+        ],
+        "deliverable": "A short before/after note with the split prompts, the example set, and the failure count on 20 inputs.",
+        "minutes": 40
+      },
+      "checkYourself": [
+        "Why does the essay compare a good prompt to a well-scoped function, and what does that imply for testing?",
+        "Which of your n-shot examples would a new teammate recognise as a real production input, and which are suspiciously clean?",
+        "If you removed half of the context you currently send, which outputs would actually get worse, and how would you know?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part I): Tactical",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-i/",
+          "type": "article"
+        },
+        {
+          "title": "O'Reilly report, Chapter 1: Tactics",
+          "url": "https://www.oreilly.com/library/view/what-we-learned/9781098176716/ch01.html",
+          "type": "docs"
+        }
+      ]
+    },
+    {
+      "id": "m4-l02",
+      "title": "Tactical: Information Retrieval and RAG",
+      "minutes": 40,
+      "sourceRef": "Tactical: Information Retrieval / RAG",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "This section argues that retrieval quality, not prompt cleverness, decides most RAG outcomes. The authors break retrieved-document quality into relevance, density and detail, insist that keyword search still belongs in the stack as a baseline and as half of hybrid search, prefer RAG over fine-tuning for injecting new knowledge, and explain why long-context models will not make retrieval obsolete. It is a corrective to the embeddings-only RAG demos that dominated the first year.",
+      "concepts": [
+        {
+          "term": "Relevance, density, detail",
+          "def": "The essay's three qualities of a retrieved document: it answers the query, it does so without filler, and it includes the specifics the model needs."
+        },
+        {
+          "term": "Hybrid search",
+          "def": "Combining lexical retrieval such as BM25 with embedding similarity so that exact names, codes and acronyms are not lost."
+        },
+        {
+          "term": "Ranking metrics",
+          "def": "Measures such as MRR and NDCG that score retrieval on its own, independent of what the LLM generates from it."
+        },
+        {
+          "term": "RAG versus fine-tuning for knowledge",
+          "def": "Retrieval keeps facts outside the weights so they can be updated, cited and access-controlled; fine-tuning bakes them in."
+        },
+        {
+          "term": "Lost in the middle",
+          "def": "The observed drop in recall for information placed in the middle of a very long context, one reason long context does not replace retrieval."
+        }
+      ],
+      "keyPoints": [
+        "The quality of your RAG output is dependent on the quality of retrieved documents, which the essay evaluates on relevance, density and detail.",
+        "Measure retrieval separately from generation using ranking metrics such as MRR and NDCG so you know whether a bad answer came from a bad search.",
+        "Don't forget keyword search: use it as a baseline and in hybrid search. Embeddings blur names, acronyms and IDs, and keyword systems are far easier to debug and explain.",
+        "Prefer RAG over fine-tuning for new knowledge: it is cheaper to update, lets you cite sources, lets you apply access controls, and the authors cite results where RAG beat unsupervised fine-tuning on new facts.",
+        "Long-context models won't make RAG obsolete: you still have to choose what deserves the context, cost and latency grow with tokens, and the model still has to reason over everything you stuff in.",
+        "Retrieval also gives you a natural place to apply document-level permissions and freshness rules that a fine-tuned model cannot enforce."
+      ],
+      "walkthrough": [
+        "Read 'The quality of your RAG's output is dependent on the quality of retrieved documents' and write down how you would score relevance, density and detail for your corpus.",
+        "Set up a tiny offline retrieval eval: 20 queries with known relevant documents, scored by MRR or NDCG, independent of generation.",
+        "Read 'Don't forget keyword search' and run the same 20 queries through BM25 alone and through hybrid search.",
+        "Read 'Prefer RAG over fine-tuning for new knowledge' and list the facts in your system that change monthly or need access control.",
+        "Read 'Long-context models won't make RAG obsolete' and estimate the token cost of sending your whole corpus per request."
+      ],
+      "exercise": {
+        "title": "Find the queries embeddings get wrong",
+        "steps": [
+          "Write ten queries from your domain that contain product codes, people's names, acronyms or exact phrases.",
+          "Run them through embedding-only retrieval and through BM25; record the top-5 for each.",
+          "Compute MRR for both and for a simple hybrid (reciprocal rank fusion).",
+          "Write one paragraph on which failures were retrieval failures and which were generation failures."
+        ],
+        "deliverable": "A table of ten queries with MRR under embedding, keyword and hybrid retrieval, plus the paragraph.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "If your retrieval eval is perfect but users still complain, which of the essay's three document qualities is probably missing?",
+        "What would it cost, in tokens and latency, to replace your retriever with a long-context model today, and what would you lose besides money?",
+        "Which facts in your product should never be fine-tuned into weights because of access control?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part I): Tactical",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-i/",
+          "type": "article"
+        },
+        {
+          "title": "Patterns for Building LLM-based Systems and Products (RAG section)",
+          "url": "https://eugeneyan.com/writing/llm-patterns/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m4-l03",
+      "title": "Tactical: Tuning and Optimizing Workflows",
+      "minutes": 40,
+      "sourceRef": "Tactical: Tuning and optimizing workflows",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "Prompting a single model is the start, not the end. This section tells you to think in workflows: decompose tasks into step-by-step, multi-turn flows; prefer deterministic plans over open-ended agent loops for now, because reliability decays exponentially with the number of steps; get diverse outputs by changing the prompt and context rather than just raising temperature; treat caching as an underrated cost and latency lever; and fine-tune only after prompting and retrieval have been pushed as far as they go.",
+      "concepts": [
+        {
+          "term": "Multi-turn flow",
+          "def": "Breaking a task into a sequence of smaller prompts, often plan then execute then verify, instead of one large call."
+        },
+        {
+          "term": "Deterministic workflow",
+          "def": "A fixed DAG of steps where the LLM produces a plan or fills a slot, as opposed to an agent that decides its own next action each turn."
+        },
+        {
+          "term": "Compounding error",
+          "def": "If each step succeeds 95 percent of the time, ten dependent steps succeed about 60 percent of the time; the essay uses this to argue for fewer, more reliable steps."
+        },
+        {
+          "term": "Output diversity",
+          "def": "Variation between generations; the essay suggests shuffling examples, varying prompt phrasing and keeping a history of recent outputs rather than only increasing temperature."
+        },
+        {
+          "term": "Exact-match and semantic caching",
+          "def": "Returning a stored response when the same or a near-identical request repeats, which the essay says is underrated for cost and latency."
+        }
+      ],
+      "keyPoints": [
+        "Step-by-step, multi-turn flows can give large boosts: decompose a single big prompt into multiple smaller ones with validation in between, which also makes each step easier to evaluate and cache.",
+        "Prioritize deterministic workflows for now: have the agent produce a plan, then execute that plan deterministically. Plans can be tested, cached and inspected, and failures are localised to a step.",
+        "The likelihood that an agent completes a multi-step task successfully decreases exponentially with the number of steps, so prefer fewer, more reliable steps over long open-ended loops.",
+        "Getting more diverse outputs beyond temperature: higher temperature only reshuffles probability mass and can hurt quality; instead vary the prompt, shuffle or rotate in-context examples, and tell the model what it has already produced.",
+        "Caching is underrated: many requests repeat exactly or nearly, and caching saves cost and removes generation latency entirely; it also lets you serve pre-vetted responses for known inputs.",
+        "When to fine-tune: only when the best prompt plus retrieval still misses the bar, for example to enforce a format or style the model cannot learn in context, and only once you have the data and evals to prove it helped."
+      ],
+      "walkthrough": [
+        "Read 'Step-by-step, multi-turn flows' and sketch one of your features as plan, execute, verify.",
+        "Read 'Prioritize deterministic workflows for now' and compute the expected success rate of your current flow from per-step rates.",
+        "Read 'Getting more diverse outputs beyond temperature' and list three non-temperature levers you could use.",
+        "Read 'Caching is underrated' and measure what fraction of your last 1,000 requests were exact or near repeats.",
+        "Read 'When to fine-tune' and write the evidence you would need before fine-tuning anything in your project."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A minimal exact-match cache around an LLM call, keyed on the normalized prompt and the pinned model version",
+        "src": "import hashlib, json\n\n_cache: dict[str, str] = {}\n\ndef _key(model: str, prompt: str, params: dict) -> str:\n    norm = \" \".join(prompt.split()).lower()\n    raw = json.dumps({\"m\": model, \"p\": norm, \"k\": params}, sort_keys=True)\n    return hashlib.sha256(raw.encode()).hexdigest()\n\ndef cached_complete(client, model: str, prompt: str, **params) -> str:\n    k = _key(model, prompt, params)\n    if k in _cache:\n        return _cache[k]              # no tokens, no latency\n    text = client.complete(model=model, prompt=prompt, **params)\n    _cache[k] = text\n    return text\n\n# Swap the dict for Redis or SQLite in production and add a TTL\n# so answers that depend on fresh data expire."
+      },
+      "exercise": {
+        "title": "Rewrite an agent loop as a fixed workflow",
+        "steps": [
+          "Take one feature that currently lets the model decide its next action.",
+          "Rewrite it as a three-step deterministic workflow: plan, execute each plan item, verify.",
+          "Run both versions on 20 real tasks and record success, cost and latency.",
+          "Add the exact-match cache from the snippet in front of the most repeated step and measure the hit rate."
+        ],
+        "deliverable": "A comparison table (success rate, median latency, cost) for the loop versus the workflow, plus the cache hit rate.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "If each step in your workflow succeeds 90 percent of the time, how many steps can you afford before the feature is wrong more often than right?",
+        "Which of your 'needs more variety' complaints are really prompt problems rather than sampling problems?",
+        "What is the business case for fine-tuning in your project if a cache would remove 40 percent of calls?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part I): Tactical",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-i/",
+          "type": "article"
+        },
+        {
+          "title": "Patterns for Building LLM-based Systems and Products (Caching section)",
+          "url": "https://eugeneyan.com/writing/llm-patterns/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m4-l04",
+      "title": "Tactical: Evaluation and Monitoring",
+      "minutes": 45,
+      "sourceRef": "Tactical: Evaluation and monitoring",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "The longest tactical section and the one the authors return to most. It recommends a handful of assertion-based unit tests built from real inputs and outputs, treats LLM-as-judge as useful but not a silver bullet, offers the intern test as a quick sanity check on a prompt, warns against over-indexing on a few evals, asks you to simplify annotation to binary or pairwise decisions, shows how reference-free evals double as guardrails, and ends with two sobering notes: models will return output when they should not, and hallucinations remain a stubborn problem.",
+      "concepts": [
+        {
+          "term": "Assertion-based unit test",
+          "def": "A cheap deterministic check on an LLM output, such as 'contains the requested fields' or 'mentions no competitor names', derived from real samples and run on every prompt change."
+        },
+        {
+          "term": "LLM-as-judge",
+          "def": "Using a strong model to grade outputs; the essay advises pairwise comparisons, position swapping, allowing ties, asking for reasoning first, and keeping to simple tasks."
+        },
+        {
+          "term": "The intern test",
+          "def": "Ask whether a capable college student, given the same prompt and context, could do the task; if not, the prompt or context is missing something rather than the model being weak."
+        },
+        {
+          "term": "Pairwise comparison",
+          "def": "Showing a labeler or judge two outputs and asking which is better, which is more reliable than absolute scores on a scale."
+        },
+        {
+          "term": "Reference-free eval",
+          "def": "A check that does not need a gold answer, such as a factual-consistency or toxicity classifier, which can therefore run on live traffic as a guardrail."
+        },
+        {
+          "term": "Refusal and empty-output handling",
+          "def": "Detecting cases where the model should have declined or returned nothing instead of producing confident filler."
+        }
+      ],
+      "keyPoints": [
+        "Create a few assertion-based unit tests from real input/output samples, with expectations based on real traffic, and run them on every prompt or pipeline change; use execution-based checks such as running generated code where possible.",
+        "LLM-as-Judge can work (somewhat), but it's not a silver bullet: use pairwise comparisons, control for position bias by swapping order, allow ties, ask for the reasoning before the verdict, and keep the judge's task simple.",
+        "The intern test: if a capable intern could not succeed with the prompt and context you give the model, fix the context or decompose the task before blaming the model.",
+        "Overemphasizing certain evals can hurt overall performance: optimising for needle-in-a-haystack or a single benchmark can degrade behaviour on the tasks users actually care about.",
+        "Simplify annotation to binary tasks or pairwise comparisons: 1 to 10 scales produce inconsistent labels; yes/no and A-versus-B are faster and raise inter-annotator agreement.",
+        "(Reference-free) evals and guardrails can be used interchangeably: a classifier that detects hallucination or toxicity without a gold answer can gate outputs in production as well as score them offline.",
+        "LLMs will return output even when they shouldn't, and hallucinations are a stubborn problem: design for refusals, detect low-confidence or ungrounded answers, and expect a residual error rate even with RAG."
+      ],
+      "walkthrough": [
+        "Read 'Create a few assertion-based unit tests from real input/output samples' and write three assertions from your last ten production outputs.",
+        "Read 'LLM-as-Judge can work (somewhat), but it's not a silver bullet' and draft a pairwise judge prompt with position swapping.",
+        "Read 'The intern test' and apply it to your weakest prompt.",
+        "Read 'Overemphasizing certain evals can hurt overall performance' and check whether any single eval dominates your decisions.",
+        "Read 'Simplify annotation to binary tasks or pairwise comparisons' and convert one scoring rubric to pass/fail.",
+        "Read '(Reference-free) evals and guardrails can be used interchangeably' and list which of your offline evals could run online.",
+        "Read 'LLMs will return output even when they shouldn't' and 'Hallucinations are a stubborn problem' and decide how your UI shows uncertainty or refusal."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Assertion-based unit tests on real samples (pytest), plus a pairwise judge prompt that asks for reasoning first and is run in both orders",
+        "src": "import json, pytest\nfrom myapp import summarize, judge_pair\n\nSAMPLES = json.load(open(\"tests/real_samples.json\"))  # real inputs\n\n@pytest.mark.parametrize(\"s\", SAMPLES)\ndef test_summary_assertions(s):\n    out = summarize(s[\"input\"])\n    assert len(out.split()) <= 120            # length budget\n    assert \"as an ai\" not in out.lower()      # no boilerplate\n    for name in s[\"must_mention\"]:\n        assert name in out                    # key entities kept\n\nJUDGE = \"\"\"Compare two summaries of the same text.\nFirst explain in two sentences which is more faithful and complete.\nThen answer with exactly one of: A, B, TIE.\n<text>{text}</text>\n<A>{a}</A>\n<B>{b}</B>\"\"\"\n\ndef pairwise(text, a, b):\n    v1 = judge_pair(JUDGE.format(text=text, a=a, b=b))\n    v2 = judge_pair(JUDGE.format(text=text, a=b, b=a))  # swap order\n    flipped = {\"A\": \"B\", \"B\": \"A\", \"TIE\": \"TIE\"}[v2]\n    return v1 if v1 == flipped else \"TIE\"     # disagreement = tie"
+      },
+      "exercise": {
+        "title": "Binary rubric and agreement check",
+        "steps": [
+          "Take an existing 1 to 5 quality rubric from your project, or write one if none exists.",
+          "Rewrite it as three to five binary pass/fail criteria.",
+          "Have two people label the same 30 outputs under both schemes and compute simple agreement.",
+          "Turn the two most objective binary criteria into pytest assertions over real samples.",
+          "Run the pairwise judge from the snippet on 10 pairs and compare it with the human labels."
+        ],
+        "deliverable": "Agreement numbers for scale versus binary labels, the pytest file, and a note on where the judge disagreed with humans.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "Which of your current evals would still be meaningful if the model started gaming it?",
+        "What does your product do when the model should have said 'I don't know', and how would you measure that today?",
+        "Why does the essay insist tests come from real samples rather than from the prompt author's imagination?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part I): Tactical",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-i/",
+          "type": "article"
+        },
+        {
+          "title": "Your AI Product Needs Evals (Hamel Husain)",
+          "url": "https://hamel.dev/blog/posts/evals/",
+          "type": "article"
+        },
+        {
+          "title": "Who Validates the Validators? (EvalGen paper, Shankar et al.)",
+          "url": "https://arxiv.org/abs/2404.12272",
+          "type": "paper"
+        }
+      ]
+    },
+    {
+      "id": "m4-l05",
+      "title": "Operational: Data",
+      "minutes": 30,
+      "sourceRef": "Operational: Data",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "Part II moves from technique to day-to-day running of an LLM system. The Data section asks two questions: how do you measure and reduce development-prod skew, and how often should you look at inputs and outputs. The answers are concrete. Measure skew structurally (format, length, token distribution, vocabulary) and semantically (topics, intents, sentiment), and read a sample of real traces every day because distributions drift silently and the failures you have not imagined are the ones that matter.",
+      "concepts": [
+        {
+          "term": "Development-prod skew",
+          "def": "The gap between the inputs you tested on and the inputs real users send; the essay splits it into structural and content-based skew."
+        },
+        {
+          "term": "Structural skew",
+          "def": "Differences in format, length, token distribution or vocabulary between dev and prod data."
+        },
+        {
+          "term": "Content skew",
+          "def": "Differences in topics, intents or sentiment between what you assumed and what users actually ask."
+        },
+        {
+          "term": "Trace",
+          "def": "The full record of one request: inputs, retrieved context, intermediate steps and output, which is what you sample and read."
+        },
+        {
+          "term": "Criteria drift",
+          "def": "Your idea of a good output changing as you read more outputs; the reason the essay says evaluation criteria must be revisited."
+        }
+      ],
+      "keyPoints": [
+        "Check for development-prod skew: compare dev and prod data on structure (format, length, tokens) and content (topics, intents, sentiment) and expect to be surprised.",
+        "Have the model classify a sample of prod inputs by topic and intent, then compare the distribution with your test set to find the gaps.",
+        "Look at samples of LLM inputs and outputs every day: pick a fixed number of traces, read them, note failures, and expect that the categories of failure will change over time.",
+        "Reading traces daily is how you discover that your evaluation criteria are incomplete; the essay and Shankar's research both describe criteria drift.",
+        "Log enough to reproduce a trace end to end, including the exact prompt, retrieved documents and model version, or the daily review cannot locate the fault.",
+        "Keep the review ritual light so it survives: fifteen minutes, ten traces, a shared list of failure modes."
+      ],
+      "walkthrough": [
+        "Read 'Check for development-prod skew' and list the structural dimensions you can measure today.",
+        "Sample 100 prod inputs, classify them by intent with an LLM, and compare with your eval set.",
+        "Read 'Look at samples of LLM inputs and outputs every day' and set up a daily sample of ten traces.",
+        "Create a shared failure-mode list and tag each trace you read.",
+        "After a week, decide which failure modes need a new assertion or a new eval."
+      ],
+      "exercise": {
+        "title": "One week of daily trace review",
+        "steps": [
+          "Set up a job that pulls ten random production (or staging) traces each morning.",
+          "Spend fifteen minutes a day reading them and tagging failures in a shared document.",
+          "On day three, compare the input distribution with your eval set and note skew.",
+          "On day seven, write the three most common failure modes and one assertion for each."
+        ],
+        "deliverable": "A one-page log of the week with the failure-mode list, skew observations and three new assertions.",
+        "minutes": 35
+      },
+      "checkYourself": [
+        "What would you miss about your users if you only looked at aggregate metrics and never read a trace?",
+        "Which dimension of skew (structure or content) is more likely to break your current prompts?",
+        "How will you know when your evaluation criteria have drifted?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part II): Operational",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-ii/",
+          "type": "article"
+        },
+        {
+          "title": "Hamel Husain's notes on LLM evals (error analysis and traces)",
+          "url": "https://hamel.dev/notes/llm/evals/",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m4-l06",
+      "title": "Operational: Working with Models and Product",
+      "minutes": 40,
+      "sourceRef": "Operational: Working with models; Operational: Product",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "Two operational sections that belong together. Working with Models covers generating structured output to ease downstream integration, the pain of migrating prompts across models, versioning and pinning models, and choosing the smallest model that does the job. Product covers involving design early and often, designing the UX for human-in-the-loop, prioritising your hierarchy of needs ruthlessly, and calibrating risk tolerance to the use case. Together they describe how an LLM feature is integrated into a real stack and a real user flow.",
+      "concepts": [
+        {
+          "term": "Structured output",
+          "def": "Having the model return a schema-conformant object (for example JSON validated by pydantic) so downstream code does not parse prose."
+        },
+        {
+          "term": "Model pinning",
+          "def": "Calling a specific dated model version instead of a floating alias so provider updates do not change behaviour under you."
+        },
+        {
+          "term": "Prompt migration",
+          "def": "The work of re-tuning prompts and re-running evals when you switch models or versions; the essay calls it a pain and says to budget for it."
+        },
+        {
+          "term": "Smallest adequate model",
+          "def": "Preferring a cheaper, faster model when evals show it meets the bar, often with better prompting or a small fine-tune."
+        },
+        {
+          "term": "Human-in-the-loop UX",
+          "def": "Interfaces where people can review, edit, approve or escalate model outputs, so the system improves and errors are caught."
+        },
+        {
+          "term": "Risk tolerance",
+          "def": "How much error a use case can absorb; internal drafting tools tolerate more than customer-facing medical or financial advice."
+        }
+      ],
+      "keyPoints": [
+        "Generate structured output to ease downstream integration: ask for a schema, validate it, and retry on failure; this also doubles as a cheap assertion.",
+        "Migrating prompts across models is a pain: the same prompt behaves differently on a new model or even a new version, so keep evals ready and treat a model change like a dependency upgrade.",
+        "Version and pin your models: use dated snapshots in production and run a shadow deployment of the new version against your evals before switching.",
+        "Choose the smallest model that gets the job done: lower cost and latency matter in production, and better prompting, retrieval or a small fine-tune often lets a smaller model meet the bar.",
+        "Involve design early and often: designers reframe the problem around the user's job rather than around the model's capabilities.",
+        "Design your UX for Human-in-the-Loop: give users a way to correct, accept or reject outputs, which builds trust and produces the feedback data you need.",
+        "Prioritize your hierarchy of needs ruthlessly and calibrate your risk tolerance based on the use case: reliability and harmlessness first, then factual consistency, then helpfulness and the rest, with the bar set by who sees the output."
+      ],
+      "walkthrough": [
+        "Read 'Generate structured output to ease downstream integration' and write a schema for one of your outputs.",
+        "Read 'Migrating prompts across models is a pain in the ass' and list every prompt that would need re-tuning on a model change.",
+        "Read 'Version and pin your models' and check whether your code calls a floating alias.",
+        "Read 'Choose the smallest model that gets the job done' and run your evals on one size down.",
+        "Read 'Involve design early and often' and 'Design your UX for Human-in-the-Loop' and sketch where a user can correct an output.",
+        "Read 'Prioritize your hierarchy of needs ruthlessly' and 'Calibrate your risk tolerance based on the use case' and rank your own requirements."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "A pydantic schema for structured output; validation failures become retries and the schema itself is a unit-test assertion",
+        "src": "from pydantic import BaseModel, Field, ValidationError\nfrom typing import Literal\n\nclass TicketTriage(BaseModel):\n    category: Literal[\"billing\", \"bug\", \"feature\", \"other\"]\n    severity: int = Field(ge=1, le=4)\n    summary: str = Field(max_length=200)\n    needs_human: bool\n\nMODEL = \"provider-model-2024-06-01\"   # pinned, not a floating alias\n\ndef triage(client, ticket: str, retries: int = 2) -> TicketTriage:\n    prompt = (\"Classify the support ticket. Reply with JSON matching \"\n              f\"this schema: {TicketTriage.model_json_schema()}\\n\"\n              f\"<ticket>{ticket}</ticket>\")\n    for attempt in range(retries + 1):\n        raw = client.complete(model=MODEL, prompt=prompt)\n        try:\n            return TicketTriage.model_validate_json(raw)\n        except ValidationError as e:\n            prompt += f\"\\nYour last reply was invalid: {e.errors()[0]['msg']}\"\n    raise RuntimeError(\"no valid structured output\")"
+      },
+      "exercise": {
+        "title": "Model-change readiness review",
+        "steps": [
+          "Find every place your project calls a model and record whether the version is pinned.",
+          "Convert one free-text output to a pydantic schema with validation and retry.",
+          "Run your assertion tests against the current model and one smaller model; record pass rates, cost and latency.",
+          "Sketch the human-in-the-loop path for the feature: where can a user edit, approve or escalate, and where does that signal go?",
+          "Write your hierarchy of needs for the feature and state the risk tolerance in one sentence."
+        ],
+        "deliverable": "A readiness note: pinned-version audit, the schema, the two-model comparison, the HITL sketch and the ranked requirements.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "What would break tomorrow if your provider silently updated the model you call?",
+        "Which of your outputs is read by code rather than by a person, and is it validated?",
+        "Who sees your worst output, and does the risk tolerance you have chosen match that audience?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part II): Operational",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-ii/",
+          "type": "article"
+        },
+        {
+          "title": "Instructor: structured outputs for LLMs (Jason Liu)",
+          "url": "https://github.com/jxnl/instructor",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m4-l07",
+      "title": "Operational: Team and Roles",
+      "minutes": 30,
+      "sourceRef": "Operational: Team & Roles",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "The last operational section is about people. It argues that process matters more than tools, that teams should always be experimenting because LLM work is closer to science than to feature delivery, that everyone on the team should be empowered to use the new technology, and that there is a trap in believing an AI engineer is all you need. The authors describe a staffing order that puts product, data and evaluation skills before specialised ML hires, and they are frank that the authors themselves have been hired too early at companies that were not ready.",
+      "concepts": [
+        {
+          "term": "Process over tools",
+          "def": "The essay's claim that most LLM failures are process failures (no evals, no trace review, no criteria) that no vendor tool fixes."
+        },
+        {
+          "term": "Experimentation culture",
+          "def": "Treating prompt and pipeline changes as hypotheses to test against evals rather than as tickets to close."
+        },
+        {
+          "term": "Democratised access",
+          "def": "Letting non-engineers write prompts, read traces and label outputs, because domain experts know what good looks like."
+        },
+        {
+          "term": "AI engineer trap",
+          "def": "Hiring an AI engineer before there is product direction, data or an evaluation process, so the hire has nothing to build on."
+        },
+        {
+          "term": "Staffing order",
+          "def": "The essay's suggested sequence: product and domain people first, then evaluation and data skills, with ML specialists only once the system and data exist."
+        }
+      ],
+      "keyPoints": [
+        "Focus on process, not tools: a team that reads traces, writes evals and iterates will outperform a team that buys an eval platform and never looks at data.",
+        "Always be experimenting: in LLM products the roadmap is a list of experiments, and each prompt or pipeline change should be measured against evals before it ships.",
+        "Empower everyone to use new AI technology: product managers, designers and domain experts should be able to write prompts and label outputs, not only engineers.",
+        "Don't fall into the trap of 'AI engineering is all I need': without product sense, data engineering and an evaluation process the AI engineer builds demos, not products.",
+        "The talk version of this material advises against hiring ML engineers too early and suggests spending four to six weeks training existing engineers on evals and data instead.",
+        "Build a cross-functional habit: a weekly session where the team reads traces together surfaces more than any dashboard."
+      ],
+      "walkthrough": [
+        "Read 'Focus on process, not tools' and list the tools your team has bought and the processes it actually runs.",
+        "Read 'Always be experimenting' and look at your last five shipped changes: which were measured against an eval?",
+        "Read 'Empower everyone to use new AI technology' and check who on the team can read a trace or edit a prompt today.",
+        "Read 'Don't fall into the trap of AI engineering is all I need' and map your team's skills against product, data, evals and ML."
+      ],
+      "exercise": {
+        "title": "Team and process audit",
+        "steps": [
+          "Write down who on your team can do each of: write prompts, read production traces, label outputs, change evals, deploy a model change.",
+          "List the last five changes to your LLM feature and whether each was measured before shipping.",
+          "Identify one process gap (not a tool gap) and propose a weekly ritual that closes it.",
+          "Decide what skill you would hire or train for next, and justify it in the essay's terms."
+        ],
+        "deliverable": "A one-page audit with the skills matrix, the five-change review and the proposed ritual.",
+        "minutes": 30
+      },
+      "checkYourself": [
+        "If you removed every paid tool from your LLM workflow, which practices would survive?",
+        "Who on your team last changed a prompt, and did they have access to evals when they did?",
+        "What would an AI engineer hired today at your company spend the first month doing, and is that the right use of them?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part II): Operational",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-ii/",
+          "type": "article"
+        },
+        {
+          "title": "AI Engineer World's Fair 2024 closing keynote: What We Learned from a Year of Building with LLMs",
+          "url": "https://ai.engineer/talks/what-we-learned-from-a-year-of-building-with-llms",
+          "type": "video"
+        }
+      ]
+    },
+    {
+      "id": "m4-l08",
+      "title": "Strategic: No GPUs Before PMF and Iterating to Something Great",
+      "minutes": 45,
+      "sourceRef": "Strategic: No GPUs before PMF; Iterate to something great; Start with prompting, evals, and data collection; The high-level trend of low-cost cognition",
+      "sourceUrl": "https://applied-llms.org",
+      "summary": "Part III answers the what and why behind the how. Under 'No GPUs before PMF' the authors argue that training from scratch almost never makes sense, that you should not fine-tune until you have proven it necessary, and that you should start with inference APIs while keeping self-hosting as an option. Under 'Iterate to something great' they say the model is not the product but the system around it is, that trust is built by starting small, that LLMOps should exist only to speed iteration, that you should not build LLM features you can buy, and that AI belongs in the loop with humans at the center. The playbook is to start with prompting, evals and data collection, and the closing argument is that the cost of cognition is falling fast enough that you should design for what will be cheap next year.",
+      "concepts": [
+        {
+          "term": "No GPUs before PMF",
+          "def": "Do not invest in training infrastructure or custom models until the product has demonstrated market fit on existing APIs."
+        },
+        {
+          "term": "The system is the product",
+          "def": "Evals, guardrails, caching, retrieval, UX and the data flywheel are the durable asset; the model is a replaceable component."
+        },
+        {
+          "term": "Data flywheel",
+          "def": "A loop where production usage produces labeled data that improves evals and models, which improves the product and brings more usage."
+        },
+        {
+          "term": "LLMOps for iteration",
+          "def": "Tooling justified only by how much faster it lets you test and ship changes, not by its own sophistication."
+        },
+        {
+          "term": "Low-cost cognition",
+          "def": "The essay's observation that the price of a given level of model capability has fallen by orders of magnitude in a few years, so plan for tasks that are uneconomic today."
+        },
+        {
+          "term": "0-to-1 versus 1-to-N",
+          "def": "The shift from building demos that prove something is possible to building products that work reliably for many users."
+        }
+      ],
+      "keyPoints": [
+        "Training from scratch (almost) never makes sense: the authors cite companies whose expensive custom models were overtaken by open models within months.",
+        "Don't fine-tune until you've proven it's necessary: fine-tuning adds annotation, training, evaluation and hosting costs, and most teams never exhaust prompting and retrieval first.",
+        "Start with inference APIs, but don't be afraid of self-hosting: APIs get you to product quickly, while self-hosting can cut cost (the essay cites BuzzFeed's 80 percent reduction), keep private data in your network and avoid rate limits and deprecations.",
+        "The model isn't the product, the system around it is: invest in the evaluation chassis, guardrails, caching and data flywheel, because those survive swapping the model and are what the thin-wrapper companies lack.",
+        "Build trust by starting small and build LLMOps, but build it for the right reason: faster iteration; ship a narrow, reliable feature and expand once users rely on it.",
+        "Don't build LLM features you can buy, and keep AI in the loop with humans at the center: generic capabilities are commodities; your product is the human workflow you improve.",
+        "Start with prompting, evals and data collection: prompt engineering comes first, then build evals and kickstart a data flywheel; and plan for the high-level trend of low-cost cognition, which turns today's uneconomic ideas into next year's products."
+      ],
+      "walkthrough": [
+        "Read 'Training from scratch (almost) never makes sense' and 'Don't fine-tune until you've proven it's necessary' and write what evidence would change your mind for your product.",
+        "Read 'Start with inference APIs, but don't be afraid of self-hosting' and list the triggers (cost, privacy, rate limits, deprecation) that would push you to self-host.",
+        "Read 'The model isn't the product, the system around it is' and draw the system around your model.",
+        "Read 'Build trust by starting small', 'Build LLMOps, but build it for the right reason: faster iteration' and 'Don't build LLM features you can buy'.",
+        "Read 'AI in the loop; humans at the center' and identify where the human stays in your workflow.",
+        "Read 'Start with prompting, evals, and data collection' and check your project followed that order.",
+        "Read 'The high-level trend of low-cost cognition' and the closing section on moving from 0-to-1 demos to 1-to-N products; estimate what your feature would cost at a tenth of today's prices."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Napkin math from the strategy section: when does a feature become economic as token prices fall?",
+        "src": "# Estimate the cost of one feature invocation and when it becomes viable.\ntokens_in, tokens_out = 6_000, 800            # per request\nprice_in, price_out = 3.00, 15.00             # USD per 1M tokens today\nrequests_per_user_month = 40\nvalue_per_user_month = 2.00                   # what the feature is worth\n\ndef cost_per_user(month: int, annual_price_drop: float = 0.5) -> float:\n    factor = (1 - annual_price_drop) ** (month / 12)\n    per_req = (tokens_in * price_in + tokens_out * price_out) / 1e6 * factor\n    return per_req * requests_per_user_month\n\nfor m in (0, 6, 12, 24):\n    c = cost_per_user(m)\n    print(f\"month {m:>2}: ${c:.2f}/user  viable={c < value_per_user_month}\")\n# Change the assumptions, not the conclusion: the point is to plan\n# for the capability that will be cheap when you ship, not today's price."
+      },
+      "exercise": {
+        "title": "Write the system around the model",
+        "steps": [
+          "For your product, list every component other than the model: data pipeline, retrieval, evals, guardrails, caching, UX, feedback capture.",
+          "Mark which of these would survive swapping the model for a competitor's and which would not.",
+          "Write the build-versus-buy decision for each component in one line each.",
+          "State your self-hosting triggers and your fine-tuning triggers as measurable conditions.",
+          "Run the napkin math from the snippet with your real token counts and prices."
+        ],
+        "deliverable": "A one-page strategy memo: the system diagram, build/buy table, triggers and the cost projection.",
+        "minutes": 50
+      },
+      "checkYourself": [
+        "If your model vendor doubled prices tomorrow, which parts of your product would still be valuable?",
+        "What feature is uneconomic for you today that the low-cost cognition trend would make viable within two years?",
+        "Is your current LLMOps investment making iteration faster, or is it making the system look more serious?"
+      ],
+      "resources": [
+        {
+          "title": "What We Learned from a Year of Building with LLMs (Part III): Strategy",
+          "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-iii-strategy/",
+          "type": "article"
+        },
+        {
+          "title": "Eugene Yan on the AI Engineer World's Fair 2024 keynote",
+          "url": "https://eugeneyan.com/speaking/aie-2024/",
+          "type": "article"
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "Applied LLMs: What We've Learned From A Year of Building with LLMs (full essay)",
+      "url": "https://applied-llms.org",
+      "type": "article",
+      "note": "The primary source: one page, three parts, about forty sub-lessons."
+    },
+    {
+      "title": "Part I: Tactical (O'Reilly Radar)",
+      "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-i/",
+      "type": "article",
+      "note": "Prompting, RAG, workflows, evaluation and monitoring; published 28 May 2024."
+    },
+    {
+      "title": "Part II: Operational (O'Reilly Radar)",
+      "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-ii/",
+      "type": "article",
+      "note": "Data, models, product and people; published 31 May 2024."
+    },
+    {
+      "title": "Part III: Strategy (O'Reilly Radar)",
+      "url": "https://www.oreilly.com/radar/what-we-learned-from-a-year-of-building-with-llms-part-iii-strategy/",
+      "type": "article",
+      "note": "No GPUs before PMF, iterate to something great, low-cost cognition; published 6 June 2024."
+    },
+    {
+      "title": "What We Learned from a Year of Building with LLMs (O'Reilly report)",
+      "url": "https://www.oreilly.com/library/view/what-we-learned/9781098176716/",
+      "type": "docs",
+      "note": "The same material as a short O'Reilly report with chapter navigation."
+    },
+    {
+      "title": "Mirror of the essay on gwern.net",
+      "url": "https://gwern.net/doc/www/applied-llms.org/74d6253bfaa187dabe1c1cdc04d05290ddfb681a.html",
+      "type": "article",
+      "note": "An archived copy of the applied-llms.org page, useful if the original is unreachable."
+    },
+    {
+      "title": "AI Engineer World's Fair 2024 closing keynote (talk page)",
+      "url": "https://ai.engineer/talks/what-we-learned-from-a-year-of-building-with-llms",
+      "type": "video",
+      "note": "All six authors present the essay in 35 minutes; the page links the recording and chapter list."
+    },
+    {
+      "title": "Eugene Yan: notes on the AIE 2024 keynote",
+      "url": "https://eugeneyan.com/speaking/aie-2024/",
+      "type": "article",
+      "note": "How the talk was structured and what the authors chose to emphasise."
+    },
+    {
+      "title": "Simon Willison's summary of Part I",
+      "url": "https://simonwillison.net/2024/May/29/a-year-of-building-with-llms/",
+      "type": "article",
+      "note": "A short, well-chosen set of quotes if you want the highlights before the full read."
+    },
+    {
+      "title": "Hacker News discussion of the essay",
+      "url": "https://news.ycombinator.com/item?id=40508390",
+      "type": "article",
+      "note": "Practitioner pushback and additional war stories in the comments."
+    },
+    {
+      "title": "Eugene Yan's blog",
+      "url": "https://eugeneyan.com",
+      "type": "article",
+      "note": "Long-form writing on evals, RAG, recsys and LLM systems by one of the authors."
+    },
+    {
+      "title": "Patterns for Building LLM-based Systems and Products",
+      "url": "https://eugeneyan.com/writing/llm-patterns/",
+      "type": "article",
+      "note": "Evals, RAG, fine-tuning, caching, guardrails, defensive UX and feedback: the pattern catalogue behind many of the essay's lessons."
+    },
+    {
+      "title": "Hamel Husain's blog",
+      "url": "https://hamel.dev",
+      "type": "article",
+      "note": "Evals, error analysis and LLM judges from another of the authors."
+    },
+    {
+      "title": "Your AI Product Needs Evals",
+      "url": "https://hamel.dev/blog/posts/evals/",
+      "type": "article",
+      "note": "The three-level eval system (unit tests, human and model eval, A/B tests) that underpins the essay's evaluation section."
+    },
+    {
+      "title": "Jason Liu's site",
+      "url": "https://jxnl.co",
+      "type": "article",
+      "note": "Author of Instructor; writing on structured outputs and RAG in production."
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "What three fundamental prompting techniques does the essay say consistently help?",
+      "back": "N-shot prompts with in-context learning, chain-of-thought, and providing relevant resources."
+    },
+    {
+      "front": "What is the risk of too few n-shot examples?",
+      "back": "The model over-anchors on those specific examples and generalises poorly; the essay suggests at least five, representative of real inputs."
+    },
+    {
+      "front": "How does the essay improve on 'think step by step'?",
+      "back": "Be explicit about the steps the model should take, such as list decisions, then follow-ups, then check attendees."
+    },
+    {
+      "front": "What does 'have small prompts that do one thing' mean in practice?",
+      "back": "Split a god prompt into single-purpose prompts, like functions, so each can be tested, cached and debugged separately."
+    },
+    {
+      "front": "Name the three qualities of a retrieved document in the essay.",
+      "back": "Relevance, density and detail."
+    },
+    {
+      "front": "Why 'don't forget keyword search'?",
+      "back": "Embeddings miss names, acronyms and IDs; keyword search is a strong baseline, half of hybrid search, and far easier to debug."
+    },
+    {
+      "front": "When should you prefer RAG over fine-tuning?",
+      "back": "For injecting new knowledge: it is cheaper to update, lets you cite sources and apply access controls."
+    },
+    {
+      "front": "Why won't long-context models make RAG obsolete?",
+      "back": "You still must choose what goes in, cost and latency grow with tokens, and the model must still reason over all of it."
+    },
+    {
+      "front": "Why prioritise deterministic workflows for now?",
+      "back": "Plans can be tested, cached and inspected, and the chance an agent completes a multi-step task falls exponentially with the number of steps."
+    },
+    {
+      "front": "Three ways to get more diverse outputs beyond temperature?",
+      "back": "Vary the prompt wording, shuffle or rotate in-context examples, and tell the model what it has already generated."
+    },
+    {
+      "front": "Why is caching 'underrated'?",
+      "back": "Many requests repeat; a cache removes cost and generation latency entirely and can serve pre-vetted responses."
+    },
+    {
+      "front": "What is an assertion-based unit test for an LLM?",
+      "back": "A cheap deterministic check, derived from real input/output samples, run on every prompt or pipeline change."
+    },
+    {
+      "front": "What is the intern test?",
+      "back": "Ask whether a capable intern given the same prompt and context could do the task; if not, fix the prompt or context."
+    },
+    {
+      "front": "How should you run an LLM judge, according to the essay?",
+      "back": "Pairwise comparisons, swap positions to control bias, allow ties, ask for reasoning before the verdict, keep the task simple."
+    },
+    {
+      "front": "Why simplify annotation to binary or pairwise?",
+      "back": "Scales like 1 to 10 produce inconsistent labels; yes/no and A-versus-B are faster and raise agreement."
+    },
+    {
+      "front": "What are the two operational data lessons?",
+      "back": "Check for development-prod skew, and look at samples of LLM inputs and outputs every day."
+    },
+    {
+      "front": "Why version and pin your models?",
+      "back": "Provider updates silently change behaviour; a model change is a dependency change and should be shadow-tested against evals first."
+    },
+    {
+      "front": "What does 'the model isn't the product, the system around it is' mean?",
+      "back": "Evals, guardrails, caching, retrieval, UX and the data flywheel are the durable asset; the model is replaceable."
+    },
+    {
+      "front": "What is the 'No GPUs before PMF' argument?",
+      "back": "Do not train from scratch or fine-tune before proving product-market fit on inference APIs; keep self-hosting as a later option."
+    },
+    {
+      "front": "What is the trend of low-cost cognition?",
+      "back": "The price of a given level of model capability keeps falling by orders of magnitude, so plan for tasks that are uneconomic today."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "According to the essay, what happens when an n-shot prompt has too few examples?",
+      "o": [
+        "The model refuses to answer",
+        "The model may over-anchor on those specific examples and generalise poorly",
+        "Latency increases sharply",
+        "The output is always too long"
+      ],
+      "a": 1,
+      "e": "The essay warns that a small n leads the model to overfit to the exact examples, and suggests at least five representative ones.",
+      "lesson": "m4-l01"
+    },
+    {
+      "q": "What does the essay mean by 'have small prompts that do one thing, and only one thing, well'?",
+      "o": [
+        "Use the shortest model available",
+        "Split a multi-purpose prompt into single-purpose prompts that can be tested and cached separately",
+        "Limit every prompt to one sentence",
+        "Never use system prompts"
+      ],
+      "a": 1,
+      "e": "The analogy is to well-scoped functions in code; a god prompt is hard to evaluate and debug.",
+      "lesson": "m4-l01"
+    },
+    {
+      "q": "Which of these does the essay recommend for injecting new factual knowledge?",
+      "o": [
+        "Fine-tune the facts into the model",
+        "Use RAG and keep the documents updated",
+        "Train a model from scratch",
+        "Raise the temperature"
+      ],
+      "a": 1,
+      "e": "RAG is cheaper to update, lets you cite sources and apply access controls; the essay prefers it over fine-tuning for new knowledge.",
+      "lesson": "m4-l02"
+    },
+    {
+      "q": "Why does the essay say not to forget keyword search?",
+      "o": [
+        "Embeddings are always slower",
+        "Keyword search handles names, acronyms and IDs that embeddings blur, and is easier to debug",
+        "Keyword search needs no index",
+        "Vector databases are deprecated"
+      ],
+      "a": 1,
+      "e": "Keyword search is a strong baseline and one half of hybrid search.",
+      "lesson": "m4-l02"
+    },
+    {
+      "q": "Why does the essay prioritise deterministic workflows over open-ended agents for now?",
+      "o": [
+        "Agents cost nothing to run",
+        "A plan can be tested, cached and inspected, and success probability falls exponentially with the number of agent steps",
+        "Deterministic workflows need no LLM",
+        "Agents cannot use tools"
+      ],
+      "a": 1,
+      "e": "Having the agent produce a plan that is then executed deterministically localises failures and makes evaluation possible.",
+      "lesson": "m4-l03"
+    },
+    {
+      "q": "Which is NOT one of the essay's suggestions for more diverse outputs beyond temperature?",
+      "o": [
+        "Shuffle the in-context examples",
+        "Vary the prompt wording",
+        "Tell the model what it has already generated",
+        "Double the number of retries with the same prompt"
+      ],
+      "a": 3,
+      "e": "The essay suggests changing the prompt, examples and context; repeating the same request only reshuffles the same distribution.",
+      "lesson": "m4-l03"
+    },
+    {
+      "q": "What is the intern test?",
+      "o": [
+        "Hiring interns to label data",
+        "Asking whether a capable intern could succeed given the same prompt and context",
+        "Testing with the smallest model",
+        "A latency benchmark"
+      ],
+      "a": 1,
+      "e": "If a human could not do the task with the information provided, the fix is the prompt or context, not the model.",
+      "lesson": "m4-l04"
+    },
+    {
+      "q": "Which annotation scheme does the essay say is most reliable?",
+      "o": [
+        "1 to 10 numeric scales",
+        "Free-text comments",
+        "Binary or pairwise judgments",
+        "Five-star ratings"
+      ],
+      "a": 2,
+      "e": "Simpler labels raise inter-annotator agreement and make judges easier to calibrate.",
+      "lesson": "m4-l04"
+    },
+    {
+      "q": "Which practice does the essay recommend for the operational Data section?",
+      "o": [
+        "Review inputs and outputs once a quarter",
+        "Look at samples of LLM inputs and outputs every day and check for development-prod skew",
+        "Delete logs after 24 hours",
+        "Only track aggregate accuracy"
+      ],
+      "a": 1,
+      "e": "Daily trace review and skew checks are how you find failure modes you did not anticipate.",
+      "lesson": "m4-l05"
+    },
+    {
+      "q": "Why pin model versions in production?",
+      "o": [
+        "To reduce token cost",
+        "Provider updates can silently change behaviour and break your evals",
+        "Pinning speeds up inference",
+        "It is required by the API"
+      ],
+      "a": 1,
+      "e": "Treat a model update as a dependency change and shadow-test the new version before switching.",
+      "lesson": "m4-l06"
+    },
+    {
+      "q": "What is the 'AI engineering is all I need' trap?",
+      "o": [
+        "Using too many GPUs",
+        "Hiring an AI engineer before there is product direction, data and an evaluation process",
+        "Writing prompts in English",
+        "Relying on open-source models"
+      ],
+      "a": 1,
+      "e": "Without product, data and eval skills the AI engineer builds demos rather than products.",
+      "lesson": "m4-l07"
+    },
+    {
+      "q": "'The model isn't the product, the system around it is' argues that durable advantage comes from:",
+      "o": [
+        "Owning the largest model",
+        "Evals, guardrails, caching, retrieval, UX and the data flywheel that survive swapping the model",
+        "Secret prompts",
+        "GPU capacity"
+      ],
+      "a": 1,
+      "e": "Models commoditise; the system and the data feedback loop are what thin wrappers lack.",
+      "lesson": "m4-l08"
+    }
+  ],
+  "project": {
+    "title": "Run a design review of an LLM feature against the Applied LLMs checklist",
+    "brief": "Take one LLM feature you own or are designing and review it against every lesson in the essay. Produce a two-page written review with a finding per tactical, operational and strategic lesson, each marked as meets, gap, or not applicable with a one-line reason. Finish with a prioritised list of the five changes you would make first and the eval you would use to prove each one worked.",
+    "hours": 5,
+    "steps": [
+      "Write a half-page description of the feature: users, inputs, outputs, model, retrieval, and how success is measured today.",
+      "Build the checklist: one row per sub-heading of the essay (about forty), grouped by tactical, operational and strategic.",
+      "Review the tactical lessons: prompting, retrieval, workflows and evaluation. Attach evidence such as a rendered prompt, a retrieval metric or a test file.",
+      "Review the operational lessons: data, models, product and team. Attach evidence such as a pinned version, a trace sample or a UX sketch.",
+      "Review the strategic lessons: build versus buy, fine-tuning triggers, the system around the model and the cost projection.",
+      "Rank the gaps by user impact and effort, choose the top five, and name the eval or metric that would show each fix worked.",
+      "Write the two-page review and present it to one other person for fifteen minutes; record their objections."
+    ],
+    "rubric": [
+      {
+        "criterion": "Coverage",
+        "meets": "Every sub-heading of the essay has a finding marked meets, gap or not applicable with a reason; nothing is skipped silently."
+      },
+      {
+        "criterion": "Evidence",
+        "meets": "At least two thirds of findings point to an artifact (prompt, test, metric, trace, sketch) rather than an opinion."
+      },
+      {
+        "criterion": "Prioritisation",
+        "meets": "The top five changes are ranked with an explicit impact and effort argument and each has a named eval."
+      },
+      {
+        "criterion": "Strategic reasoning",
+        "meets": "The build-versus-buy, fine-tuning and self-hosting positions are stated as measurable triggers in the essay's terms."
+      },
+      {
+        "criterion": "Clarity",
+        "meets": "A reader who has not seen the feature can understand the review in ten minutes and knows what to do next."
+      }
+    ],
+    "stretch": [
+      "Implement the top gap and re-run the review section to show the finding moved from gap to meets.",
+      "Turn your checklist into a reusable template and run it on a second feature or a teammate's project.",
+      "Record a ten-minute walkthrough of the review in the style of the authors' keynote."
+    ]
+  },
+  "glossary": [
+    {
+      "term": "n-shot prompting",
+      "def": "Including several examples of the task in the prompt so the model learns the format and distribution in context."
+    },
+    {
+      "term": "Chain-of-thought",
+      "def": "Prompting the model to produce intermediate reasoning, ideally with the specific steps spelled out, before the final answer."
+    },
+    {
+      "term": "God prompt",
+      "def": "A single prompt that tries to do many jobs at once; the essay recommends splitting it into small single-purpose prompts."
+    },
+    {
+      "term": "Hybrid search",
+      "def": "Retrieval that combines keyword (lexical) matching with embedding similarity."
+    },
+    {
+      "term": "MRR and NDCG",
+      "def": "Ranking metrics used to evaluate retrieval quality independently of generation."
+    },
+    {
+      "term": "Deterministic workflow",
+      "def": "A fixed sequence of steps where the LLM fills slots or produces a plan, rather than deciding its own next action each turn."
+    },
+    {
+      "term": "Semantic cache",
+      "def": "A cache that returns a stored response for requests that are similar in meaning, not only identical in text."
+    },
+    {
+      "term": "Assertion-based unit test",
+      "def": "A deterministic check on an LLM output derived from real samples and run on every change."
+    },
+    {
+      "term": "LLM-as-judge",
+      "def": "Using a strong model to grade or compare outputs; works best with pairwise comparisons, position swapping and simple tasks."
+    },
+    {
+      "term": "Intern test",
+      "def": "A sanity check: could a capable intern complete the task with exactly the prompt and context the model gets?"
+    },
+    {
+      "term": "Reference-free eval",
+      "def": "An evaluation that needs no gold answer, so it can also run on live traffic as a guardrail."
+    },
+    {
+      "term": "Development-prod skew",
+      "def": "The structural and content gap between test data and real user inputs."
+    },
+    {
+      "term": "Model pinning",
+      "def": "Calling a specific dated model version so provider updates do not silently change behaviour."
+    },
+    {
+      "term": "Human-in-the-loop",
+      "def": "A design where people review, correct, approve or escalate model outputs, producing feedback data as a side effect."
+    },
+    {
+      "term": "Data flywheel",
+      "def": "The loop where usage produces labeled data that improves evals and models, which improves the product and drives more usage."
+    },
+    {
+      "term": "Low-cost cognition",
+      "def": "The trend of rapidly falling prices for a given level of model capability, which the essay says should shape product planning."
+    }
+  ]
+}

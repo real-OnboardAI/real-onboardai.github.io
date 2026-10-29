@@ -1,0 +1,1391 @@
+{
+  "id": "m6",
+  "num": 6,
+  "title": "12-Factor Agents",
+  "short": "Production agents",
+  "stage": "Agents",
+  "weeks": "Week 11",
+  "hours": 7,
+  "level": "Advanced",
+  "source": {
+    "name": "12-Factor Agents",
+    "authors": "Dex Horthy (HumanLayer) and contributors",
+    "url": "https://github.com/humanlayer/12-factor-agents",
+    "kind": "open-source guide + workshop",
+    "license": "Content CC BY-SA 4.0, code Apache-2.0 (verify in repo)",
+    "format": "A README, twelve factor pages and an appendix on GitHub, a 17-minute conference talk, and a chaptered TypeScript workshop with a Python Colab notebook",
+    "setup": "Node 20 and npm for the TypeScript workshop (BAML, tsx, Express), or Google Colab with an OpenAI key for the Python notebook. An LLM API key for any provider BAML supports; a free HumanLayer account for the email and webhook chapters."
+  },
+  "blurb": "Twelve engineering principles for turning a demo agent into production software you own: prompts, context, state, control flow, pause and resume, humans in the loop, and small focused agents.",
+  "why": "Module 5 built agents three ways with frameworks. This module explains what those frameworks hide and why teams hit a 70 to 80 percent quality wall, then shows how to take back the prompt, the context window, the state and the loop one factor at a time. It is the bridge from agents that work in a notebook to agents that can be paused, approved, resumed and replayed in production, before Module 7 covers serving.",
+  "outcomes": [
+    "Explain why naive tool-calling loops degrade with context length and where LLM steps belong inside deterministic software",
+    "Write and test your own prompt and context serializer instead of relying on a framework's hidden ones",
+    "Model tools as structured outputs and keep execution state and business state in one serializable thread",
+    "Implement launch, pause and resume with human approval between tool selection and tool execution",
+    "Add capped error compaction, split work into small focused agents, and verify behaviour with replay tests"
+  ],
+  "prerequisites": [
+    "A working tool-calling agent from Module 5 (any framework or language)",
+    "Comfort with TypeScript or Python and basic HTTP services (Express or FastAPI)",
+    "Familiarity with JSON schemas and structured outputs from Modules 2 and 4"
+  ],
+  "lessons": [
+    {
+      "id": "m6-l01",
+      "title": "How we got here: software, DAGs and the agent loop",
+      "minutes": 40,
+      "sourceRef": "How We Got Here: A Brief History of Software",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/brief-history-of-software.md",
+      "videoUrl": "https://www.youtube.com/watch?v=8kMaTybvDUw",
+      "summary": "Dex Horthy opens by arguing that software has always been a directed graph: flow charts 60 years ago, DAG orchestrators like Airflow and Prefect 20 years ago, DAGs with ML steps sprinkled in 10 to 15 years ago. The promise of agents was that you could throw the DAG away and give the model a goal plus a set of transitions. In practice that collapses to a loop (model picks a step as structured JSON, code runs it, result is appended to context, repeat) and the loop breaks down once the context window grows past 10 to 20 turns. The README adds the founder journey: grab a framework, reach 70 to 80 percent quality, discover 80 percent is not shippable, reverse-engineer the framework, start over. The fix is micro agents embedded in mostly deterministic code, illustrated by a real deploybot.",
+      "concepts": [
+        {
+          "term": "DAG",
+          "def": "A directed acyclic graph of steps and edges; the page's claim is that ordinary software, and every workflow orchestrator, is already one."
+        },
+        {
+          "term": "agent loop",
+          "def": "LLM chooses the next step as structured JSON, deterministic code executes it, the result is appended to the context, repeat until a terminal step."
+        },
+        {
+          "term": "micro agent",
+          "def": "A small LLM-driven loop of roughly 5 to 10 steps embedded inside a larger deterministic DAG, which is what the author actually sees working in production."
+        },
+        {
+          "term": "the 70 to 80 percent wall",
+          "def": "The quality ceiling teams hit with off-the-shelf agent frameworks before they have to reverse-engineer prompts, flow and context to go further."
+        },
+        {
+          "term": "four components of an agent",
+          "def": "A prompt, a switch statement, accumulated context and a for loop; owning each one is what the twelve factors formalise."
+        }
+      ],
+      "keyPoints": [
+        "Software is a directed graph; DAG orchestrators (Airflow, Prefect, Dagster, Inngest, Windmill) added observability, retries and modularity to the same shape.",
+        "The agent promise: give the model the edges of the graph and let it pick the nodes at runtime, writing less code and recovering from errors.",
+        "An agent is a loop: determine next step (structured JSON), execute it, append the result, repeat until intent is done.",
+        "The loop fails because agents get lost when the context window grows; most builders abandoned naive tool-calling loops beyond 10 to 20 turns.",
+        "Even 90 percent success is nowhere near customer-grade; imagine a web app that crashed on 10 percent of page loads.",
+        "The deploybot example: deterministic code deploys to staging and runs tests, then hands a 5 to 10 step prod deployment to a tiny agent whose main job is parsing human feedback.",
+        "Most production 'agents' are mostly deterministic code with LLM steps at exactly the right points."
+      ],
+      "walkthrough": [
+        "Read the three eras: code as flow charts, DAG orchestrators, DAGs with ML models sprinkled in.",
+        "Study the promise-of-agents diagrams: goal plus transitions, with the LLM choosing the path in real time.",
+        "Trace the four-step loop in the Python snippet and watch the multi-step animation of the materialised DAG.",
+        "Read the section on why the loop-until-solved pattern fails: long context, repeated broken attempts, the swyx quote.",
+        "Walk the deploybot sequence step by step and mark which steps are human, deterministic code, or agent.",
+        "Finish with the four components (prompt, switch, context, loop) and note which factor owns each one.",
+        "In the README, read the seven-step founder journey and the design-patterns conclusion about modular concepts over greenfield rewrites."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "The naive agent loop from the README: pick a step, run it, append, repeat",
+        "src": "initial_event = {\"message\": \"...\"}\ncontext = [initial_event]\nwhile True:\n  next_step = await llm.determine_next_step(context)\n  context.append(next_step)\n\n  if next_step.intent == \"done\":\n    return next_step.final_answer\n\n  result = await execute_step(next_step)\n  context.append(result)"
+      },
+      "exercise": {
+        "title": "Audit your own agent against the loop",
+        "steps": [
+          "Take an agent you built in Module 5 (or any tool-calling loop you have).",
+          "Draw its materialised DAG for one real run: every model call, tool call and result as nodes.",
+          "Count the turns and the tokens in context at the final step.",
+          "Mark where it got lost or repeated itself, and which steps could be deterministic code instead of model decisions.",
+          "Write down which of the four components (prompt, switch, context, loop) you actually control today."
+        ],
+        "deliverable": "A one-page diagram of one real run with turn count, token count and the components you own.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Which parts of your current agent are really a DAG that happens to be executed by a model?",
+        "Why does a 90 percent success rate feel fine in a demo and unacceptable in a product?",
+        "What is the LLM genuinely adding in the deploybot example if most steps are deterministic?"
+      ],
+      "resources": [
+        {
+          "title": "AI Engineer World's Fair talk: 12-Factor Agents (17 min)",
+          "url": "https://www.youtube.com/watch?v=8kMaTybvDUw",
+          "type": "video"
+        },
+        {
+          "title": "Building Effective Agents (Anthropic)",
+          "url": "https://www.anthropic.com/engineering/building-effective-agents#agents",
+          "type": "article"
+        },
+        {
+          "title": "Deploybot, the real OSS agent behind the example",
+          "url": "https://github.com/got-agents/agents/tree/main/deploybot-ts",
+          "type": "repo"
+        },
+        {
+          "title": "Apache Airflow",
+          "url": "https://airflow.apache.org/",
+          "type": "tool"
+        },
+        {
+          "title": "YouTube deep dive on 12-factor agents",
+          "url": "https://www.youtube.com/watch?v=yxJDyQ8v6P0",
+          "type": "video"
+        }
+      ]
+    },
+    {
+      "id": "m6-l02",
+      "title": "Factor 1: Natural language to tool calls",
+      "minutes": 25,
+      "sourceRef": "Factor 1: Natural Language to Tool Calls",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-01-natural-language-to-tool-calls.md",
+      "summary": "The most atomic agent pattern: turn a sentence like 'create a payment link for 750 dollars to Terri for sponsoring the meetup' into a structured object describing a Stripe API call. The page shows the JSON payload, notes that a real agent (Mailcrew) would first list customers, products and prices to fill in the right ids, and then shows deterministic code picking the payload up in a switch. It deliberately stops before looping on the result, saving that for later factors so you can adopt just this piece.",
+      "concepts": [
+        {
+          "term": "natural language to tool call",
+          "def": "Translating a plain-English request into a typed JSON object that describes an API call, with deterministic code doing the actual call."
+        },
+        {
+          "term": "intent",
+          "def": "The field in the structured output that names which action the model chose; the switch statement branches on it."
+        },
+        {
+          "term": "atomic application",
+          "def": "Using the translation step once, without a loop, as a feature inside existing software."
+        },
+        {
+          "term": "payload enrichment",
+          "def": "Looking up ids (customers, products, prices) either by prior tool calls or by placing them in the context up front."
+        }
+      ],
+      "keyPoints": [
+        "The pattern, applied atomically, is a single translation from phrase to structured object.",
+        "The example payload names a function (create_payment_link) and typed parameters: amount, customer, product, price, quantity, memo.",
+        "Real APIs need ids; a real agent either calls list endpoints first or has the ids placed in context, which Factor 3 shows are the same thing.",
+        "Deterministic code handles the structured output in a switch on the function name, with an else branch for unknown calls.",
+        "You can adopt this factor alone; the loop that feeds results back is a separate choice."
+      ],
+      "walkthrough": [
+        "Read the natural-language request and the JSON payload side by side and name every field the model had to infer.",
+        "Note the caveat about Stripe ids and how Mailcrew lists customers and products first.",
+        "Read the Python handler: determineNextStep returns an object, and the if/elif chain decides what to do.",
+        "Notice the final note: the page stops before looping, on purpose."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Factor 1: translate a sentence to a structured object, then branch on it in code",
+        "src": "# The LLM takes natural language and returns a structured object\nnextStep = await llm.determineNextStep(\n  \"\"\"\n  create a payment link for $750 to Jeff\n  for sponsoring the february AI tinkerers meetup\n  \"\"\"\n)\n\n# Handle the structured output based on its function\nif nextStep.function == 'create_payment_link':\n    stripe.paymentlinks.create(nextStep.parameters)\n    return  # or whatever you want, see below\nelif nextStep.function == 'something_else':\n    # ... more cases\n    pass\nelse:  # the model didn't call a tool we know about\n    # do something else\n    pass"
+      },
+      "exercise": {
+        "title": "One-shot translator",
+        "steps": [
+          "Pick one API in your own product (or a fake one) with three parameters.",
+          "Write a function that takes a sentence and returns a typed object with an intent field and the parameters.",
+          "Write the switch that executes it, with an explicit branch for unknown intents.",
+          "Try five phrasings, including one with a missing parameter, and record what the model does."
+        ],
+        "deliverable": "A script with the translator, the switch and a table of five inputs and the structured outputs.",
+        "minutes": 30
+      },
+      "checkYourself": [
+        "Where should the ids the model needs come from: prior tool calls or the initial context?",
+        "What should your switch do when the model emits an intent you did not define?"
+      ],
+      "resources": [
+        {
+          "title": "Mailcrew agent (a real implementation)",
+          "url": "https://github.com/dexhorthy/mailcrew",
+          "type": "repo"
+        },
+        {
+          "title": "Mailcrew demo video",
+          "url": "https://www.youtube.com/watch?v=f_cKnoPC_Oo",
+          "type": "video"
+        }
+      ]
+    },
+    {
+      "id": "m6-l03",
+      "title": "Factor 2: Own your prompts",
+      "minutes": 35,
+      "sourceRef": "Factor 2: Own your prompts",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-02-own-your-prompts.md",
+      "summary": "Do not outsource prompt engineering to a framework. The page contrasts a black-box Agent(role, goal, personality, tools) API, which gives you top-notch starter prompts but is hard to tune or reverse-engineer, with a prompt written as first-class code: a BAML function DetermineNextStep(thread) whose return type is a union of tool classes and whose template spells out the system role, deployment rules, available tools, a planning checklist, and the serialized thread. Benefits listed are full control, testability and evals, fast iteration, transparency and role hacking. The closing line is the guide's refrain: I don't know the best prompt, but you want the flexibility to try everything.",
+      "concepts": [
+        {
+          "term": "own your prompt",
+          "def": "Write and version the exact text sent to the model as code you can test, instead of parameters to a framework object."
+        },
+        {
+          "term": "prompt as function",
+          "def": "A typed function whose input is the serialized thread and whose output type is the union of allowed next steps."
+        },
+        {
+          "term": "black-box agent API",
+          "def": "Framework constructors that hide the prompt behind role, goal and personality fields."
+        },
+        {
+          "term": "role hacking",
+          "def": "Using nonstandard user, assistant and system roles where an API allows it to steer the model."
+        },
+        {
+          "term": "BAML",
+          "def": "A prompting and structured-output language used in the examples; any templating approach works."
+        }
+      ],
+      "keyPoints": [
+        "Frameworks' hidden prompts help you start fast but block you when you need to get exactly the right tokens into the model.",
+        "The example prompt is an ordinary function: system instructions, a checklist of what to verify before deploying, the available tools, then the thread and the question 'what should the next step be?'.",
+        "The return type DoneForNow | ListGitTags | DeployBackend | DeployFrontend | RequestMoreInformation is explained in Factor 4.",
+        "Owning prompts gives testing and evals, iteration, transparency, and the ability to use roles in nonstandard ways.",
+        "Hamel Husain's 'show me the prompt' advice is cited: always look at the actual tokens sent."
+      ],
+      "walkthrough": [
+        "Read the black-box Agent and Task snippet and list what you cannot see or change about it.",
+        "Read the BAML DetermineNextStep function line by line: roles, instructions, checklist, thread, question.",
+        "Note the funny-looking return type and park it until Factor 4.",
+        "Review the five benefits and map each to a concrete thing you could do in your codebase today.",
+        "In the workshop (chapter 6) see how a reasoning step is added to this same prompt and tested."
+      ],
+      "exercise": {
+        "title": "Print the real prompt",
+        "steps": [
+          "Instrument your Module 5 agent so it logs the exact messages array (or raw string) sent on every model call.",
+          "Run one multi-step task and save the full prompt from the last call to a file.",
+          "Annotate it: which lines came from you, which from the framework, which from tool schemas.",
+          "Rewrite the prompt as a single template function in your own code with the thread as its only input and the tools' schema in the output format.",
+          "Add two tests that assert the chosen intent for a fixed thread."
+        ],
+        "deliverable": "The captured prompt, your annotated version, your own template function and two passing tests.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "How much of the prompt your agent sends did you actually write?",
+        "What would a unit test for a prompt assert, and how would you keep it from being flaky?",
+        "Where could role hacking help, and where could it hurt?"
+      ],
+      "resources": [
+        {
+          "title": "Fuck You, Show Me The Prompt (Hamel Husain)",
+          "url": "https://hamel.dev/blog/posts/prompt/",
+          "type": "article"
+        },
+        {
+          "title": "BAML on GitHub",
+          "url": "https://github.com/boundaryml/baml",
+          "type": "repo"
+        },
+        {
+          "title": "AI That Works: reasoning models vs reasoning steps",
+          "url": "https://github.com/hellovai/ai-that-works/tree/main/2025-04-07-reasoning-models-vs-prompts",
+          "type": "repo"
+        },
+        {
+          "title": "Factor 4: Tools are just structured outputs",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-04-tools-are-structured-outputs.md",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m6-l04",
+      "title": "Factor 3: Own your context window (context engineering)",
+      "minutes": 60,
+      "sourceRef": "Factor 3: Own your context window",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-03-own-your-context-window.md",
+      "summary": "The longest factor and the one the README points to for context engineering. The thesis: LLMs are stateless functions, so at any point your input is 'here is what happened so far, what is the next step', and the quality of the output depends on how well you pack that input. Context includes prompt and instructions, retrieved documents, past state and tool results, memory from related threads, and the output-format instructions. The page contrasts the standard role-based message array with a custom format that folds the whole history into one user message of XML-style event blocks with YAML bodies, shows the Thread and Event types plus event_to_prompt and thread_to_prompt that produce it, walks through three example windows (initial Slack request, after listing tags, after an error and a human reply), and lists the benefits: information density, error handling, safety, flexibility and token efficiency. It ends with the Karpathy and Tobi Lutke posts that popularised the term two months later and a context engineering cheat sheet.",
+      "concepts": [
+        {
+          "term": "context window",
+          "def": "Everything the model sees on one call: instructions, retrieved data, history, memory and output-format rules."
+        },
+        {
+          "term": "context engineering",
+          "def": "Deliberately choosing what goes into the window and in what shape, since the model is a stateless function of its input."
+        },
+        {
+          "term": "stateless function",
+          "def": "The LLM holds no memory between calls; all continuity lives in the input you build."
+        },
+        {
+          "term": "custom context format",
+          "def": "A serialization you design (here XML-style event tags with YAML bodies) instead of the provider's role-based message list."
+        },
+        {
+          "term": "thread_to_prompt",
+          "def": "A function that joins event_to_prompt over every event so the thread becomes one string for the model."
+        },
+        {
+          "term": "information density",
+          "def": "Conveying the same facts in fewer, clearer tokens so the model's attention goes where it matters."
+        }
+      ],
+      "keyPoints": [
+        "Everything is context engineering: the guide deliberately ignores temperature and sampling parameters, training and fine-tuning.",
+        "The standard format spreads history across system, user, assistant and tool messages; the custom format packs it into one user message and ends with 'what's the next step?'.",
+        "Event types are an explicit literal list: list_git_tags, deploy_backend, request_more_information, done_for_now, each with a matching _result type, plus error.",
+        "event_to_prompt wraps YAML of the event data in a tag named after the event type; thread_to_prompt joins them with blank lines.",
+        "The error-and-recovery example shows a failed deploy_backend, an error block, a request_more_information to the human, and the human's reply, after which the model proposes get_workflow_status.",
+        "Benefits: density, error handling (consider hiding resolved errors), safety (filter sensitive data), flexibility, token efficiency.",
+        "You may store more than you pass to the LLM; what you persist and what you serialize are separate decisions."
+      ],
+      "walkthrough": [
+        "Read the opening claim and the five bullets of what counts as context.",
+        "Compare the two YAML blocks: role-based messages versus one user message with slack_message, list_git_tags and list_git_tags_result tags.",
+        "Read the Thread, Event, event_to_prompt and thread_to_prompt code and note the Literal type list.",
+        "Walk the three example windows in order: initial request, after listing tags, after error and recovery.",
+        "Read the determine_next_step call that returns get_workflow_status and see how the human reply changed the plan.",
+        "Study the five benefits and the information-density screenshot (same message, fewer tokens).",
+        "Skim the 'Don't take it from me' section with the Karpathy and Tobi posts and the cheat sheet.",
+        "In the workshop (chapter 7) compare JSON pretty-printing with the XML serializer on the same thread."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Factor 3: typed events serialized into XML-style blocks for the model",
+        "src": "class Thread:\n  events: List[Event]\n\nclass Event:\n  # could just use string, or could be explicit - up to you\n  type: Literal[\"list_git_tags\", \"deploy_backend\", \"deploy_frontend\",\n                \"request_more_information\", \"done_for_now\",\n                \"list_git_tags_result\", \"deploy_backend_result\",\n                \"deploy_frontend_result\", \"request_more_information_result\",\n                \"done_for_now_result\", \"error\"]\n  data: ListGitTags | DeployBackend | DeployFrontend | RequestMoreInformation | \\\n        ListGitTagsResult | DeployBackendResult | DeployFrontendResult | \\\n        RequestMoreInformationResult | str\n\ndef event_to_prompt(event: Event) -> str:\n    data = event.data if isinstance(event.data, str) \\\n           else stringifyToYaml(event.data)\n    return f\"<{event.type}>\\n{data}\\n</{event.type}>\"\n\ndef thread_to_prompt(thread: Thread) -> str:\n  return '\\n\\n'.join(event_to_prompt(event) for event in thread.events)\n\nnextStep = await determine_next_step(thread_to_prompt(thread))"
+      },
+      "exercise": {
+        "title": "Write your own serializer",
+        "steps": [
+          "Define an Event type for your agent (type plus data) and a Thread that is a list of events.",
+          "Write event_to_prompt and thread_to_prompt producing XML-style tags with YAML or key: value bodies.",
+          "Serialize one real multi-step run both ways: provider message array and your format. Count tokens for each.",
+          "Add an error event and a human_response event to the thread and check the model's next step with both formats.",
+          "Add one redaction rule (for example strip tokens or emails) that applies only at serialization time."
+        ],
+        "deliverable": "A serializer module, the two token counts, and a short note on which format produced the better next step.",
+        "minutes": 75
+      },
+      "checkYourself": [
+        "Which parts of your stored thread should never reach the model, and where do you enforce that?",
+        "When would you hide a resolved error from the window, and what might you lose by doing so?",
+        "Why does the page say that pre-loading ids into context and calling list tools are 'kinda the same thing'?"
+      ],
+      "resources": [
+        {
+          "title": "Prompts are Functions (BAML interview)",
+          "url": "https://thedataexchange.media/baml-revolution-in-ai-engineering/",
+          "type": "article"
+        },
+        {
+          "title": "Andrej Karpathy on 'context engineering'",
+          "url": "https://x.com/karpathy/status/1937902205765607626",
+          "type": "article"
+        },
+        {
+          "title": "Tobi Lutke on context engineering",
+          "url": "https://x.com/tobi/status/1935533422589399127",
+          "type": "article"
+        },
+        {
+          "title": "Context Engineering Cheat Sheet (@lenadroid)",
+          "url": "https://x.com/lenadroid/status/1943685060785524824",
+          "type": "article"
+        },
+        {
+          "title": "Custom serializer in the linear-assistant agent",
+          "url": "https://github.com/got-agents/agents/blob/59ebbfa236fc376618f16ee08eb0f3bf7b698892/linear-assistant-ts/src/agent.ts#L66-L105",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m6-l05",
+      "title": "Factors 4 and 5: Tools are structured outputs; unify execution and business state",
+      "minutes": 40,
+      "sourceRef": "Factor 4: Tools are just structured outputs; Factor 5: Unify execution state and business state",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-04-tools-are-structured-outputs.md",
+      "summary": "Factor 4 demystifies tools: asking a model to 'use one of several tools' is asking it to emit JSON you parse into one of several classes (CreateIssue, SearchIssues), after which deterministic code decides what to do. A tool call does not have to map to one function executed the same way every time, which is what makes Factor 8 possible. Factor 5 argues against separating execution state (current step, waiting status, retry counts) from business state (the list of messages, tool calls and results): if everything is in the thread, execution state is just metadata you can infer from it. The benefits are one source of truth, trivial serialization, debugging, recovery, forking and easy human-readable views.",
+      "concepts": [
+        {
+          "term": "structured output",
+          "def": "JSON the model emits that your code parses into a typed object; a tool call is just this plus a switch."
+        },
+        {
+          "term": "tool as class",
+          "def": "Each tool is a class with a literal intent field and typed parameters, and the model's return type is the union of them."
+        },
+        {
+          "term": "execution state",
+          "def": "Current step, next step, waiting status, retry counts: the bookkeeping of a running workflow."
+        },
+        {
+          "term": "business state",
+          "def": "What has happened so far: messages, tool calls, results, human replies."
+        },
+        {
+          "term": "unified thread",
+          "def": "A single ordered event list from which execution state can be inferred, so there is one thing to save, load, fork and render."
+        }
+      ],
+      "keyPoints": [
+        "Tools are structured output that triggers deterministic code; the model decides what, your code controls how.",
+        "The pattern: model emits JSON, code parses it, code executes the action, results go back into context.",
+        "A 'tool call' need not run one fixed function; it can pause, batch, ask for approval or be re-interpreted.",
+        "The page points to the debate on prompting vs JSON mode vs function calling vs constrained generation (schema-aligned parsing) without taking a side.",
+        "Unify state: avoid separate step counters and waiting flags when the thread already implies them.",
+        "Things like session ids or secrets may stay out of the window; minimise them and control them through Factor 3.",
+        "Unified state buys serialization, recovery from any point, forking by copying a subset of events, and trivial rendering to markdown or a UI."
+      ],
+      "walkthrough": [
+        "Read the CreateIssue and SearchIssues classes and connect them to the return type you saw in Factor 2.",
+        "Reread the switch from Factor 1 with the new framing: the intent picks a branch, the branch is yours.",
+        "Read the note linking to schema-aligned parsing and the Vellum and LlamaIndex comparisons.",
+        "Switch to Factor 5: write down the two definitions and the animation's point that one list can hold both.",
+        "List the seven benefits and decide which one your current agent lacks most."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Factor 4: tools are classes with an intent field; the model returns one of them",
+        "src": "class Issue:\n  title: str\n  description: str\n  team_id: str\n  assignee_id: str\n\nclass CreateIssue:\n  intent: \"create_issue\"\n  issue: Issue\n\nclass SearchIssues:\n  intent: \"search_issues\"\n  query: str\n  what_youre_looking_for: str\n\n# The model returns CreateIssue | SearchIssues; your code decides what happens\nif nextStep.intent == 'create_issue':\n    linear.issues.create(nextStep.issue)\nelif nextStep.intent == 'search_issues':\n    results = linear.issues.search(nextStep.query)\nelse:  # the model didn't call a tool we know about\n    pass"
+      },
+      "exercise": {
+        "title": "Tools as classes, state as one list",
+        "steps": [
+          "Rewrite your agent's tools as classes with a literal intent field and typed parameters; make the model's output type their union.",
+          "Delete any separate step counter, waiting flag or retry count and derive each one from the last events in the thread instead.",
+          "Write a helper that renders the thread to plain markdown for debugging.",
+          "Fork a thread at an earlier event and run the agent from there."
+        ],
+        "deliverable": "A diff removing separate execution state, plus the markdown render of one forked thread.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "What execution state does your agent keep outside the thread, and could it be inferred instead?",
+        "If a tool call is just JSON, what stops you from executing it later, elsewhere, or not at all?"
+      ],
+      "resources": [
+        {
+          "title": "Schema-Aligned Parsing: prompting vs JSON mode vs function calling",
+          "url": "https://www.boundaryml.com/blog/schema-aligned-parsing",
+          "type": "article"
+        },
+        {
+          "title": "When to use function calling, structured outputs or JSON mode (Vellum)",
+          "url": "https://www.vellum.ai/blog/when-should-i-use-function-calling-structured-outputs-or-json-mode",
+          "type": "article"
+        },
+        {
+          "title": "OpenAI JSON vs function calling (LlamaIndex)",
+          "url": "https://docs.llamaindex.ai/en/stable/examples/llm/openai_json_vs_function_calling/",
+          "type": "docs"
+        },
+        {
+          "title": "Factor 5: Unify execution state and business state",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-05-unify-execution-state.md",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m6-l06",
+      "title": "Factors 6 and 7: Launch, pause, resume; contact humans with tool calls",
+      "minutes": 45,
+      "sourceRef": "Factor 6: Launch/Pause/Resume with simple APIs; Factor 7: Contact humans with tool calls",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-06-launch-pause-resume.md",
+      "summary": "Factor 6 says agents are programs and deserve the same lifecycle: anyone (users, apps, pipelines, other agents) can launch one with a simple API, the orchestrating code can pause it for a long-running operation, and an external trigger such as a webhook can resume it without deep integration. The crucial gap in most orchestrators is that they cannot pause between tool selection and tool execution. Factor 7 attacks the high-stakes first-token choice between plaintext and JSON: instead, have the model always emit JSON and express 'talk to a human' as intents like request_human_input or done_for_now with urgency and format options. The page shows the loop branch that appends the request, saves state and returns, then a webhook that loads the thread, appends the human reply and continues. Benefits include outer loop agents (Agent to Human flows started by crons or events), multiple humans, agent-to-agent extension and durability.",
+      "concepts": [
+        {
+          "term": "launch/pause/resume",
+          "def": "The lifecycle API an agent should expose so code, users and webhooks can start it, stop it mid-flight and continue it later."
+        },
+        {
+          "term": "tool selection vs tool execution",
+          "def": "The moment after the model chooses an action and before code runs it; pausing there is what makes approval possible."
+        },
+        {
+          "term": "human-in-the-loop tool",
+          "def": "A structured intent such as request_human_input or done_for_now that routes to a person instead of an API."
+        },
+        {
+          "term": "first-token problem",
+          "def": "The model's early commitment to either prose or a JSON object, which the page avoids by always returning JSON."
+        },
+        {
+          "term": "outer loop agent",
+          "def": "An agent started by a non-human trigger (cron, event, outage) that contacts humans only when it needs help or approval."
+        },
+        {
+          "term": "thread id",
+          "def": "The handle saved with the paused state and carried through the notification so the webhook can reload the right thread."
+        }
+      ],
+      "keyPoints": [
+        "Launch should be a simple call; pause should be possible whenever a step is long-running; resume should work from an external trigger.",
+        "Most orchestrators allow pause and resume, but not between choosing a tool and running it.",
+        "Returning JSON always, with intents like request_human_input and done_for_now, removes the plaintext-or-JSON gamble on the first token.",
+        "RequestHumanInput carries question, context and Options (urgency low/medium/high, format free_text/yes_no/multiple_choice, choices).",
+        "On a human-contact intent: append the event, save_state, notify_human with the thread id, and return from the loop.",
+        "The webhook handler loads the thread by id, appends response_from_human, calls determine_next_step and handles the result.",
+        "Benefits: clear instructions, inner vs outer loop, many humans, agent-to-agent, durable multiplayer workflows."
+      ],
+      "walkthrough": [
+        "Read Factor 6 and watch the pause-resume animation; note the three verbs and who calls each.",
+        "Read the note about pausing between selection and execution and connect it to approvals.",
+        "Open Factor 7 and read the first-token argument ('the' versus the JSON start token).",
+        "Study the Options and RequestHumanInput classes and the loop branch that saves and returns.",
+        "Read the webhook handler and trace the thread id from notify_human to load_state.",
+        "Walk the XML context example: request_human_input, human_response with approved true, deploy_backend, deploy_backend_result.",
+        "Read the five benefits and the outer-loop diagram."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Factor 7: a human-contact tool pauses the loop; a webhook resumes it",
+        "src": "class RequestHumanInput:\n  intent: \"request_human_input\"\n  question: str\n  context: str\n  options: Options  # urgency, format, choices\n\n# in the agent loop\nif nextStep.intent == 'request_human_input':\n  thread.events.append({\"type\": 'human_input_requested', \"data\": nextStep})\n  thread_id = await save_state(thread)\n  await notify_human(nextStep, thread_id)\n  return  # break the loop; the response comes back with the thread id\n\n@app.post('/webhook')\ndef webhook(req: Request):\n  thread_id = req.body.threadId\n  thread = await load_state(thread_id)\n  thread.events.append({\"type\": 'response_from_human', \"data\": req.body})\n  next_step = await determine_next_step(thread_to_prompt(thread))\n  thread.events.append(next_step)\n  result = await handle_next_step(thread, next_step)\n  return {\"status\": \"ok\"}"
+      },
+      "exercise": {
+        "title": "Add pause and resume",
+        "steps": [
+          "Give your agent a store with create, get and update keyed by thread id (in-memory is fine).",
+          "Add a request_more_information intent; when the model picks it, save the thread and return instead of blocking on input().",
+          "Expose POST /thread to launch, GET /thread/:id to inspect, and POST /thread/:id/response to append a human reply and continue the loop.",
+          "Kill and restart the process between the request and the response, and confirm the thread resumes correctly."
+        ],
+        "deliverable": "A tiny HTTP service where a paused thread survives a restart and resumes from the human's reply.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Where in your current loop is the only place a human could intervene, and is that before or after the tool runs?",
+        "What has to be persisted so that a webhook arriving an hour later can continue the right thread?",
+        "Which of your workflows would be better started by an event than by a chat message?"
+      ],
+      "resources": [
+        {
+          "title": "Outer Loop Agents (The Outer Loop)",
+          "url": "https://theouterloop.substack.com/p/openais-realtime-api-is-a-step-towards",
+          "type": "article"
+        },
+        {
+          "title": "Factor 7: Contact humans with tool calls",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-07-contact-humans-with-tools.md",
+          "type": "article"
+        },
+        {
+          "title": "HumanLayer",
+          "url": "https://humanlayer.dev",
+          "type": "tool"
+        },
+        {
+          "title": "Factor 11: Trigger from anywhere",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-11-trigger-from-anywhere.md",
+          "type": "article"
+        }
+      ]
+    },
+    {
+      "id": "m6-l07",
+      "title": "Factors 8 and 9: Own your control flow; compact errors into the context window",
+      "minutes": 45,
+      "sourceRef": "Factor 8: Own your control flow; Factor 9: Compact Errors into Context Window",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-08-own-your-control-flow.md",
+      "summary": "Factor 8 is the payoff of the earlier factors: when the switch and the loop are yours, certain intents can break out and wait (for a human or a long job) while others run and continue immediately. The page's example has three patterns: request_clarification (break, wait for a human), fetch_git_tags (run, append, continue straight back to the model) and deploy_backend (break, wait for approval). You can also add summarization of results, LLM-as-judge, context compaction, tracing, rate limiting and durable sleep. The author's number one framework request is interruptibility between tool selection and invocation; without it you either block in memory, restrict agents to low-stakes tools, or hope. Factor 9 covers self-healing: catch tool errors, format them into the thread and loop so the model can fix its call, but cap consecutive errors (around three), then escalate to a human or restructure the context rather than spin out.",
+      "concepts": [
+        {
+          "term": "control flow",
+          "def": "The switch plus loop that decides, per intent, whether to run and continue, or to save and break."
+        },
+        {
+          "term": "sync step",
+          "def": "An intent whose result is appended and immediately passed back to the model, like fetching git tags."
+        },
+        {
+          "term": "async step",
+          "def": "An intent that ends the loop and waits for an external event such as a human reply or approval."
+        },
+        {
+          "term": "error compaction",
+          "def": "Catching a failed tool call and appending a formatted error event so the model can recover on the next turn."
+        },
+        {
+          "term": "consecutive error cap",
+          "def": "A counter reset on success and checked on failure; at the limit you break, escalate or rewrite context."
+        },
+        {
+          "term": "spin-out",
+          "def": "The failure mode where an agent repeats the same broken call as errors pile up in context."
+        }
+      ],
+      "keyPoints": [
+        "Owning control flow lets you break the loop for humans or long tasks and add summarization, judging, compaction, logging, rate limits and durable waits.",
+        "Three patterns: request_clarification breaks and waits; fetch_git_tags runs and continues; deploy_backend breaks and waits for approval.",
+        "The biggest missing feature in frameworks is pausing between tool selection and tool invocation; without it approvals are impossible.",
+        "Without granular resume you are stuck with while-sleep in memory, low-stakes tools only, or yolo.",
+        "Errors are context: append format_error(e) as an error event and let the model retry.",
+        "Limit consecutive errors (about three) and reset the counter on success; the threshold is a natural place to escalate to a human.",
+        "Doing too much self-healing makes agents spin out; the real cure is small, focused agents (Factor 10)."
+      ],
+      "walkthrough": [
+        "Read the list of things you can add once control flow is yours.",
+        "Read the three control-flow patterns and the handle_next_step loop, marking each branch as break or continue.",
+        "Read the interrupt-and-resume argument and the three bad options it avoids.",
+        "Open Factor 9 and read the first loop: try handle_next_step, except append error.",
+        "Read the second loop with consecutive_errors, noting where it resets and where it breaks.",
+        "Read the closing advice: you can restructure or remove error events, not just append raw tracebacks."
+      ],
+      "code": {
+        "lang": "python",
+        "caption": "Factors 8 and 9: break or continue per intent, and cap consecutive errors",
+        "src": "consecutive_errors = 0\nwhile True:\n  next_step = await determine_next_step(thread_to_prompt(thread))\n  thread.events.append({\"type\": next_step.intent, \"data\": next_step})\n  try:\n    if next_step.intent == 'request_clarification':\n      await send_message_to_human(next_step)\n      await db.save_thread(thread)\n      break        # async step: a webhook will resume us later\n    elif next_step.intent == 'fetch_git_tags':\n      tags = await fetch_git_tags()\n      thread.events.append({\"type\": 'fetch_git_tags_result', \"data\": tags})\n      consecutive_errors = 0\n      continue     # sync step: straight back to the model\n    elif next_step.intent == 'deploy_backend':\n      await request_human_approval(next_step)\n      await db.save_thread(thread)\n      break        # high stakes: wait for approval\n  except Exception as e:\n    consecutive_errors += 1\n    if consecutive_errors < 3:\n      thread.events.append({\"type\": 'error', \"data\": format_error(e)})\n    else:\n      break        # escalate to a human, compact context, etc."
+      },
+      "exercise": {
+        "title": "Add error compaction with a cap",
+        "steps": [
+          "Wrap your tool execution in try/except and append a formatted error event (short message, no raw stack trace) to the thread.",
+          "Add a consecutive_errors counter reset on success; at three, break the loop and emit a request_human_input event.",
+          "Write a flaky fake tool that fails twice then succeeds and confirm the agent recovers.",
+          "Write a tool that always fails and confirm the agent escalates after three attempts instead of spinning.",
+          "Experiment with removing resolved error events before the next model call and compare behaviour."
+        ],
+        "deliverable": "Tests for recover-after-two-failures and escalate-after-three, plus a note on whether hiding resolved errors helped.",
+        "minutes": 60
+      },
+      "checkYourself": [
+        "Which of your tools are sync steps and which should break the loop?",
+        "What should an error event contain so the model can act on it without being distracted?",
+        "At the error cap, should the model decide to escalate or should your code take over deterministically?"
+      ],
+      "resources": [
+        {
+          "title": "Factor 9: Compact errors into context window",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-09-compact-errors.md",
+          "type": "article"
+        },
+        {
+          "title": "Factor 3: Own your context window (memory management)",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-03-own-your-context-window.md",
+          "type": "article"
+        },
+        {
+          "title": "Chainlit support-bot demo",
+          "url": "https://x.com/chainlit_io/status/1858613325921480922",
+          "type": "video"
+        }
+      ]
+    },
+    {
+      "id": "m6-l08",
+      "title": "Factors 10, 11 and 12: Small focused agents, trigger from anywhere, stateless reducer",
+      "minutes": 35,
+      "sourceRef": "Factor 10: Small, Focused Agents; Factor 11: Trigger from anywhere; Factor 12: Make your agent a stateless reducer",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-10-small-focused-agents.md",
+      "summary": "Factor 10: build small agents that do one thing well, with 3 to 10 and at most around 20 steps, because longer context means more chances to get lost; agents are one building block in a mostly deterministic system. Even if models get smarter, the approach still pays: you ship today and widen the agent's slice of the DAG as reliability allows, in the way you would refactor a large deterministic codebase. The NotebookLM team's observation that magic happens close to the edge of model capability is quoted. Factor 11 is the HumanLayer pitch: let people trigger agents from Slack, email or SMS and reply through the same channels, which enables outer loop agents started by events and crons and makes higher-stakes tools acceptable because humans can be looped in quickly. Factor 12, 'mostly for fun', frames the agent as a stateless reducer: a fold over events where each step takes the thread and returns a new thread.",
+      "concepts": [
+        {
+          "term": "small focused agent",
+          "def": "An agent scoped to a single domain and a handful of steps so its context stays short and its behaviour testable."
+        },
+        {
+          "term": "capability boundary",
+          "def": "The edge of what the model does reliably; working just inside it yields the best experiences."
+        },
+        {
+          "term": "trigger from anywhere",
+          "def": "Starting and answering agents over the channels users already use (Slack, email, SMS, webhooks, crons)."
+        },
+        {
+          "term": "outer loop agents",
+          "def": "Agents started by non-human events that work for minutes and contact a human only at critical points."
+        },
+        {
+          "term": "stateless reducer",
+          "def": "An agent modelled as a pure function (thread, event) to thread, so a run is a fold over events with no hidden state."
+        }
+      ],
+      "keyPoints": [
+        "As context grows, LLMs are more likely to get lost or lose focus; keep agents at 3 to 10, maybe 20 steps.",
+        "Benefits: manageable context, clear responsibilities, reliability, easier testing and debugging.",
+        "Smarter models mean you can hand a larger part of the DAG to the agent later, but you still start small and grow deliberately.",
+        "Meeting users where they are makes agents feel like digital coworkers and lets events and crons start them.",
+        "Quick access to a variety of humans is what makes high-stakes tools (external email, production data) acceptable, with auditability.",
+        "A reducer-shaped agent has no state outside the thread, so replaying the events reproduces the run."
+      ],
+      "walkthrough": [
+        "Read Factor 10's core insight and the five benefits.",
+        "Read 'What if LLMs get smarter?' and the scope-growth animation; note the analogy to refactoring deterministic code.",
+        "Read the NotebookLM quote on building close to the model's capability boundary.",
+        "Open Factor 11 and map its three benefits to Factors 6 and 7.",
+        "Open Factor 12 and study the two images: stateless reducer and agent as foldl.",
+        "Compare with the workshop signature agentLoop(thread) that returns a new thread."
+      ],
+      "code": {
+        "lang": "typescript",
+        "caption": "Factor 12 in the workshop: the agent is a function from thread to thread",
+        "src": "// the whole agent is a reducer over events: (thread) => thread\nexport async function agentLoop(thread: Thread): Promise<Thread> {\n    while (true) {\n        const nextStep = await b.DetermineNextStep(thread.serializeForLLM());\n        thread.events.push({ type: \"tool_call\", data: nextStep });\n\n        switch (nextStep.intent) {\n            case \"done_for_now\":\n            case \"request_more_information\":\n                // hand the thread back to whoever called us\n                return thread;\n            case \"add\":\n            case \"subtract\":\n            case \"multiply\":\n            case \"divide\":\n                thread = await handleNextStep(nextStep, thread);\n        }\n    }\n}"
+      },
+      "exercise": {
+        "title": "Split into small agents",
+        "steps": [
+          "List every distinct job your agent does and the typical step count for each.",
+          "Split off the largest job into its own agent with its own prompt, tools and output type; the parent calls it as a deterministic step.",
+          "Make each agent's entry point a pure function from thread to thread with no module-level state.",
+          "Measure the longest context window before and after the split."
+        ],
+        "deliverable": "Two or more agents with their step counts and the before/after longest-context measurement.",
+        "minutes": 45
+      },
+      "checkYourself": [
+        "Where is the capability boundary for the model you use, and is your agent inside it?",
+        "If your agent were a pure reducer, what inputs would you need to log to replay any production run?"
+      ],
+      "resources": [
+        {
+          "title": "NotebookLM on finding model capability boundaries",
+          "url": "https://open.substack.com/pub/swyx/p/notebooklm?selection=08e1187c-cfee-4c63-93c9-71216640a5f8",
+          "type": "article"
+        },
+        {
+          "title": "Factor 11: Trigger from anywhere, meet users where they are",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-11-trigger-from-anywhere.md",
+          "type": "article"
+        },
+        {
+          "title": "Factor 12: Make your agent a stateless reducer",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-12-stateless-reducer.md",
+          "type": "article"
+        },
+        {
+          "title": "HumanLayer",
+          "url": "https://humanlayer.dev",
+          "type": "tool"
+        }
+      ]
+    },
+    {
+      "id": "m6-l09",
+      "title": "Appendix (Factor 13): Pre-fetch all the context you might need",
+      "minutes": 25,
+      "sourceRef": "Factor 13 (appendix): Pre-fetch all the context you might need",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/content/appendix-13-pre-fetch.md",
+      "summary": "If the model is very likely to call tool X, do not spend a token round trip asking it to. The appendix shows a deployment prompt that tells the model it will probably want to list git tags, with a list_git_tags intent and a matching switch case, and then refactors it twice: first fetch the tags deterministically and inject them into the prompt as a git_tags variable, removing the intent; then simply append a list_git_tags event and its result to the thread before the first model call so the prompt template needs no extra parameter. The rule: if you already know which tools you want called, call them deterministically and let the model do the hard part of using their outputs.",
+      "concepts": [
+        {
+          "term": "pre-fetch",
+          "def": "Calling a tool deterministically before the first model call and placing its result in context."
+        },
+        {
+          "term": "token round trip",
+          "def": "A full model call spent only to request data your code could have fetched anyway."
+        },
+        {
+          "term": "synthetic events",
+          "def": "Request and result events your code appends to the thread as if the model had asked, keeping one context format."
+        },
+        {
+          "term": "deterministic step",
+          "def": "Work done by ordinary code around the agent, which the twelve factors keep as large as possible."
+        }
+      ],
+      "keyPoints": [
+        "A pseudo-prompt that hints 'you will likely want to fetch git tags' wastes a model turn when the answer is already known.",
+        "Version 1 of the refactor: fetch tags first, pass them as a template variable, drop the list_git_tags intent and its switch case.",
+        "Version 2: append list_git_tags and list_git_tags_result events to the thread, so the prompt template is unchanged and the context format stays uniform.",
+        "The model's job becomes using the data (choosing the tag), not deciding to request it.",
+        "This is context engineering again: the appendix closes by pointing back to Factor 3."
+      ],
+      "walkthrough": [
+        "Read the original prompt with the three intents and the switch with three cases.",
+        "Read the first diff: git_tags injected, list_git_tags removed from both prompt and switch.",
+        "Read the second diff: synthetic request and result events appended before determine_next_step.",
+        "Decide which form you prefer and why: explicit template variable or events in the thread."
+      ],
+      "exercise": {
+        "title": "Pre-fetch audit",
+        "steps": [
+          "Log the first tool call of twenty runs of your agent and count how often it is the same tool with the same arguments.",
+          "For any tool called first in most runs, fetch it deterministically and add request and result events before the first model call.",
+          "Remove the intent from the output type if the model no longer needs it.",
+          "Compare total model calls and tokens per run before and after."
+        ],
+        "deliverable": "A short table of first-tool frequency and the before/after call and token counts.",
+        "minutes": 30
+      },
+      "checkYourself": [
+        "Which of your tools is really a lookup your code should do up front?",
+        "What do you lose, if anything, by removing an intent the model used to choose?"
+      ],
+      "resources": [
+        {
+          "title": "Factor 3: Own your context window",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-03-own-your-context-window.md",
+          "type": "article"
+        },
+        {
+          "title": "12-Factor Agents README: honorable mentions",
+          "url": "https://github.com/humanlayer/12-factor-agents",
+          "type": "repo"
+        }
+      ]
+    },
+    {
+      "id": "m6-l10",
+      "title": "Hands-on workshop: build a 12-factor agent step by step",
+      "minutes": 75,
+      "sourceRef": "Workshop: Building the 12-factor agent template from scratch (TypeScript, 2025-05-17)",
+      "sourceUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/workshops/2025-05-17/walkthrough.md",
+      "notebookUrl": "https://github.com/humanlayer/12-factor-agents/blob/main/workshops/2025-07-16/workshop_final.ipynb",
+      "summary": "The workshop builds a calculator agent from an empty TypeScript repo, one chapter per idea, with a checkpoint file after every edit. Chapter 0 is hello world; chapter 1 adds BAML and a DetermineNextStep function returning DoneForNow; chapter 2 adds add, subtract, multiply and divide as structured outputs; chapter 3 turns a single call into agentLoop with a switch and handleNextStep; chapter 4 adds BAML tests with assertions, including a resume-from-mid-thread test; chapter 5 adds request_more_information as a human tool; chapter 6 adds a reasoning step to the prompt; chapter 7 replaces JSON.stringify with an XML serializer; chapters 8 and 9 add an Express server with POST /thread, GET /thread/:id, POST /thread/:id/response and an in-memory ThreadStore; chapter 10 adds approval for divide with approve and reject payloads; chapter 11 moves approvals to email with HumanLayer; the final chapter replaces polling with a webhook so the server returns immediately and resumes on /webhook. A Python version of chapters 0 to 7 exists as a Colab notebook (2025-07-16).",
+      "concepts": [
+        {
+          "term": "BAML function",
+          "def": "A typed prompt function (DetermineNextStep(thread: string) returning a union of tool classes) that generates a client in TypeScript or Python."
+        },
+        {
+          "term": "Thread.serializeForLLM",
+          "def": "The one method that decides how events reach the model; swapped from JSON to XML-style tags in chapter 7."
+        },
+        {
+          "term": "awaitingHumanResponse / awaitingHumanApproval",
+          "def": "Predicates computed from the last event, the workshop's concrete example of inferring execution state from the thread."
+        },
+        {
+          "term": "ThreadStore",
+          "def": "An in-memory map from thread id to Thread with create, get and update, standing in for Redis or Postgres."
+        },
+        {
+          "term": "approval payload",
+          "def": "A POST body of type approval with approved true or false and an optional comment, versus a response payload carrying a human answer."
+        },
+        {
+          "term": "webhook resume",
+          "def": "The final chapter's pattern: return immediately, let HumanLayer email the human, and continue the thread when the webhook arrives with the thread id."
+        }
+      ],
+      "keyPoints": [
+        "The agent is four pieces from the start: a BAML prompt, a Thread of events, a switch on intent and a while loop.",
+        "Tools are BAML classes with a literal intent and typed fields; the function's return type is HumanTools | CalculatorTools.",
+        "BAML tests pin behaviour: HelloWorld expects done_for_now, MathOperation expects multiply, LongMath resumes from a seven-event thread and asserts 18 is in the message.",
+        "Chapter 5 adds ClarificationRequest; the CLI loops asking the human while the last event is request_more_information.",
+        "Chapter 7's serializer tags each event with its intent or type and prints data as key: value lines, the token-efficient XML style from Factor 3.",
+        "Chapter 10 pauses between selection and execution: divide requires approval; a rejection with a comment becomes a tool_response the model reads and re-plans from.",
+        "The last chapter is Factor 6 in practice: synchronous polling is replaced with a webhook keyed on thread_id stored in the human-contact state."
+      ],
+      "walkthrough": [
+        "Chapter 0 to 1: npm install, add BAML, write DetermineNextStep returning DoneForNow, run npx tsx src/index.ts hello.",
+        "Chapter 2 to 3: add the calculator tool classes, change the return type, then write agentLoop with a switch and handleNextStep; run a multi-step calculation.",
+        "Chapter 4: add tests with @@assert, including LongMath which starts from a mid-conversation thread.",
+        "Chapter 5 to 6: add request_more_information, loop the CLI on clarification, then add a planning/reasoning step to the prompt and rerun tests.",
+        "Chapter 7: replace JSON.stringify with serializeOneEvent producing XML-style tags, and update tests to the new format.",
+        "Chapter 8 to 10: add Express endpoints and ThreadStore, test the clarification flow with curl, then add awaitingHumanApproval for divide with approve and reject payloads and watch a rejection with feedback change the next call.",
+        "Chapter 11 and the final chapter: route approvals and clarifications through HumanLayer email, then switch to webhook-based resume.",
+        "Optional: run the Python notebook version of chapters 0 to 7 in Colab and compare the XML and JSON serializers it ships with."
+      ],
+      "code": {
+        "lang": "typescript",
+        "caption": "Workshop chapter 7: own the serializer, then infer execution state from the last event",
+        "src": "export class Thread {\n    events: Event[] = [];\n\n    serializeForLLM() {\n        return this.events.map(e => this.serializeOneEvent(e)).join(\"\\n\");\n    }\n\n    serializeOneEvent(e: Event) {\n        const tag = e.data?.intent || e.type;\n        const body = typeof e.data !== 'object' ? e.data :\n            Object.keys(e.data).filter(k => k !== 'intent')\n                .map(k => `${k}: ${e.data[k]}`).join(\"\\n\");\n        return `<${tag}>\\n${body}\\n</${tag}>`;\n    }\n\n    awaitingHumanResponse(): boolean {\n        const last = this.events[this.events.length - 1];\n        return ['request_more_information', 'done_for_now'].includes(last.data.intent);\n    }\n\n    awaitingHumanApproval(): boolean {\n        const last = this.events[this.events.length - 1];\n        return last.data.intent === 'divide';\n    }\n}"
+      },
+      "exercise": {
+        "title": "Write a replay test",
+        "steps": [
+          "Complete the workshop through chapter 10 (or port the same steps to your own agent and language).",
+          "Record one real run as a thread JSON file: user_input, tool_call, tool_response, human_response events.",
+          "Write a test that loads the thread truncated before each model decision, calls DetermineNextStep on the serialized prefix, and asserts the intent (and key arguments) that were actually chosen.",
+          "Run the test suite with the JSON serializer and with the XML serializer and record any differences.",
+          "Add a replay test for the approval rejection case: the thread ends with a denied-with-feedback tool_response and the next intent must be a corrected divide."
+        ],
+        "deliverable": "A thread fixture plus a replay test file that asserts the next intent at every decision point in the recorded run.",
+        "minutes": 90
+      },
+      "checkYourself": [
+        "Why does the workshop record the tool_call event before executing the tool rather than after?",
+        "What breaks if the server keeps running the loop while waiting for the email reply, and how does the webhook chapter fix it?",
+        "Which of the twelve factors does each workshop chapter demonstrate?"
+      ],
+      "resources": [
+        {
+          "title": "TypeScript walkthrough (2025-05-17)",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/workshops/2025-05-17/walkthrough.md",
+          "type": "docs"
+        },
+        {
+          "title": "Python notebook version (2025-07-16)",
+          "url": "https://github.com/humanlayer/12-factor-agents/blob/main/workshops/2025-07-16/workshop_final.ipynb",
+          "type": "notebook"
+        },
+        {
+          "title": "BAML documentation",
+          "url": "https://docs.boundaryml.com/home",
+          "type": "docs"
+        },
+        {
+          "title": "BAML examples",
+          "url": "https://github.com/BoundaryML/baml-examples",
+          "type": "repo"
+        },
+        {
+          "title": "AI agents need a new syntax (BoundaryML blog)",
+          "url": "https://www.boundaryml.com/blog/ai-agents-need-new-syntax",
+          "type": "article"
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "12-Factor Agents repository",
+      "url": "https://github.com/humanlayer/12-factor-agents",
+      "type": "repo",
+      "note": "The canonical source: README, factor pages, appendix and workshops; contributions welcome."
+    },
+    {
+      "title": "AI Engineer World's Fair talk (17 min)",
+      "url": "https://www.youtube.com/watch?v=8kMaTybvDUw",
+      "type": "video",
+      "note": "Dex Horthy's conference version of the twelve factors; watch before lesson 1."
+    },
+    {
+      "title": "YouTube deep dive on 12-factor agents",
+      "url": "https://www.youtube.com/watch?v=yxJDyQ8v6P0",
+      "type": "video",
+      "note": "Longer walkthrough linked from the README badges."
+    },
+    {
+      "title": "Tool Use podcast episode (March 2025)",
+      "url": "https://youtu.be/8bIHcttkOTE",
+      "type": "video",
+      "note": "Conversation covering much of the guide's reasoning and the HumanLayer story."
+    },
+    {
+      "title": "The Outer Loop (Substack)",
+      "url": "https://theouterloop.substack.com",
+      "type": "article",
+      "note": "Where the author writes about outer loop agents and human-in-the-loop design."
+    },
+    {
+      "title": "AI That Works webinars",
+      "url": "https://github.com/hellovai/ai-that-works/tree/main",
+      "type": "repo",
+      "note": "Weekly sessions with @hellovai on maximizing LLM performance, with code for each episode."
+    },
+    {
+      "title": "got-agents/agents",
+      "url": "https://github.com/got-agents/agents",
+      "type": "repo",
+      "note": "Open-source agents (deploybot, linear-assistant) built with this methodology; read their serializers."
+    },
+    {
+      "title": "kubechain",
+      "url": "https://github.com/humanlayer/kubechain",
+      "type": "repo",
+      "note": "HumanLayer's framework for running distributed agents in Kubernetes, built after ignoring their own advice."
+    },
+    {
+      "title": "HumanLayer",
+      "url": "https://humanlayer.dev",
+      "type": "tool",
+      "note": "The SDK used in the workshop for email approvals and webhook resume."
+    },
+    {
+      "title": "create-12-factor-agent discussion",
+      "url": "https://github.com/humanlayer/12-factor-agents/discussions/61",
+      "type": "article",
+      "note": "Thread about an npx/uvx template generator; a place to contribute."
+    },
+    {
+      "title": "The Twelve-Factor App",
+      "url": "https://12factor.net",
+      "type": "docs",
+      "note": "The original methodology this guide is named after."
+    },
+    {
+      "title": "Building Effective Agents (Anthropic)",
+      "url": "https://www.anthropic.com/engineering/building-effective-agents#agents",
+      "type": "article",
+      "note": "The 'prompt plus bag of tools' loop definition the guide pushes back on."
+    },
+    {
+      "title": "Prompts are Functions",
+      "url": "https://thedataexchange.media/baml-revolution-in-ai-engineering/",
+      "type": "article",
+      "note": "The LLMs-are-stateless-functions framing behind Factor 3."
+    },
+    {
+      "title": "Library patterns: why frameworks are evil",
+      "url": "https://tomasp.net/blog/2015/library-frameworks/",
+      "type": "article",
+      "note": "Background for the libraries-over-frameworks stance."
+    },
+    {
+      "title": "The Wrong Abstraction (Sandi Metz)",
+      "url": "https://sandimetz.com/blog/2016/1/20/the-wrong-abstraction",
+      "type": "article",
+      "note": "Why duplicating code can beat a premature framework abstraction."
+    },
+    {
+      "title": "Schema Aligned Parsing",
+      "url": "https://www.boundaryml.com/blog/schema-aligned-parsing",
+      "type": "article",
+      "note": "Comparison of prompting, JSON mode, function calling and constrained generation."
+    },
+    {
+      "title": "Mailcrew agent",
+      "url": "https://github.com/dexhorthy/mailcrew",
+      "type": "repo",
+      "note": "The real payment-link agent behind the Factor 1 example."
+    },
+    {
+      "title": "TypeScript for LLMs",
+      "url": "https://www.linkedin.com/posts/dexterihorthy_llms-typescript-aiagents-activity-7290858296679313408-Lh9e",
+      "type": "article",
+      "note": "Why the examples are mostly TypeScript."
+    },
+    {
+      "title": "The AI Agent Index (MIT)",
+      "url": "https://aiagentindex.mit.edu/",
+      "type": "dataset",
+      "note": "A catalogue of deployed agent systems for comparing designs."
+    }
+  ],
+  "flashcards": [
+    {
+      "front": "What are the four steps of the agent loop?",
+      "back": "LLM determines the next step as structured JSON; deterministic code executes it; the result is appended to the context; repeat until the next step is done."
+    },
+    {
+      "front": "Why does the naive loop-until-solved pattern fail?",
+      "back": "Agents get lost as the context window grows and repeat the same broken approach; beyond 10 to 20 turns it becomes a mess the model cannot recover from."
+    },
+    {
+      "front": "What is the 70 to 80 percent wall?",
+      "back": "The quality level teams reach with a framework before discovering that going further requires reverse-engineering its prompts, flow and context."
+    },
+    {
+      "front": "Name the four components of an agent according to the guide.",
+      "back": "A prompt, a switch statement, accumulated context and a for loop."
+    },
+    {
+      "front": "Factor 1 in one sentence.",
+      "back": "Translate natural language into a structured tool call that deterministic code then executes."
+    },
+    {
+      "front": "Factor 2: what is wrong with Agent(role, goal, personality, tools)?",
+      "back": "The prompt is a black box: hard to tune, test or reverse-engineer to get the exact tokens into the model."
+    },
+    {
+      "front": "Factor 3: what counts as context?",
+      "back": "Prompt and instructions, retrieved documents, past state and tool results, memory from related threads, and output-format instructions."
+    },
+    {
+      "front": "What does thread_to_prompt do?",
+      "back": "Joins event_to_prompt over every event, each rendered as an XML-style tag named after the event type with a YAML body."
+    },
+    {
+      "front": "Five benefits of owning the context window.",
+      "back": "Information density, error handling, safety, flexibility and token efficiency."
+    },
+    {
+      "front": "Factor 4: what is a tool?",
+      "back": "Structured output from the LLM (a class with an intent and parameters) that triggers deterministic code; the code decides how it is executed."
+    },
+    {
+      "front": "Factor 5: execution state vs business state.",
+      "back": "Execution state is current step, waiting status and retry counts; business state is what happened so far. Unify them so execution state is inferred from the thread."
+    },
+    {
+      "front": "Factor 6's key missing feature in most orchestrators.",
+      "back": "Pausing between the moment of tool selection and the moment of tool execution."
+    },
+    {
+      "front": "Factor 7: why always return JSON?",
+      "back": "It removes the high-stakes first-token choice between prose and a JSON object; talking to a human becomes an intent like request_human_input."
+    },
+    {
+      "front": "What fields does RequestHumanInput carry?",
+      "back": "intent, question, context and Options (urgency low/medium/high, format free_text/yes_no/multiple_choice, choices)."
+    },
+    {
+      "front": "Factor 8: the three example control-flow patterns.",
+      "back": "request_clarification breaks and waits for a human; fetch_git_tags runs and continues; deploy_backend breaks and waits for approval."
+    },
+    {
+      "front": "Factor 9: what is error compaction and its cap?",
+      "back": "Catch a failed tool call, append a formatted error event and let the model retry; reset the counter on success and break or escalate after about three consecutive errors."
+    },
+    {
+      "front": "Factor 10: how many steps should an agent handle?",
+      "back": "Roughly 3 to 10, at most around 20; as context grows, LLMs are more likely to get lost or lose focus."
+    },
+    {
+      "front": "What are outer loop agents?",
+      "back": "Agents started by events, crons or outages rather than a human message, which contact a human only when they need help, feedback or approval."
+    },
+    {
+      "front": "Factor 12 in one phrase.",
+      "back": "The agent is a stateless reducer: a fold over events where each step maps a thread to a new thread."
+    },
+    {
+      "front": "Factor 13 (appendix) rule.",
+      "back": "If you already know which tools you want the model to call, call them deterministically up front and let the model do the hard part of using the outputs."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "According to the guide, what is the main reason the simple tool-calling loop breaks down?",
+      "o": [
+        "Tool APIs are too slow",
+        "Agents get lost when the context window gets too long and repeat broken approaches",
+        "Models cannot output valid JSON",
+        "Frameworks limit the number of tools"
+      ],
+      "a": 1,
+      "e": "The brief history page says agents get lost when context grows and that this alone is enough to kneecap the approach.",
+      "lesson": "m6-l01"
+    },
+    {
+      "q": "In the founder journey described in the README, what typically happens after reaching 70 to 80 percent quality?",
+      "o": [
+        "The product ships as is",
+        "The team switches to a bigger model",
+        "The team realises going further means reverse-engineering the framework and starts over",
+        "The team adds more tools"
+      ],
+      "a": 2,
+      "e": "Steps 5 to 7 of the journey: 80 percent is not enough, passing it requires reverse-engineering the framework, so they start from scratch.",
+      "lesson": "m6-l01"
+    },
+    {
+      "q": "Factor 1 applied atomically means:",
+      "o": [
+        "Running the full loop until done",
+        "Translating one phrase into a structured object that code then handles, without looping",
+        "Fine-tuning the model on API docs",
+        "Letting the model call the API directly"
+      ],
+      "a": 1,
+      "e": "The page deliberately stops after the translation and the switch, saving the loop for later factors.",
+      "lesson": "m6-l02"
+    },
+    {
+      "q": "Which benefit of owning your prompts refers to using nonstandard user and assistant roles?",
+      "o": [
+        "Transparency",
+        "Iteration",
+        "Role hacking",
+        "Testing and evals"
+      ],
+      "a": 2,
+      "e": "Role hacking is the fifth listed benefit: exploiting APIs that allow nonstandard role usage.",
+      "lesson": "m6-l03"
+    },
+    {
+      "q": "What does the custom context format in Factor 3 do differently from the standard message array?",
+      "o": [
+        "It removes the system message",
+        "It packs the whole history into one user message of XML-style event blocks ending with 'what's the next step?'",
+        "It sends each tool result as an image",
+        "It uses the assistant role for every event"
+      ],
+      "a": 1,
+      "e": "The example puts everything that happened so far into a single user message of tagged events.",
+      "lesson": "m6-l04"
+    },
+    {
+      "q": "Which of these is NOT one of the five benefits Factor 3 lists for owning the context window?",
+      "o": [
+        "Information density",
+        "Safety",
+        "Lower model temperature",
+        "Token efficiency"
+      ],
+      "a": 2,
+      "e": "The guide explicitly leaves sampling parameters like temperature out of scope; the five benefits are density, error handling, safety, flexibility and token efficiency.",
+      "lesson": "m6-l04"
+    },
+    {
+      "q": "Factor 4 says a tool is:",
+      "o": [
+        "A function the model executes itself",
+        "Structured output from the model that triggers deterministic code",
+        "A plugin registered with the provider",
+        "A system prompt section"
+      ],
+      "a": 1,
+      "e": "Tools are just structured outputs; the LLM decides what to do and your code controls how.",
+      "lesson": "m6-l05"
+    },
+    {
+      "q": "Under Factor 5, where should the agent's 'waiting for approval' status live?",
+      "o": [
+        "In a separate workflow-state table",
+        "Inferred from the last events in the unified thread",
+        "In the model's hidden state",
+        "In an environment variable"
+      ],
+      "a": 1,
+      "e": "Execution state like waiting status is metadata about what has happened and can be inferred from the thread.",
+      "lesson": "m6-l05"
+    },
+    {
+      "q": "What is the specific gap in most orchestrators that Factors 6 and 8 call out?",
+      "o": [
+        "No streaming support",
+        "No pause between tool selection and tool execution",
+        "No support for multiple models",
+        "No JSON mode"
+      ],
+      "a": 1,
+      "e": "Both pages stress interrupting and resuming between the moment a tool is selected and the moment it is invoked, which is what makes approvals possible.",
+      "lesson": "m6-l06"
+    },
+    {
+      "q": "In Factor 7, after the model emits request_human_input, what does the loop do?",
+      "o": [
+        "Blocks on stdin until the human replies",
+        "Appends the event, saves state, notifies the human with the thread id and returns",
+        "Retries the model call",
+        "Deletes the thread"
+      ],
+      "a": 1,
+      "e": "The snippet appends human_input_requested, calls save_state, notify_human with the thread id, and returns; a webhook resumes later.",
+      "lesson": "m6-l06"
+    },
+    {
+      "q": "In the Factor 9 example, what happens when consecutive_errors reaches the cap?",
+      "o": [
+        "The error is appended again and the loop continues forever",
+        "The loop breaks, and the page suggests escalating to a human or resetting parts of the context",
+        "The model is switched",
+        "The thread is deleted"
+      ],
+      "a": 1,
+      "e": "Below the cap the error is appended and the loop retries; at the cap it breaks, which is a good place to escalate to a human.",
+      "lesson": "m6-l07"
+    },
+    {
+      "q": "Factor 10 recommends keeping an agent to roughly how many steps?",
+      "o": [
+        "1 to 2",
+        "3 to 10, maybe 20 max",
+        "50 to 100",
+        "As many as the context window allows"
+      ],
+      "a": 1,
+      "e": "The page says 3 to 10, maybe 20 steps max, to keep context manageable and performance high.",
+      "lesson": "m6-l08"
+    }
+  ],
+  "project": {
+    "title": "Rebuild one agent the 12-factor way",
+    "brief": "Take the agent you built in Module 5 (or the workshop calculator) and rebuild it so that you own every piece: the prompt, the context format, the tools, the state and the loop. The result should be launchable over HTTP, pausable for human approval, resumable from a webhook, resilient to tool errors with a cap, and reproducible from a recorded thread.",
+    "hours": 8,
+    "steps": [
+      "Write your own prompt as a typed function of the serialized thread, with tools as classes in a union return type (Factors 2 and 4).",
+      "Implement Thread and Event types and your own serializer (XML-style or another format you measure to be denser), with one redaction rule (Factor 3).",
+      "Remove all execution state outside the thread; derive waiting and approval status from the last event (Factor 5).",
+      "Expose launch, inspect and resume endpoints backed by a thread store, and resume from a webhook payload carrying the thread id (Factor 6).",
+      "Add a human approval intent for your riskiest tool, pausing between selection and execution; a rejection with feedback becomes a tool_response (Factors 7 and 8).",
+      "Add error compaction with a consecutive-error cap that escalates to a human (Factor 9).",
+      "Pre-fetch any lookup the model always makes first, as synthetic events (Factor 13).",
+      "Record one real run and write a replay test that asserts the chosen intent at every decision point (Factor 12)."
+    ],
+    "rubric": [
+      {
+        "criterion": "Owned prompt and context format",
+        "meets": "The exact prompt is in your code, generated from a typed function; the serializer is yours and the token count versus the provider format is reported."
+      },
+      {
+        "criterion": "Tools as structured outputs",
+        "meets": "Every tool is a class with a literal intent and typed fields; the switch has an explicit branch for unknown intents."
+      },
+      {
+        "criterion": "Unified thread state",
+        "meets": "No step counters, waiting flags or retry counts live outside the thread; the thread round-trips through JSON and renders to markdown."
+      },
+      {
+        "criterion": "Pause, approve, resume",
+        "meets": "A high-stakes tool waits for approval before execution, the process can restart while waiting, and a webhook with the thread id continues the run."
+      },
+      {
+        "criterion": "Error handling",
+        "meets": "Failed tool calls become compact error events; after three consecutive failures the agent escalates to a human instead of spinning."
+      },
+      {
+        "criterion": "Replay test",
+        "meets": "A recorded thread fixture drives a test that asserts the next intent at each decision point and passes repeatably."
+      }
+    ],
+    "stretch": [
+      "Split the agent into two small focused agents where the parent calls the child as a deterministic step and measure the longest context before and after.",
+      "Trigger the agent from Slack or email using HumanLayer or your own channel integration and reply through the same channel.",
+      "Add a deterministic context-compaction step that summarises resolved error events before the next model call."
+    ]
+  },
+  "glossary": [
+    {
+      "term": "DAG",
+      "def": "Directed acyclic graph; the shape of ordinary software and of workflow orchestrators such as Airflow and Prefect."
+    },
+    {
+      "term": "Agent loop",
+      "def": "Model picks a step as structured JSON, code executes it, the result is appended to context, repeat until done."
+    },
+    {
+      "term": "Micro agent",
+      "def": "A small LLM-driven loop of a few steps embedded in a larger deterministic system."
+    },
+    {
+      "term": "Context window",
+      "def": "Everything the model sees on one call: instructions, retrieved data, history, memory and output-format rules."
+    },
+    {
+      "term": "Context engineering",
+      "def": "Deliberately designing what goes into the context window and in what format, treating the LLM as a stateless function of its input."
+    },
+    {
+      "term": "Thread",
+      "def": "The ordered list of events (messages, tool calls, results, errors, human replies) that is the agent's single source of state."
+    },
+    {
+      "term": "Event",
+      "def": "One entry in a thread with a type and data; serialized to the model by event_to_prompt."
+    },
+    {
+      "term": "Intent",
+      "def": "The literal field on a structured output that names the chosen action; the switch branches on it."
+    },
+    {
+      "term": "Structured output",
+      "def": "JSON the model emits that your code parses into a typed object; the basis of tools in Factor 4."
+    },
+    {
+      "term": "Execution state",
+      "def": "Current step, next step, waiting status and retry counts; Factor 5 says infer it from the thread."
+    },
+    {
+      "term": "Business state",
+      "def": "What has happened in the workflow so far: messages, tool calls, results."
+    },
+    {
+      "term": "Launch/pause/resume",
+      "def": "The lifecycle API that lets code start an agent, stop it before a long or risky step, and continue it from an external trigger."
+    },
+    {
+      "term": "Human-in-the-loop tool",
+      "def": "An intent such as request_human_input or done_for_now that routes to a person instead of an API."
+    },
+    {
+      "term": "Control flow",
+      "def": "The switch plus loop that decides per intent whether to run and continue or to save and break."
+    },
+    {
+      "term": "Error compaction",
+      "def": "Appending a formatted error event after a failed tool call so the model can recover, with a cap on consecutive errors."
+    },
+    {
+      "term": "Small focused agent",
+      "def": "An agent scoped to one domain and 3 to 20 steps so its context stays short and its behaviour testable."
+    },
+    {
+      "term": "Outer loop agent",
+      "def": "An agent started by an event or cron that works autonomously and contacts humans only at critical points."
+    },
+    {
+      "term": "Stateless reducer",
+      "def": "The Factor 12 model of an agent as a pure function from thread to thread, a fold over events."
+    },
+    {
+      "term": "Pre-fetch",
+      "def": "Calling a tool deterministically before the first model call and placing the result in context (Factor 13)."
+    },
+    {
+      "term": "BAML",
+      "def": "A prompting and structured-output language used in the guide and workshop to define typed prompt functions and tests."
+    }
+  ]
+}
